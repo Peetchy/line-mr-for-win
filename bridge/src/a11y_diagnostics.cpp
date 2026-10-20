@@ -1,12 +1,15 @@
 #include "a11y_diagnostics.h"
 
+#include "a11y_announce.h"
 #include "a11y_log.h"
 #include "accessible_quick.h"
 #include "text_capture.h"
 
 #include <QtCore/QAbstractItemModel>
+#include <QtCore/QDir>
 #include <QtCore/QDirIterator>
 #include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QMap>
 #include <QtCore/QMetaProperty>
 #include <QtCore/QRegularExpression>
@@ -184,6 +187,19 @@ void pollDumpRequest()
 	writeWidgetDump();
 }
 
+// Test for the add-on's incoming-call announcement (a real call cannot be produced on demand):
+// creating %LOCALAPPDATA%\LineMR\call-announce-test announces its text as an incoming call.
+void pollCallAnnounceTest()
+{
+	QFile request(bridgeDirectory() + QStringLiteral("call-announce-test"));
+	if (!request.exists() || !request.open(QIODevice::ReadOnly))
+		return;
+	const QString text = QString::fromUtf8(request.readAll()).trimmed();
+	request.close();
+	request.remove();
+	announceIncomingCall(text.isEmpty() ? QStringLiteral("Incoming call: test") : text);
+}
+
 // Every resource path whose name mentions calls (the call window's icons are named after them).
 void writeResourceList(const QString &path)
 {
@@ -198,6 +214,24 @@ void writeResourceList(const QString &path)
 		const QString name = it.next();
 		if (interesting.match(name).hasMatch())
 			out << name << '\n';
+	}
+}
+
+// Copies of the call windows' style sheets and QML (their layout and texts, for windows that only
+// appear during a real call) into resources\.
+void writeCallResources(const QString &directory)
+{
+	static const QRegularExpression interesting(QStringLiteral("(voip|call|toast)[^/]*\\.(style|qml)$"),
+	                                            QRegularExpression::CaseInsensitiveOption);
+	QDir().mkpath(directory);
+	for (QDirIterator it(QStringLiteral(":/"), QDirIterator::Subdirectories); it.hasNext();) {
+		const QString name = it.next();
+		if (!interesting.match(name).hasMatch())
+			continue;
+		QFile in(name);
+		QFile out(directory + QFileInfo(name).fileName());
+		if (in.open(QIODevice::ReadOnly) && out.open(QIODevice::WriteOnly | QIODevice::Truncate))
+			out.write(in.readAll());
 	}
 }
 
@@ -274,6 +308,7 @@ void writeWidgetDump()
 	}
 	writeDelegateDump(bridgeDirectory() + QStringLiteral("delegates-dump.txt"));
 	writeResourceList(bridgeDirectory() + QStringLiteral("resource-list.txt"));
+	writeCallResources(bridgeDirectory() + QStringLiteral("resources/"));
 }
 
 void writeWindowDump(QWidget *window, const QString &fileName)
@@ -286,6 +321,7 @@ void startDiagnostics(QApplication *app)
 {
 	auto *timer = new QTimer(app);
 	QObject::connect(timer, &QTimer::timeout, timer, &pollDumpRequest);
+	QObject::connect(timer, &QTimer::timeout, timer, &pollCallAnnounceTest);
 	timer->start(kPollIntervalMs);
 }
 

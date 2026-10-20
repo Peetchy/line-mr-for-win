@@ -3,6 +3,7 @@
 #include "a11y_log.h"
 
 #include <QtCore/QElapsedTimer>
+#include <QtCore/QFile>
 #include <QtWidgets/QWidget>
 
 #include <windows.h>
@@ -11,6 +12,26 @@
 #include <uiautomation.h>
 
 namespace line_a11y {
+namespace {
+
+void raiseNotification(HWND hwnd, const QString &text, const wchar_t *activityId)
+{
+	IRawElementProviderSimple *provider = nullptr;
+	if (FAILED(UiaHostProviderFromHwnd(hwnd, &provider)) || !provider)
+		return;
+	BSTR display = SysAllocStringLen(reinterpret_cast<const OLECHAR *>(text.utf16()), UINT(text.size()));
+	BSTR activity = SysAllocString(activityId);
+	const HRESULT hr = UiaRaiseNotificationEvent(provider, NotificationKind_Other, NotificationProcessing_ImportantAll,
+	                                             display, activity);
+	SysFreeString(display);
+	SysFreeString(activity);
+	provider->Release();
+	static int logged = 0;
+	if (logged++ < 5)
+		a11yLog("[announce] %ls: %d chars (hr 0x%08lx)", activityId, int(text.size()), static_cast<unsigned long>(hr));
+}
+
+} // namespace
 
 void announce(QWidget *w, const QString &text, bool evenIfInactive)
 {
@@ -22,20 +43,20 @@ void announce(QWidget *w, const QString &text, bool evenIfInactive)
 		return;
 	lastText = text;
 	lastTime.start();
-	const HWND hwnd = reinterpret_cast<HWND>(w->window()->winId());
-	IRawElementProviderSimple *provider = nullptr;
-	if (FAILED(UiaHostProviderFromHwnd(hwnd, &provider)) || !provider)
+	raiseNotification(reinterpret_cast<HWND>(w->window()->winId()), text, L"lineMR.announcement");
+}
+
+void announceIncomingCall(const QString &text)
+{
+	QFile f(bridgeDirectory() + QStringLiteral("incoming-call.txt"));
+	if (text.isEmpty() || !f.open(QIODevice::WriteOnly | QIODevice::Truncate))
 		return;
-	BSTR display = SysAllocStringLen(reinterpret_cast<const OLECHAR *>(text.utf16()), UINT(text.size()));
-	BSTR activity = SysAllocString(L"lineMR.announcement");
-	const HRESULT hr = UiaRaiseNotificationEvent(provider, NotificationKind_Other, NotificationProcessing_ImportantAll,
-	                                             display, activity);
-	SysFreeString(display);
-	SysFreeString(activity);
-	provider->Release();
-	static int logged = 0;
-	if (logged++ < 5)
-		a11yLog("[announce] %d chars (hr 0x%08lx)", int(text.size()), static_cast<unsigned long>(hr));
+	f.write(text.toUtf8());
+	f.close();
+	// Kept open: the add-on may open the event after LINE has created it, or the other way round.
+	static const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, L"Local\\lineMR.incomingCall");
+	const BOOL ok = event && SetEvent(event);
+	a11yLog("[announce] incoming call signalled (%d)", int(ok));
 }
 
 } // namespace line_a11y

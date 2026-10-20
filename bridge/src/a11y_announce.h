@@ -13,4 +13,9 @@ namespace line_a11y {
 // Identical texts within 2 s are dropped.
 void announce(QWidget *w, const QString &text, bool evenIfInactive = false);
 
+// Tells the NVDA add-on about an incoming call, also while LINE is in the background: writes `text`
+// to %LOCALAPPDATA%\LineMR\incoming-call.txt and signals the event "Local\lineMR.incomingCall"
+// (NVDA does not speak UI Automation notifications from background windows).
+void announceIncomingCall(const QString &text);
+
 } // namespace line_a11y

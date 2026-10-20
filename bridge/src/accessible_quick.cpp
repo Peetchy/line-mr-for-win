@@ -1,10 +1,12 @@
 #include "accessible_quick.h"
 
+#include "a11y_announce.h"
 #include "a11y_log.h"
 #include "line_introspect.h"
 #include "qt_signal_utils.h"
 
 #include <QtCore/QElapsedTimer>
+#include <QtCore/QFile>
 #include <QtCore/QHash>
 #include <QtCore/QMetaProperty>
 #include <QtCore/QPointer>
@@ -117,11 +119,15 @@ QString itemText(const QQuickItem *item)
 	return cleanText(text);
 }
 
-QString imageName(const QQuickItem *item)
+QString sourceOf(const QQuickItem *item)
 {
 	const QVariant source = item->property("source");
-	const QString s = source.metaType().id() == QMetaType::QUrl ? source.toUrl().toString() : source.toString();
-	return humanizeIconName(s);
+	return source.metaType().id() == QMetaType::QUrl ? source.toUrl().toString() : source.toString();
+}
+
+QString imageName(const QQuickItem *item)
+{
+	return humanizeIconName(sourceOf(item));
 }
 
 // Interfaces Qt Quick itself provides for items it considers accessible (text fields, Controls).
@@ -240,8 +246,7 @@ bool isSelectionBox(const QQuickItem *item)
 			return false;
 	}
 	// Empty while unticked, a check-box icon ("check-box-select-ic.svg") while ticked.
-	const QVariant source = item->property("source");
-	const QString icon = source.metaType().id() == QMetaType::QUrl ? source.toUrl().toString() : source.toString();
+	const QString icon = sourceOf(item);
 	return icon.isEmpty() || icon.contains(QLatin1StringView("check"));
 }
 
@@ -605,6 +610,56 @@ private:
 	const QList<QPointer<QQuickItem>> &items() const { return modelFor(quickWindow()).order; }
 };
 
+// ---- Incoming calls --------------------------------------------------------------------------------
+
+// The incoming-call notification (CallMessageToastWindow.qml, also used for chat messages during a
+// call) has Decline (voip/notification/refuse_bt.svg) and Answer (accept_bt.svg, or
+// video_accept_bt.svg for a video call) buttons. Returns the Answer button, or nullptr.
+QQuickItem *incomingCallAnswerButton(const QuickModel &m)
+{
+	for (const QPointer<QQuickItem> &item : m.order) {
+		if (item && m.names.contains(item) && sourceOf(item).contains(QLatin1StringView("voip/notification/"))
+		    && sourceOf(item).contains(QLatin1StringView("accept_bt")))
+			return item;
+	}
+	return nullptr;
+}
+
+// Tags for the add-on's answer / decline commands (UIA AutomationId, see elements.py).
+void tagCallButtons(const QuickModel &m)
+{
+	for (const QPointer<QQuickItem> &item : m.order) {
+		if (!item || !item->objectName().isEmpty() || !sourceOf(item).contains(QLatin1StringView("voip/notification/")))
+			continue;
+		if (sourceOf(item).contains(QLatin1StringView("accept_bt")))
+			item->setObjectName(QStringLiteral("lineMR_call-answer"));
+		else if (sourceOf(item).contains(QLatin1StringView("refuse_bt")))
+			item->setObjectName(QStringLiteral("lineMR_call-decline"));
+	}
+}
+
+// "Incoming call: <caller>, <call type>" from the notification's texts.
+QString incomingCallText(const QuickModel &m)
+{
+	QStringList parts;
+	for (const QPointer<QQuickItem> &item : m.order) {
+		if (item && isTextItem(item) && !m.names.contains(item))
+			if (const QString text = itemText(item); !text.isEmpty() && !parts.contains(text))
+				parts << text;
+	}
+	return label("Incoming call") + QStringLiteral(": ") + parts.join(QStringLiteral(", "));
+}
+
+void writeCallDump()
+{
+	QFile f(bridgeDirectory() + QStringLiteral("call-window.txt"));
+	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
+		return;
+	QTextStream out(&f);
+	out.setEncoding(QStringConverter::Utf8);
+	dumpQuickWindows(out);
+}
+
 bool isOnScreenQuickWindow(QQuickWindow *window)
 {
 	// The offscreen window behind a QQuickWidget belongs to that widget's own interface.
@@ -712,8 +767,25 @@ void quickWindowShown(QQuickWindow *window)
 			return;
 		models().remove(guard.data());
 		const QuickModel &m = modelFor(guard);
+		// LINE shows the incoming-call notification without activating it: NVDA hears about it from
+		// the announcement even while another application is in front.
+		QQuickItem *answer = incomingCallAnswerButton(m);
+		if (answer) {
+			const QString text = incomingCallText(m);
+			a11yLog("[call] incoming call notification %s (%d items)", guard->metaObject()->className(),
+			        int(m.order.size()));
+			tagCallButtons(m);
+			announceIncomingCall(text);
+			writeCallDump();
+		} else if (QLatin1StringView(guard->metaObject()->className()).startsWith(QLatin1StringView("CallMessageToastWindow"))) {
+			return; // a chat message shown during a call: it must not take focus
+		}
 		if (!guard->isActive() && QGuiApplication::focusWindow())
 			guard->requestActivate();
+		if (answer) {
+			answer->forceActiveFocus(Qt::TabFocusReason);
+			return;
+		}
 		QQuickItem *focus = guard->activeFocusItem();
 		if (focus && focus != guard->contentItem() && isShown(focus))
 			return;

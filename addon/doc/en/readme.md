@@ -27,7 +27,7 @@ After a LINE update the bridge may have to be installed again; LINE MR notices a
 - Chat list: Up/Down browse chats (each chat opens on the right while focus stays in the list; LINE takes about a second to load each one); Enter moves to the chat's message input.
 - Messages: each message reads as sender (or "You"), text, time and read receipt; photos and stickers read as "photo or sticker"; the list starts at the newest message. Home goes to the oldest loaded message (LINE then loads older ones; press Home again to go further back), End to the newest. New messages from others are announced while LINE is in front.
 - Context menus: the Applications key (or Shift+F10) on a message opens LINE's menu with focus on its first item; Up/Down and Home/End move, Enter or Space chooses, Escape closes it and returns to the message.
-- Incoming calls: the answer, answer-with-video and decline buttons are named; when the incoming-call window does not come to the front, its text is read out.
+- Incoming calls: LINE MR says "Incoming call" with the caller's name, even while you work in another application. Press NVDA+Shift+Control+A to answer or NVDA+Shift+Control+D to decline, from any application. When LINE is in front, focus moves to the call notification's Answer button (Tab reaches Decline).
 - Pages that open in their own window are read: clicking a group's name or its member count (for example "(5)") opens the member list; members open their profile; the chat menu's Photos & videos, Links and Files open a window named after the chat. Focus starts on the page's first control and its texts are read. Pages that open inside the main window get focus too.
 - Other windows: Settings (More > Settings; its sections and sub-sections are radio buttons, combo boxes carry their label), profile settings, Albums and Notes, Search friends, and Create group (friends are checkboxes: Space ticks one). Polls open as a web page, read in browse mode.
 - Picture messages (cards from official accounts such as banks) are pictures with the text drawn into them, so LINE gives no text to read: they are reported as "photo or sticker". Press NVDA+R on such a message to read its text with Windows OCR. When LINE could not download a card, it shows "Unable to load" with a "Try again" button, which is what you hear.
@@ -41,6 +41,8 @@ After a LINE update the bridge may have to be installed again; LINE MR notices a
 | Alt+M | Move to the messages of the open chat |
 | Alt+I | Move to the message input of the open chat |
 | NVDA+Alt+1 … NVDA+Alt+9 | Read a recent message (1 = newest) |
+| NVDA+Shift+Control+A | Answer an incoming LINE call (works in any application) |
+| NVDA+Shift+Control+D | Decline an incoming LINE call (works in any application) |
 | NVDA+Shift+Control+L | Report whether the LINE MR bridge is running (and offer to install it) |
 
 Commands can be changed under NVDA menu, Preferences, Input gestures, category "LINE MR".

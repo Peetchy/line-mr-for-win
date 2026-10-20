@@ -79,3 +79,21 @@ msgstr "อ่านข้อความล่าสุดของแชทท
 
 msgid "No message {number}."
 msgstr "ไม่มีข้อความที่ {number}"
+
+msgid "NVDA+Shift+Control+A answers, NVDA+Shift+Control+D declines."
+msgstr "กด NVDA+Shift+Control+A เพื่อรับสาย หรือ NVDA+Shift+Control+D เพื่อปฏิเสธสาย"
+
+msgid "No incoming LINE call."
+msgstr "ไม่มีสายเรียกเข้าใน LINE"
+
+msgid "Answers an incoming LINE call (from any application)"
+msgstr "รับสายเรียกเข้าของ LINE (ใช้ได้จากทุกโปรแกรม)"
+
+msgid "Answering"
+msgstr "กำลังรับสาย"
+
+msgid "Declines an incoming LINE call (from any application)"
+msgstr "ปฏิเสธสายเรียกเข้าของ LINE (ใช้ได้จากทุกโปรแกรม)"
+
+msgid "Call declined"
+msgstr "ปฏิเสธสายแล้ว"
