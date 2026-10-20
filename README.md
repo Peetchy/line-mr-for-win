@@ -13,8 +13,6 @@ LINE is a Qt 6 Widgets app. Its custom widgets (`LcButton`, `LcText`, `LcTextFie
 | **Bridge** (`bridge/`, C++, `line_a11y.dll`) | A Qt "windows" platform-theme plugin that LINE's Qt loads from `LINE\bin\current\platformthemes`. It returns no theme (LINE looks the same), installs `QAccessible` interfaces for the `Lc*` widgets (names, roles, states, press/toggle actions) and reads text by recording what each widget paints, without memory offsets. |
 | **NVDA add-on** (`addon/`, Python) | App module for `LINE.exe`: installs or updates the bridge when needed (LINE updates remove it), hides layout noise, and adds commands. Ships the bridge DLL inside the add-on. |
 
-See [`CLAUDE.md`](CLAUDE.md) for verified findings and design decisions.
-
 ## Requirements
 
 - Windows 10/11 x64, NVDA 2024.1 or later (tested with 2026.1.1)
@@ -40,7 +38,7 @@ For a normal install, open `dist\lineMR-<version>.nvda-addon` with NVDA.
 
 ## Continuous build and releases
 
-`.github/workflows/build.yml` builds the bridge (Qt 6.6.3 SDK from aqtinstall, MSVC) and the add-on on every push and pull request; the `.nvda-addon` file is attached to the run as an artifact. Pushing a tag `v<version>` that matches `version` in `addon/manifest.ini` (for example `v0.2.0`) also creates a GitHub release with the add-on, which is the download URL to give the NVDA Add-on Store.
+`.github/workflows/build.yml` builds the bridge (Qt 6.6.3 SDK from aqtinstall, MSVC) and the add-on on every push and pull request; the `.nvda-addon` file is attached to the run as an artifact. Pushing a tag `v<version>` that matches `version` in `addon/manifest.ini` (for example `v0.3.0`) also creates a GitHub release with the add-on, which is the download URL to give the NVDA Add-on Store.
 
 ## Tools
 
@@ -48,10 +46,11 @@ For a normal install, open `dist\lineMR-<version>.nvda-addon` with NVDA.
 - `New-Item $env:LOCALAPPDATA\LineMR\dump-request`: the bridge writes `%LOCALAPPDATA%\LineMR\widget-dump.txt` (widget tree, LINE properties, painted text, item models, accessible tree).
 - `python tools\dbgview.py [--grep TEXT]`: shows `OutputDebugString` output (Qt's debug output, for example with `QT_DEBUG_PLUGINS=1`).
 - `python tools\uia_events.py [--keys tab,down]`: logs UIA focus events (what NVDA follows).
-- `python tools\post_keys.py down up` and `python tools\focus_tag.py list_chats`: send keys / move focus inside LINE only (safe while the user works); `tools\nvda_speech_probe.py` presses global keys and prints NVDA's speech.
+- `python tools\post_keys.py down up contextmenu` and `python tools\focus_tag.py list_chats`: send keys / move focus inside LINE only (safe while the user works); `tools\nvda_speech_probe.py` presses global keys and prints NVDA's speech.
 - `python tests\verify_main_window.py`: main-window checks (tags, named tabs, readable list rows).
 - `python tools\focus_line.py`: brings LINE's window to the foreground (so NVDA reads it).
 - Bridge log: `%LOCALAPPDATA%\LineMR\logs\bridge.log`. What NVDA speaks appears in `%TEMP%\nvda.log` as `Speaking [...]` when NVDA's log level is "debug" or "input/output".
+- Crash breadcrumbs: the bridge's last 64 actions live in `%LOCALAPPDATA%\LineMR\breadcrumbs.bin`; after a crash they are copied into the next session's `bridge.log` (`[guard]` lines). `widget-dump.txt` requests also write `resource-list.txt` (LINE's call-related resource names), and an opened call window is dumped to `call-window.txt`.
 
 ## Layout
 
@@ -70,8 +69,8 @@ For a normal install, open `dist\lineMR-<version>.nvda-addon` with NVDA.
 
 ## Status
 
-- Done: login window; keyboard access (Tab to every control, Space/Enter); main window (sidebar, chat list, friend list, message list, chat header and input bar); chat-list browsing with arrows; add-on commands (Alt+1/2/3, Alt+L/M/I, NVDA+Alt+1…9); new-message announcements (untested with a real incoming message); crash guard; bridge install/update from NVDA.
-- Next: message kinds (stickers vs photos, files), section folding state, error/notice announcements, call window.
+- Done: login window; keyboard access (Tab to every control, Space/Enter); main window (sidebar, chat list, friend list, message list, chat header and input bar); chat-list browsing with arrows; Home/End in messages; keyboard context menus; add-on commands (Alt+1/2/3, Alt+L/M/I, NVDA+Alt+1…9); new-message announcements (untested with a real incoming message); crash guard; bridge install/update from NVDA.
+- Next: message kinds (stickers vs photos, files), section folding state, error/notice announcements, call window (incoming-call buttons are named; the in-call view is partly Qt Quick and not yet checked).
 
 ## License
 

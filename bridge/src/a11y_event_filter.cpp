@@ -1,20 +1,26 @@
 #include "a11y_event_filter.h"
 
+#include "a11y_announce.h"
+#include "a11y_diagnostics.h"
 #include "a11y_log.h"
 #include "accessible_list.h"
 #include "accessible_widgets.h"
 #include "line_introspect.h"
+#include "qt_signal_utils.h"
+#include "text_capture.h"
 
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QEvent>
 #include <QtCore/QObject>
 #include <QtCore/QPointer>
+#include <QtCore/QSet>
 #include <QtCore/QTimer>
 #include <QtGui/QAccessible>
 #include <QtGui/QKeyEvent>
 #include <QtGui/private/qguiapplication_p.h>
 #include <QtGui/qpa/qplatformaccessibility.h>
 #include <QtGui/qpa/qplatformintegration.h>
+#include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
 
@@ -95,6 +101,9 @@ void makeFocusableIn(QWidget *root)
 QString tagFor(QWidget *w)
 {
 	if (isLineListView(w)) {
+		// Lists inside a row (photo grids in a message) are part of that row.
+		if (ancestorInheriting(w, "LcListView"))
+			return QString();
 		if (ancestorInheriting(w, "ChatMessageView"))
 			return QStringLiteral("list_messages");
 		if (ancestorInheriting(w, "MainChatPanel"))
@@ -205,6 +214,133 @@ bool isInOpenChat(const QWidget *w)
 	    || ancestorInheriting(w, "BaseChatPanel");
 }
 
+// ---- Context menus (LcContextMenu) --------------------------------------------------------------
+//
+// LINE's context menus (Applications key / right click) are mouse-only: no item takes focus, so
+// NVDA hears nothing and the arrows do nothing. The bridge focuses the first item when a menu
+// opens; Up/Down/Home/End move between items, Enter/Space press, Escape closes.
+
+bool isContextMenu(const QWidget *w)
+{
+	return inheritsClass(w, "LcContextMenu");
+}
+
+bool isContextMenuItem(const QWidget *w)
+{
+	return inheritsAnyClass(w, { "LcContextMenuItem", "LcCheckableContextMenuItem", "LcCheckboxContextMenuItem" });
+}
+
+QWidget *contextMenuOf(QWidget *w)
+{
+	if (!w)
+		return nullptr;
+	return isContextMenu(w) ? w : ancestorInheriting(w, "LcContextMenu");
+}
+
+// The menu's usable items, top to bottom (items of a sub-menu belong to that sub-menu).
+QList<QWidget *> menuItems(QWidget *menu)
+{
+	QList<QWidget *> items;
+	for (QWidget *w : menu->findChildren<QWidget *>()) {
+		if (isContextMenuItem(w) && w->isVisible() && w->isEnabled() && contextMenuOf(w->parentWidget()) == menu)
+			items << w;
+	}
+	std::stable_sort(items.begin(), items.end(), [menu](QWidget *a, QWidget *b) {
+		return a->mapTo(menu, QPoint(0, 0)).y() < b->mapTo(menu, QPoint(0, 0)).y();
+	});
+	return items;
+}
+
+void logMenu(QWidget *menu)
+{
+	static int logged = 0;
+	if (logged++ >= 5)
+		return;
+	QWidget *popup = QApplication::activePopupWidget();
+	a11yLog("[menu] %s shown: window=%d flags=0x%x active=%d popup=%s", menu->metaObject()->className(),
+	        int(menu->isWindow()), unsigned(menu->window()->windowFlags()), int(menu->window()->isActiveWindow()),
+	        popup ? popup->metaObject()->className() : "-");
+	for (QWidget *item : menuItems(menu)) {
+		QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(item);
+		a11yLog("[menu]   %s \"%s\" clicked()=%d triggered()=%d", item->metaObject()->className(),
+		        iface ? qUtf8Printable(iface->text(QAccessible::Name)) : "", int(isSignalConnected(item, "clicked()")),
+		        int(isSignalConnected(item, "triggered()")));
+	}
+}
+
+void focusMenuItem(QWidget *item)
+{
+	if (!item)
+		return;
+	if (item->focusPolicy() == Qt::NoFocus)
+		item->setFocusPolicy(Qt::TabFocus);
+	QWidget *window = item->window();
+	// A popup gets the keyboard without being activated; other menu windows must be activated.
+	if (!window->isActiveWindow() && window->windowType() != Qt::Popup)
+		window->activateWindow();
+	item->setFocus(Qt::PopupFocusReason);
+}
+
+// Moves focus within `menu` by key (Up/Down wrap around, Home/End go to the ends).
+void moveInMenu(QWidget *menu, int key)
+{
+	const QList<QWidget *> items = menuItems(menu);
+	if (items.isEmpty())
+		return;
+	qsizetype i = items.indexOf(QApplication::focusWidget());
+	if (key == Qt::Key_Home || (i < 0 && key == Qt::Key_Down))
+		i = 0;
+	else if (key == Qt::Key_End || (i < 0 && key == Qt::Key_Up))
+		i = items.size() - 1;
+	else if (key == Qt::Key_Down)
+		i = (i + 1) % items.size();
+	else if (key == Qt::Key_Up)
+		i = (i + items.size() - 1) % items.size();
+	focusMenuItem(items[i]);
+}
+
+void pressMenuItem(QWidget *item)
+{
+	QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(item);
+	if (QAccessibleActionInterface *actions = iface ? iface->actionInterface() : nullptr)
+		actions->doAction(QAccessibleActionInterface::pressAction());
+}
+
+// ---- Call windows --------------------------------------------------------------------------------
+
+bool isCallWindow(const QWidget *w)
+{
+	const QLatin1StringView cls(w->metaObject()->className());
+	return cls.contains(QLatin1StringView("Call"), Qt::CaseInsensitive)
+	    || cls.contains(QLatin1StringView("Voip"), Qt::CaseInsensitive);
+}
+
+void windowShown(QWidget *w)
+{
+	static QSet<QByteArray> loggedClasses;
+	const QByteArray cls = w->metaObject()->className();
+	if (!loggedClasses.contains(cls)) {
+		loggedClasses.insert(cls);
+		a11yLog("[window] first %s shown: flags=0x%x active=%d", cls.constData(), unsigned(w->windowFlags()),
+		        int(w->isActiveWindow()));
+	}
+	if (!isCallWindow(w))
+		return;
+	// The call window is checked from this dump (an incoming call cannot be produced on demand).
+	QPointer<QWidget> window(w);
+	QTimer::singleShot(1500, w, [window] {
+		if (!window || !window->isVisible())
+			return;
+		writeWindowDump(window, QStringLiteral("call-window.txt"));
+		// LINE may show the incoming-call window without activating it, so focus never gets there.
+		if (!window->isActiveWindow()) {
+			const QString text = cleanText(capturedTextInReadingOrder(captureWidgetText(window, true)));
+			a11yLog("[call] %s not active; announcing %d chars", window->metaObject()->className(), int(text.size()));
+			announce(window, text, true);
+		}
+	});
+}
+
 class A11yEventFilter;
 A11yEventFilter *g_filter = nullptr;
 
@@ -255,9 +391,21 @@ public:
 			repairCachedInterface(w);
 			break;
 		case QEvent::Show:
+			if (w->isWindow())
+				breadcrumb("show window %s", w->metaObject()->className());
 			repairCachedInterface(w);
 			makeFocusableIn(w);
 			tagWidgetsIn(w);
+			if (w->isWindow())
+				windowShown(w);
+			if (isContextMenu(w))
+				menuShown(w);
+			break;
+		case QEvent::Hide:
+			if (w->isWindow())
+				breadcrumb("hide window %s", w->metaObject()->className());
+			if (isContextMenu(w) && w == m_menu.data())
+				menuHidden();
 			break;
 		case QEvent::FocusIn:
 			if (isLineListView(w) && ancestorInheriting(w, "ChatMessageView")) {
@@ -288,6 +436,9 @@ public:
 			break;
 		case QEvent::KeyPress: {
 			auto *key = static_cast<QKeyEvent *>(event);
+			breadcrumb("key 0x%x in %s", key->key(), w->metaObject()->className());
+			if (QWidget *menu = contextMenuOf(w); menu && menu->isVisible() && handleMenuKey(menu, key))
+				return true;
 			if (!isLineListView(w) || !isListNavigationKey(key->key()))
 				m_browsingList = nullptr;
 			if (isLineListView(w) && isListNavigationKey(key->key())) {
@@ -298,6 +449,20 @@ public:
 			if (isLineListView(w) && ancestorInheriting(w, "ChatMessageView") && isListNavigationKey(key->key())) {
 				m_browsingList = w;
 				m_listKeyTimer.start();
+				// Home / End: the oldest loaded / the newest message (LINE loads older messages when
+				// the top is reached, so Home again goes further back).
+				if ((key->key() == Qt::Key_Home || key->key() == Qt::Key_End)
+				    && !(key->modifiers() & (Qt::AltModifier | Qt::ShiftModifier))) {
+					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
+						list->focusEdgeRow(key->key() == Qt::Key_End);
+					return true;
+				}
+			}
+			// Applications key: LINE opens the menu where the current row is; make sure it is on screen.
+			if (isLineListView(w) && key->key() == Qt::Key_Menu) {
+				auto *view = static_cast<QAbstractItemView *>(w);
+				if (view->currentIndex().isValid())
+					view->scrollTo(view->currentIndex());
 			}
 			if (isLineListView(w) && ancestorInheriting(w, "MainChatPanel")) {
 				if (isListNavigationKey(key->key())) {
@@ -326,6 +491,75 @@ public:
 	}
 
 private:
+	void menuShown(QWidget *menu)
+	{
+		breadcrumb("menu shown %s", menu->metaObject()->className());
+		logMenu(menu);
+		QWidget *focus = QApplication::focusWidget();
+		if (!contextMenuOf(focus))
+			m_menuReturnFocus = focus;
+		m_menu = menu;
+		// LINE fills and lays out the menu right after showing it.
+		QPointer<QWidget> guard(menu);
+		QTimer::singleShot(50, menu, [guard] {
+			if (!guard || !guard->isVisible())
+				return;
+			const QList<QWidget *> items = menuItems(guard);
+			if (!items.isEmpty())
+				focusMenuItem(items.first());
+			static int logged = 0;
+			QWidget *now = QApplication::focusWidget();
+			if (logged++ < 5)
+				a11yLog("[menu] focused first of %d items; focus now %s", int(items.size()),
+				        now ? now->metaObject()->className() : "-");
+		});
+	}
+
+	void menuHidden()
+	{
+		m_menu = nullptr;
+		QPointer<QWidget> back = m_menuReturnFocus;
+		m_menuReturnFocus = nullptr;
+		// Back to where the menu was opened, unless the chosen item moved focus on purpose
+		// (e.g. "Reply" goes to the message input).
+		QTimer::singleShot(0, this, [back] {
+			QWidget *focus = QApplication::focusWidget();
+			if (back && back->isVisible() && (!focus || contextMenuOf(focus) || !focus->isVisible())) {
+				back->window()->activateWindow();
+				back->setFocus(Qt::PopupFocusReason);
+			}
+		});
+	}
+
+	bool handleMenuKey(QWidget *menu, const QKeyEvent *key)
+	{
+		if (key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))
+			return false;
+		switch (key->key()) {
+		case Qt::Key_Up:
+		case Qt::Key_Down:
+		case Qt::Key_Home:
+		case Qt::Key_End:
+			moveInMenu(menu, key->key());
+			return true;
+		case Qt::Key_Escape:
+			menu->hide();
+			return true;
+		case Qt::Key_Return:
+		case Qt::Key_Enter:
+		case Qt::Key_Space: {
+			QWidget *item = QApplication::focusWidget();
+			if (!item || !isContextMenuItem(item) || contextMenuOf(item) != menu)
+				return false;
+			if (!key->isAutoRepeat())
+				pressMenuItem(item);
+			return true;
+		}
+		default:
+			return false;
+		}
+	}
+
 	void watchdogTick()
 	{
 		++m_ticks;
@@ -353,6 +587,8 @@ private:
 	quint64 m_ticks = 0;
 	QPointer<QWidget> m_browsingList;
 	QElapsedTimer m_listKeyTimer;
+	QPointer<QWidget> m_menu;
+	QPointer<QWidget> m_menuReturnFocus;
 };
 
 } // namespace

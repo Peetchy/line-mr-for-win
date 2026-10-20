@@ -4,8 +4,10 @@
 #include "text_capture.h"
 
 #include <QtCore/QAbstractItemModel>
+#include <QtCore/QDirIterator>
 #include <QtCore/QFile>
 #include <QtCore/QMetaProperty>
+#include <QtCore/QRegularExpression>
 #include <QtCore/QTextStream>
 #include <QtCore/QTimer>
 #include <QtGui/QAccessible>
@@ -161,11 +163,26 @@ void pollDumpRequest()
 	writeWidgetDump();
 }
 
-} // namespace
-
-void writeWidgetDump()
+// Every resource path whose name mentions calls (the call window's icons are named after them).
+void writeResourceList(const QString &path)
 {
-	const QString path = bridgeDirectory() + QStringLiteral("widget-dump.txt");
+	QFile f(path);
+	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
+		return;
+	QTextStream out(&f);
+	out.setEncoding(QStringConverter::Utf8);
+	static const QRegularExpression interesting(QStringLiteral("voip|call|ring|incoming"),
+	                                            QRegularExpression::CaseInsensitiveOption);
+	for (QDirIterator it(QStringLiteral(":/"), QDirIterator::Subdirectories); it.hasNext();) {
+		const QString name = it.next();
+		if (interesting.match(name).hasMatch())
+			out << name << '\n';
+	}
+}
+
+void writeDump(const QString &fileName, const QWidgetList &windows)
+{
+	const QString path = bridgeDirectory() + fileName;
 	QFile f(path);
 	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
 		a11yLog("[diag] cannot write %s", qUtf8Printable(path));
@@ -173,11 +190,16 @@ void writeWidgetDump()
 	}
 	QTextStream out(&f);
 	out.setEncoding(QStringConverter::Utf8);
-	const QWidgetList tops = QApplication::topLevelWidgets();
-	for (QWidget *w : tops) {
+	breadcrumb("dump %s", qUtf8Printable(fileName));
+	if (QWidget *focus = QApplication::focusWidget())
+		out << "focus: " << classChain(focus->metaObject()) << " #" << focus->objectName() << '\n';
+	if (QWidget *popup = QApplication::activePopupWidget())
+		out << "active popup: " << classChain(popup->metaObject()) << '\n';
+	for (QWidget *w : windows) {
 		if (!w->isVisible())
 			continue;
-		out << "=== window " << w->metaObject()->className() << " \"" << w->windowTitle() << "\"\n";
+		out << "=== window " << w->metaObject()->className() << " \"" << w->windowTitle() << "\" flags=0x"
+		    << QString::number(int(w->windowFlags()), 16) << (w->isActiveWindow() ? " active" : "") << '\n';
 		bool first = true;
 		dumpWidget(out, w, 0, first);
 		out << "--- accessible tree\n";
@@ -185,10 +207,24 @@ void writeWidgetDump()
 		out << '\n';
 	}
 	int hidden = 0;
-	for (QWidget *w : tops)
+	for (QWidget *w : windows)
 		hidden += w->isVisible() ? 0 : 1;
 	out << "(" << hidden << " hidden top-level widgets not dumped)\n";
 	a11yLog("[diag] wrote %s", qUtf8Printable(path));
+}
+
+} // namespace
+
+void writeWidgetDump()
+{
+	writeDump(QStringLiteral("widget-dump.txt"), QApplication::topLevelWidgets());
+	writeResourceList(bridgeDirectory() + QStringLiteral("resource-list.txt"));
+}
+
+void writeWindowDump(QWidget *window, const QString &fileName)
+{
+	if (window)
+		writeDump(fileName, { window });
 }
 
 void startDiagnostics(QApplication *app)

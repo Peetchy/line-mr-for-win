@@ -10,6 +10,7 @@
 #include <QtCore/QPointer>
 #include <QtCore/QSet>
 #include <QtGui/QFontMetrics>
+#include <QtGui/QMouseEvent>
 #include <QtGui/QTextCursor>
 #include <QtGui/QTextDocument>
 #include <QtWidgets/QLabel>
@@ -1172,6 +1173,33 @@ QString LineAccessibleMenu::computeName() const
 bool LineAccessibleMenu::isPressable() const
 {
 	return role() == QAccessible::MenuItem && widget()->isEnabled();
+}
+
+void LineAccessibleMenu::press()
+{
+	QPointer<QWidget> guard(widget());
+	QMetaObject::invokeMethod(widget(), [guard] {
+		if (!guard || !guard->isEnabled() || !guard->isVisible())
+			return;
+		// An item LINE connected a signal to is pressed through it; otherwise it is clicked.
+		for (const char *signal : { "clicked()", "triggered()" }) {
+			if (isSignalConnected(guard, signal)) {
+				emitSignal(guard, signal);
+				return;
+			}
+		}
+		const QPointF local = QRectF(guard->rect()).center();
+		const QPointF scene = guard->mapTo(guard->window(), local);
+		const QPointF global = guard->mapToGlobal(local);
+		QMouseEvent press(QEvent::MouseButtonPress, local, scene, global, Qt::LeftButton, Qt::LeftButton,
+		                  Qt::NoModifier);
+		QCoreApplication::sendEvent(guard, &press);
+		if (!guard)
+			return;
+		QMouseEvent release(QEvent::MouseButtonRelease, local, scene, global, Qt::LeftButton, Qt::NoButton,
+		                    Qt::NoModifier);
+		QCoreApplication::sendEvent(guard, &release);
+	}, Qt::QueuedConnection);
 }
 
 } // namespace line_a11y

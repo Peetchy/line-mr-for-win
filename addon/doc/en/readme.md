@@ -23,7 +23,9 @@ After a LINE update the bridge may have to be installed again; LINE MR notices a
 - LINE's window-shadow windows and its unnamed layout groups are hidden from object navigation.
 - Main window: sidebar tabs, chat header and message-bar buttons are named. The chat list reads name, member count, last message, time and unread count; the friend list reads names, member counts and group sections.
 - Chat list: Up/Down browse chats (each chat opens on the right while focus stays in the list; LINE takes about a second to load each one); Enter moves to the chat's message input.
-- Messages: each message reads as sender (or "You"), text, time and read receipt; photos and stickers read as "photo or sticker"; the list starts at the newest message. New messages from others are announced while LINE is in front.
+- Messages: each message reads as sender (or "You"), text, time and read receipt; photos and stickers read as "photo or sticker"; the list starts at the newest message. Home goes to the oldest loaded message (LINE then loads older ones; press Home again to go further back), End to the newest. New messages from others are announced while LINE is in front.
+- Context menus: the Applications key (or Shift+F10) on a message opens LINE's menu with focus on its first item; Up/Down and Home/End move, Enter or Space chooses, Escape closes it and returns to the message.
+- Incoming calls: the answer, answer-with-video and decline buttons are named; when the incoming-call window does not come to the front, its text is read out.
 
 ## Commands
 

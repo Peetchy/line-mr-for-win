@@ -10,6 +10,7 @@
 
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 
 namespace line_a11y {
 namespace {
@@ -67,6 +68,68 @@ void a11yLog(const char *fmt, ...)
 	vsnprintf(buf, sizeof buf, fmt, ap);
 	va_end(ap);
 	a11yLogString(QString::fromUtf8(buf));
+}
+
+// ---- Crash breadcrumbs ---------------------------------------------------------------------------
+
+namespace {
+
+constexpr int kCrumbCount = 64;
+constexpr int kCrumbSize = 128;
+
+struct Crumbs {
+	LONG next;
+	char entries[kCrumbCount][kCrumbSize];
+};
+
+Crumbs *g_crumbs = nullptr;
+
+} // namespace
+
+void openBreadcrumbs(bool logPrevious)
+{
+	if (g_crumbs)
+		return;
+	const QString path = bridgeDirectory() + QStringLiteral("breadcrumbs.bin");
+	const HANDLE file = CreateFileW(reinterpret_cast<const wchar_t *>(path.utf16()), GENERIC_READ | GENERIC_WRITE,
+	                                FILE_SHARE_READ, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (file == INVALID_HANDLE_VALUE)
+		return;
+	const HANDLE mapping = CreateFileMappingW(file, nullptr, PAGE_READWRITE, 0, sizeof(Crumbs), nullptr);
+	CloseHandle(file);
+	if (!mapping)
+		return;
+	auto *crumbs = static_cast<Crumbs *>(MapViewOfFile(mapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Crumbs)));
+	CloseHandle(mapping); // the view keeps the mapping alive for the rest of the process
+	if (!crumbs)
+		return;
+	if (logPrevious) {
+		a11yLog("[guard] last bridge actions of the previous session (oldest first):");
+		const LONG next = crumbs->next;
+		for (int i = 0; i < kCrumbCount; ++i) {
+			char *entry = crumbs->entries[(next + i) % kCrumbCount];
+			entry[kCrumbSize - 1] = '\0';
+			if (entry[0])
+				a11yLog("[guard]   %s", entry);
+		}
+	}
+	memset(crumbs, 0, sizeof(Crumbs));
+	g_crumbs = crumbs;
+}
+
+void breadcrumb(const char *fmt, ...)
+{
+	if (!g_crumbs)
+		return;
+	const LONG slot = (InterlockedIncrement(&g_crumbs->next) - 1) % kCrumbCount;
+	char *entry = g_crumbs->entries[slot < 0 ? slot + kCrumbCount : slot];
+	SYSTEMTIME t;
+	GetLocalTime(&t);
+	const int n = snprintf(entry, kCrumbSize, "%02d:%02d:%02d.%03d ", t.wHour, t.wMinute, t.wSecond, t.wMilliseconds);
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(entry + n, size_t(kCrumbSize - n), fmt, ap);
+	va_end(ap);
 }
 
 } // namespace line_a11y

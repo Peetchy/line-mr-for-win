@@ -621,6 +621,30 @@ void LineAccessibleList::focusLastVisibleRow()
 	}
 }
 
+void LineAccessibleList::focusEdgeRow(bool last)
+{
+	QAbstractItemView *v = view();
+	const int rows = rowCount();
+	if (!v || rows == 0)
+		return;
+	const int step = last ? -1 : 1;
+	int target = last ? rows - 1 : 0;
+	// The rows at the ends can be blank spacers: take the first one from that end with text.
+	for (int row = target, tries = 0; row >= 0 && row < rows && tries < 10; row += step, ++tries) {
+		v->scrollTo(v->model()->index(row, 0, v->rootIndex()));
+		QAccessibleInterface *item = itemAt(row);
+		if (item && !item->text(QAccessible::Name).isEmpty()) {
+			target = row;
+			break;
+		}
+	}
+	const QModelIndex idx = v->model()->index(target, 0, v->rootIndex());
+	if (idx == v->currentIndex())
+		notifyCurrentRow(); // already there: read it again
+	else
+		v->setCurrentIndex(idx);
+}
+
 QString LineAccessibleList::text(QAccessible::Text t) const
 {
 	if (t == QAccessible::Name) {

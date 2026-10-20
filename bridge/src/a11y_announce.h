@@ -9,7 +9,8 @@ class QWidget;
 
 namespace line_a11y {
 
-// Announces `text` if `w`'s window is the active window. Identical texts within 2 s are dropped.
-void announce(QWidget *w, const QString &text);
+// Announces `text` if `w`'s window is the active window (or always, with `evenIfInactive`).
+// Identical texts within 2 s are dropped.
+void announce(QWidget *w, const QString &text, bool evenIfInactive = false);
 
 } // namespace line_a11y

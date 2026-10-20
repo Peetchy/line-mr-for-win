@@ -1,5 +1,7 @@
 #include "text_capture.h"
 
+#include "a11y_log.h"
+
 #include <QtGui/QPaintDevice>
 #include <QtGui/QPaintEngine>
 #include <QtGui/QTextItem>
@@ -139,7 +141,9 @@ CaptureResult captureWidgetText(QWidget *w, bool children)
 	QWidget::RenderFlags flags = QWidget::DrawWindowBackground;
 	if (children)
 		flags |= QWidget::DrawChildren;
+	breadcrumb("render %s %dx%d%s", w->metaObject()->className(), w->width(), w->height(), children ? " +children" : "");
 	w->render(&dev, QPoint(), QRegion(), flags);
+	breadcrumb("render done");
 	return result;
 }
 
@@ -166,7 +170,10 @@ CaptureResult captureRegionText(QWidget *w, const QRect &rect)
 	TextCaptureDevice dev(area.size(), w->logicalDpiX() > 0 ? w->logicalDpiX() : 96, &result);
 	// render() maps the region's top-left to the target offset; the engine does not clip, so
 	// neighbouring rows may still draw: keep what lies inside the area.
+	breadcrumb("render region of %s at %d,%d %dx%d", w->metaObject()->className(), area.x(), area.y(), area.width(),
+	           area.height());
 	w->render(&dev, QPoint(), QRegion(area), QWidget::DrawChildren);
+	breadcrumb("render done");
 	QList<CapturedText> inside;
 	for (const CapturedText &it : std::as_const(result.items)) {
 		if (it.pos.y() > 0 && it.pos.y() <= area.height() + 2)

@@ -56,7 +56,9 @@ void checkPreviousSessions(QApplication *app)
 	const QString marker = bridgeDirectory() + QStringLiteral("session.running");
 	const QString counter = bridgeDirectory() + QStringLiteral("crash-count");
 	int crashes = 0;
-	if (QFile::exists(marker)) {
+	const bool crashed = QFile::exists(marker);
+	openBreadcrumbs(crashed);
+	if (crashed) {
 		QFile c(counter);
 		if (c.open(QIODevice::ReadOnly))
 			crashes = c.readAll().trimmed().toInt();

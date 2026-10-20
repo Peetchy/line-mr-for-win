@@ -176,6 +176,7 @@ public:
 protected:
 	QString computeName() const override;
 	bool isPressable() const override;
+	void press() override;
 
 private:
 	static QAccessible::Role roleFor(const QWidget *w);

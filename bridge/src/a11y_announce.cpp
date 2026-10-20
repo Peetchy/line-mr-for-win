@@ -12,9 +12,9 @@
 
 namespace line_a11y {
 
-void announce(QWidget *w, const QString &text)
+void announce(QWidget *w, const QString &text, bool evenIfInactive)
 {
-	if (!w || text.isEmpty() || !w->window()->isActiveWindow())
+	if (!w || text.isEmpty() || !(evenIfInactive || w->window()->isActiveWindow()))
 		return;
 	static QString lastText;
 	static QElapsedTimer lastTime;

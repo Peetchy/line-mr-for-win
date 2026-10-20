@@ -55,6 +55,9 @@ public:
 	// Makes the newest visible row current (messages start at the bottom).
 	void focusLastVisibleRow();
 
+	// Makes the first (or last) row that has text current, scrolling it into view.
+	void focusEdgeRow(bool last);
+
 private:
 	void connectView();
 	// Drops items past the end once the model has settled after rows went away.

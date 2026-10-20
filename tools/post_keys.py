@@ -2,7 +2,7 @@
 cannot type into whatever window the user has in front. NVDA does not see these keys; it only
 reacts to the focus changes they cause.
 
-Usage: python tools/post_keys.py down up pagedown   [--delay 1.0]
+Usage: python tools/post_keys.py down up pagedown contextmenu   [--delay 1.0]
 """
 
 import argparse
@@ -14,8 +14,8 @@ import time
 user32 = ctypes.windll.user32
 user32.PostMessageW.argtypes = (wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM)
 VK = {"down": 0x28, "up": 0x26, "left": 0x25, "right": 0x27, "home": 0x24, "end": 0x23,
-      "pageup": 0x21, "pagedown": 0x22, "tab": 0x09, "enter": 0x0D, "space": 0x20, "escape": 0x1B}
-EXTENDED = {0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28}
+      "pageup": 0x21, "pagedown": 0x22, "tab": 0x09, "enter": 0x0D, "space": 0x20, "escape": 0x1B, "apps": 0x5D}
+EXTENDED = {0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x5D}
 
 
 def main_window():
@@ -47,6 +47,12 @@ def main():
 	if not hwnd:
 		raise SystemExit("no visible LINE window")
 	for k in args.keys:
+		if k == "contextmenu":
+			# What Windows sends for the Applications key / Shift+F10 (a posted VK_APPS is not enough).
+			user32.PostMessageW(hwnd, 0x007B, hwnd, -1)  # WM_CONTEXTMENU from the keyboard
+			print(f"{time.strftime('%H:%M:%S')} posted {k}", flush=True)
+			time.sleep(args.delay)
+			continue
 		vk = VK[k]
 		scan = user32.MapVirtualKeyW(vk, 0)
 		ext = (1 << 24) if vk in EXTENDED else 0
