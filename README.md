@@ -6,13 +6,15 @@ An NVDA add-on that makes **LINE for Windows** (`%LOCALAPPDATA%\LINE\bin\current
 
 ## Download
 
-**[Download the latest release (`lineMR-<version>.nvda-addon`)](https://github.com/Peetchy/line-mr-for-win/releases/latest)**
+**[Download LINE MR for NVDA (latest version, `.nvda-addon`)](https://github.com/Peetchy/line-mr-for-win/releases/latest/download/lineMR.nvda-addon)**
+
+Release notes and older versions: [releases](https://github.com/Peetchy/line-mr-for-win/releases).
 
 1. Install [LINE from the Microsoft Store](https://apps.microsoft.com/detail/XPFCC4CD725961) (recommended).
-2. Download the `.nvda-addon` file from the release page, open it while NVDA is running, and restart NVDA.
+2. Download the `.nvda-addon` file with the link above, open it while NVDA is running, and restart NVDA.
 3. Start LINE. LINE MR asks to install its bridge into LINE; choose **Yes**. LINE restarts with the bridge.
 
-ดาวน์โหลดไฟล์ `.nvda-addon` รุ่นล่าสุดได้จาก[หน้า release](https://github.com/Peetchy/line-mr-for-win/releases/latest) เปิดไฟล์ขณะที่ NVDA ทำงานอยู่ แล้วเปิด NVDA ใหม่ จากนั้นเปิด LINE และเลือก **ใช่** เมื่อ LINE MR ถามว่าจะติดตั้งตัวเชื่อมหรือไม่
+[ดาวน์โหลดไฟล์ `.nvda-addon` รุ่นล่าสุด](https://github.com/Peetchy/line-mr-for-win/releases/latest/download/lineMR.nvda-addon) เปิดไฟล์ขณะที่ NVDA ทำงานอยู่ แล้วเปิด NVDA ใหม่ จากนั้นเปิด LINE และเลือก **ใช่** เมื่อ LINE MR ถามว่าจะติดตั้งตัวเชื่อมหรือไม่
 
 ## LINE on macOS
 

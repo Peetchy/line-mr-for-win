@@ -66,4 +66,7 @@ jobs:
         run: |
           $addon = Get-ChildItem dist/*.nvda-addon | Select-Object -First 1
           $sha = (Get-FileHash $addon.FullName -Algorithm SHA256).Hash.ToLower()
-          gh release create "${{ github.ref_name }}" $addon.FullName --title "LINE MR ${{ env.ADDON_VERSION }}" --notes "SHA-256 of $($addon.Name): ``$sha``" --verify-tag
+          # Same file under a fixed name: releases/latest/download/lineMR.nvda-addon (README link) always gets the newest
+          $latest = Join-Path $env:RUNNER_TEMP "lineMR.nvda-addon"
+          Copy-Item $addon.FullName $latest
+          gh release create "${{ github.ref_name }}" $addon.FullName $latest --title "LINE MR ${{ env.ADDON_VERSION }}" --notes "SHA-256 of $($addon.Name): ``$sha``" --verify-tag
