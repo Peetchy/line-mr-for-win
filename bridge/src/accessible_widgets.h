@@ -18,7 +18,7 @@ namespace line_a11y {
 QAccessibleInterface *lineAccessibleFactory(const QString &key, QObject *object);
 
 // Which bridge interface (if any) a widget should get.
-enum class WidgetKind { None, Input, Menu, List, Delegate, Button, Text, Window };
+enum class WidgetKind { None, Input, Menu, List, Delegate, Button, Text, Window, ScrollArea };
 WidgetKind classifyWidget(const QWidget *w);
 
 // If Qt cached a stock interface for a widget that should use a bridge interface (this happens
@@ -172,6 +172,13 @@ class LineAccessibleWindow : public QAccessibleWidget {
 public:
 	explicit LineAccessibleWindow(QWidget *w);
 	QString text(QAccessible::Text t) const override;
+};
+
+// Qt's scroll-area interface exposes only the viewport and scroll bars; LINE puts headers next to
+// the viewport (Settings > Chats: the "Basic / Hidden chats" tabs). This one exposes every child.
+class LineAccessibleScrollArea : public QAccessibleWidget {
+public:
+	explicit LineAccessibleScrollArea(QWidget *w);
 };
 
 class LineAccessibleMenu : public LineAccessibleWidget {

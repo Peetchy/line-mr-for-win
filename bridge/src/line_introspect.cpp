@@ -97,6 +97,9 @@ const QHash<QString, QString> &thaiLabels()
 		{ QStringLiteral("Show or hide chat list"), QStringLiteral("แสดงหรือซ่อนรายการแชท") },
 		{ QStringLiteral("Pause"), QStringLiteral("หยุดชั่วคราว") },
 		{ QStringLiteral("Play"), QStringLiteral("เล่น") },
+		{ QStringLiteral("Play sound"), QStringLiteral("เล่นเสียง") },
+		{ QStringLiteral("Test sound"), QStringLiteral("ทดสอบเสียง") },
+		{ QStringLiteral("Profile settings"), QStringLiteral("ตั้งค่าโปรไฟล์") },
 		{ QStringLiteral("Sound"), QStringLiteral("เสียง") },
 		{ QStringLiteral("Mute"), QStringLiteral("ปิดเสียง") },
 		{ QStringLiteral("Full screen"), QStringLiteral("เต็มหน้าจอ") },
@@ -320,6 +323,11 @@ const QHash<QString, const char *> &iconLabels()
 		// Video ads
 		{ QStringLiteral("banner-pause-bt"), "Pause" },
 		{ QStringLiteral("banner-play-bt"), "Play" },
+		{ QStringLiteral("setting-play-btn-dark"), "Play sound" },
+		{ QStringLiteral("setting-speaker-icon"), "Test sound" },
+		// Settings > Profile: the only frame-drawn button without text (opens profile settings).
+		{ QStringLiteral("setting-border-line"), "Profile settings" },
+		{ QStringLiteral("play"), "Play" },
 		{ QStringLiteral("banner-sound-bt"), "Sound" },
 		{ QStringLiteral("banner-mute-bt"), "Mute" },
 		{ QStringLiteral("full-screen-icon"), "Full screen" },
@@ -331,6 +339,8 @@ const QHash<QString, const char *> &iconLabels()
 		{ QStringLiteral("next"), "Next" },
 		{ QStringLiteral("forward"), "Forward" },
 		{ QStringLiteral("arrow-left"), "Back" },
+		{ QStringLiteral("chevron-left"), "Back" },
+		{ QStringLiteral("select-close-bt"), "Remove" },
 		{ QStringLiteral("arrow-right"), "Next" },
 		{ QStringLiteral("arrow-down"), "Expand" },
 		{ QStringLiteral("arrow-up"), "Collapse" },
@@ -517,6 +527,10 @@ QString cleanText(const QString &text)
 	QString plain = Qt::mightBeRichText(text) || text.contains(entity)
 		? QTextDocumentFragment::fromHtml(text).toPlainText()
 		: text;
+	// Leftover tags in plain text ("keep balance and move forward </img>").
+	static const QRegularExpression strayTag(QStringLiteral("</?(img|a|br|span|b|i|font)\\b[^>]*>"),
+	                                         QRegularExpression::CaseInsensitiveOption);
+	plain.replace(strayTag, QStringLiteral(" "));
 	plain.replace(QChar::ObjectReplacementCharacter, u' ');
 	plain.replace(QChar::LineSeparator, u' ');
 	plain.replace(QChar::ParagraphSeparator, u' ');
@@ -601,9 +615,10 @@ QString humanizeIconName(const QString &iconName)
 		return dashed;
 	if (const QString joined = lookupIcon(tokens.join(QString())); !joined.isEmpty())
 		return joined;
-	// Longest contiguous token run with a known label wins ("gnb_friend_add_count" -> "Add friends").
+	// Longest contiguous token run with a known label wins ("gnb_friend_add_count" -> "Add friends");
+	// among equally long runs the last one, since names lead with their area ("setting_close").
 	for (qsizetype len = tokens.size() - 1; len >= 1; --len) {
-		for (qsizetype start = 0; start + len <= tokens.size(); ++start) {
+		for (qsizetype start = tokens.size() - len; start >= 0; --start) {
 			if (const QString hit = lookupIcon(tokens.mid(start, len).join(u'-')); !hit.isEmpty())
 				return hit;
 		}
@@ -744,6 +759,33 @@ bool isBadgeText(const QString &text)
 {
 	static const QRegularExpression badge(QStringLiteral("^\\(?\\d+\\+?\\)?$"));
 	return badge.match(text.trimmed()).hasMatch();
+}
+
+QString labelAboveText(QWidget *w)
+{
+	QWidget *window = w ? w->window() : nullptr;
+	if (!window || w == window)
+		return QString();
+	const QRect g(w->mapTo(window, QPoint()), w->size());
+	QWidget *best = nullptr;
+	// Nearest container first: hidden pages stacked at the same place have labels there too.
+	for (QWidget *scope = w->parentWidget(); scope && !best && scope != window; scope = scope->parentWidget()) {
+		int bestGap = 41;
+		for (QWidget *c : scope->findChildren<QWidget *>()) {
+			// A combo box under a checkbox sets that option ("Lock LINE when idle for" + "1 hour").
+			if (!inheritsAnyClass(c, { "LcText", "LcCheckBox" }) || !c->isVisible())
+				continue;
+			const QRect t(c->mapTo(window, QPoint()), c->size());
+			const int gap = g.top() - t.bottom();
+			if (gap < 0 || gap >= bestGap || t.left() > g.left() + 8 || t.right() < g.left())
+				continue;
+			best = c;
+			bestGap = gap;
+		}
+	}
+	if (!best)
+		return QString();
+	return inheritsClass(best, "LcText") ? extractLcTextString(best) : widgetText(best);
 }
 
 QString nearbyLabelText(QWidget *w)

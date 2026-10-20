@@ -83,6 +83,9 @@ bool isBadgeText(const QString &text);
 
 // Text of the closest visible sibling label on the same row (to the right first, then left),
 // or directly above. Used for checkboxes / inputs whose caption is a separate LcText.
+// The LcText or LcCheckBox right above `w` (within 40 px, starting at most 8 px right of w's left edge),
+// searched from w's parent outwards: labels of combo boxes and fields in Settings.
+QString labelAboveText(QWidget *w);
 QString nearbyLabelText(QWidget *w);
 
 // --- Localisation ---------------------------------------------------------------------------

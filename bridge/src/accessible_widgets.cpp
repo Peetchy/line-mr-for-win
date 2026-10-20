@@ -15,6 +15,7 @@
 #include <QtGui/QMouseEvent>
 #include <QtGui/QTextCursor>
 #include <QtGui/QTextDocument>
+#include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QTextEdit>
@@ -209,10 +210,17 @@ WidgetKind classifyWidget(const QWidget *w)
 	    || (inheritsClass(w, "LcWidget")
 	        && QLatin1StringView(w->metaObject()->className()).endsWith(QLatin1StringView("DelegateWidget"))))
 		return WidgetKind::Delegate;
-	if (inheritsAnyClass(w, { "LcButton", "LcIconTextButton", "LcRadioButton", "LcCheckBox" }) || isClickableImage(w))
+	if (inheritsAnyClass(w, { "LcButton", "LcIconTextButton", "LcRadioButton", "LcCheckBox" }) || isClickableImage(w)) {
+		// A frame drawn as a button around a list (Settings > Chats: translation languages) is a
+		// container: a button would hide the list from screen readers.
+		if (w->findChild<QAbstractItemView *>())
+			return WidgetKind::None;
 		return WidgetKind::Button;
+	}
 	if (inheritsAnyClass(w, { "LcText", "HighlightableTextWidget", "LcLabel" }))
 		return WidgetKind::Text;
+	if (inheritsClass(w, "LcScrollArea"))
+		return WidgetKind::ScrollArea;
 	return WidgetKind::None;
 }
 
@@ -250,6 +258,8 @@ QAccessibleInterface *lineAccessibleFactory(const QString &key, QObject *object)
 		return new LineAccessibleButton(w);
 	case WidgetKind::Text:
 		return new LineAccessibleText(w);
+	case WidgetKind::ScrollArea:
+		return new LineAccessibleScrollArea(w);
 	case WidgetKind::None:
 		break;
 	}
@@ -261,7 +271,8 @@ void repairCachedInterface(QWidget *w)
 	if (classifyWidget(w) == WidgetKind::None)
 		return;
 	QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(w);
-	if (!iface || dynamic_cast<LineAccessibleWidget *>(iface) || dynamic_cast<LineAccessibleList *>(iface))
+	if (!iface || dynamic_cast<LineAccessibleWidget *>(iface) || dynamic_cast<LineAccessibleList *>(iface)
+	    || dynamic_cast<LineAccessibleWindow *>(iface) || dynamic_cast<LineAccessibleScrollArea *>(iface))
 		return;
 	a11yLog("[factory] replacing stale %s interface for %s", typeid(*iface).name(), w->metaObject()->className());
 	QAccessible::deleteAccessibleInterface(QAccessible::uniqueId(iface));
@@ -296,6 +307,8 @@ QString inputAccessibleName(QWidget *w)
 		return heuristic;
 	if (const QString nearby = nearbyLabelText(w); !nearby.isEmpty())
 		return nearby;
+	if (const QString above = labelAboveText(w); !above.isEmpty())
+		return above;
 	if (const QString fromName = objectNameDerived(w); !fromName.isEmpty())
 		return fromName;
 	return qobject_cast<QTextEdit *>(w) ? label("Text area") : label("Text field");
@@ -495,6 +508,10 @@ QAccessible::Role LineAccessibleButton::roleFor(const QWidget *w)
 		return inRadioGroup(w) ? QAccessible::RadioButton : QAccessible::CheckBox;
 	if (inheritsClass(w, "LcRadioButton"))
 		return QAccessible::RadioButton;
+	// LcButtons in a radio group switch pages (Settings' section list). Not PageTab: Qt 6.6's UIA
+	// reports a tab as selected only while it has focus.
+	if (inRadioGroup(w))
+		return QAccessible::RadioButton;
 	return QAccessible::Button;
 }
 
@@ -661,9 +678,10 @@ void LineAccessibleButton::press()
 		QWidget *target = guard.data();
 		if (!target || !target->isEnabled() || !target->isVisible())
 			return;
-		if (inheritsClass(target, "LcCheckBox")) {
+		if (inheritsClass(target, "LcCheckBox") || inRadioGroup(target)) {
 			const bool selected = boolProp(target, "selected") == 1;
-			// A radio-group member stays selected when clicked again.
+			// A radio-group member stays selected when clicked again. The group deselects the
+			// others, which is what hides the previous page of tabbed windows (Settings).
 			if (!inRadioGroup(target) || !selected)
 				target->setProperty("selected", !selected);
 			if (!guard)
@@ -690,7 +708,7 @@ QString LineAccessibleButton::computeDescription() const
 {
 	if (const QString badge = overlappingBadge(widget()); !badge.isEmpty())
 		return label("%1 new").arg(badge);
-	if (!isCheckable() && isSelected())
+	if (role() == QAccessible::Button && isSelected())
 		return label("Selected");
 	return QString();
 }
@@ -1147,10 +1165,44 @@ QString LineAccessibleWindow::text(QAccessible::Text t) const
 		if (inheritsClass(child, "LcTitleBar")) {
 			if (const QString text = collectVisibleChildTexts(child, QStringLiteral(" ")); !text.isEmpty())
 				return text;
+			// SettingWindow: the title bar (or the window, titleVisible) paints the title itself.
+			if (const QString text = paintedText(child); !text.isEmpty())
+				return text;
+			for (QWidget *part : child->findChildren<QWidget *>(Qt::FindDirectChildrenOnly)) {
+				if (const QString text = paintedText(part); !text.isEmpty())
+					return text;
+			}
+			if (const QString text = paintedText(widget()); !text.isEmpty())
+				return text;
 			break;
 		}
 	}
+	// Windows without any title text.
+	if (inheritsClass(widget(), "SettingWindow"))
+		return label("Settings");
+	// A heading right below the title bar (Albums / Notes: the chat's name).
+	QWidget *heading = nullptr;
+	int headingTop = 100;
+	for (QWidget *child : widget()->findChildren<QWidget *>()) {
+		if (!inheritsClass(child, "LcText") || !child->isVisible() || ancestorInheriting(child, "LcTitleBar"))
+			continue;
+		if (const int top = child->mapTo(widget(), QPoint()).y(); top < headingTop) {
+			heading = child;
+			headingTop = top;
+		}
+	}
+	if (heading) {
+		if (const QString text = extractLcTextString(heading); !text.isEmpty())
+			return text;
+	}
 	return title.isEmpty() ? QStringLiteral("LINE") : title;
+}
+
+// ---- LineAccessibleScrollArea --------------------------------------------------------------------
+
+LineAccessibleScrollArea::LineAccessibleScrollArea(QWidget *w)
+	: QAccessibleWidget(w, QAccessible::Client)
+{
 }
 
 // ---- LineAccessibleMenu --------------------------------------------------------------------------

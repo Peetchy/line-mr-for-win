@@ -348,6 +348,9 @@ public:
 		QObject *data = idx.data(kItemDataRole).value<QObject *>();
 		if (QString text = dataObjectText(data); !text.isEmpty())
 			return text;
+		// Plain models (Settings' translation languages) give text even for rows off screen.
+		if (QString text = cleanText(idx.data(Qt::DisplayRole).toString()); !text.isEmpty())
+			return text;
 		return paintedText(data);
 	}
 

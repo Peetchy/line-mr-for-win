@@ -23,6 +23,7 @@
 #include <QtQuick/QQuickWindow>
 
 #include <algorithm>
+#include <functional>
 
 namespace line_a11y {
 namespace {
@@ -150,6 +151,7 @@ bool isQtLeafRole(QAccessible::Role role)
 struct QuickModel {
 	QList<QPointer<QQuickItem>> order;       // presented items in reading order
 	QHash<const QQuickItem *, QString> names; // names of clickable areas
+	QHash<const QQuickItem *, QPointer<QQuickItem>> checks; // row -> its selection box (Create group)
 	QElapsedTimer built;
 };
 
@@ -157,6 +159,38 @@ QHash<const QQuickWindow *, QuickModel> &models()
 {
 	static QHash<const QQuickWindow *, QuickModel> m;
 	return m;
+}
+
+bool hasShownContent(QQuickItem *item)
+{
+	if (!item->isVisible() || item->opacity() <= 0.01)
+		return false;
+	if (isShown(item) && ((isTextItem(item) && !itemText(item).isEmpty()) || isClickable(item)))
+		return true;
+	for (QQuickItem *child : item->childItems()) {
+		if (hasShownContent(child))
+			return true;
+	}
+	return false;
+}
+
+// LINE opens sub-pages (profile -> profile settings) in a window-sized Loader / StackView painted
+// over the page it came from; the page underneath stays visible. Returns the last such loaded page
+// (children painted before it and lying inside it are covered), or -1.
+qsizetype coveringChild(const QList<QQuickItem *> &children)
+{
+	for (qsizetype i = children.size() - 1; i > 0; --i) {
+		QQuickItem *c = children.at(i);
+		if (!inheritsAnyClass(c, { "QQuickLoader", "QQuickStackView" }) || !isShown(c))
+			continue;
+		const QRectF r = sceneRect(c);
+		const QQuickWindow *w = c->window();
+		if (r.width() * r.height() < 0.9 * w->width() * w->height() || c->z() < 0)
+			continue;
+		if (hasShownContent(c))
+			return i;
+	}
+	return -1;
 }
 
 void collect(QQuickItem *item, QList<QQuickItem *> &texts, QList<QQuickItem *> &clickables,
@@ -184,8 +218,31 @@ void collect(QQuickItem *item, QList<QQuickItem *> &texts, QList<QQuickItem *> &
 			return;
 		}
 	}
-	for (QQuickItem *child : item->childItems())
-		collect(child, texts, clickables, images, qtItems);
+	const QList<QQuickItem *> children = item->childItems();
+	const qsizetype cover = coveringChild(children);
+	const QRectF coverRect = cover >= 0 ? sceneRect(children.at(cover)).adjusted(-1, -1, 1, 1) : QRectF();
+	for (qsizetype i = 0; i < children.size(); ++i) {
+		if (i < cover && coverRect.contains(sceneRect(children.at(i))))
+			continue;
+		collect(children.at(i), texts, clickables, images, qtItems);
+	}
+}
+
+bool isSelectionBox(const QQuickItem *item)
+{
+	if (!inheritsClass(item, "LcQuickButton") || item->width() > 32 || item->height() > 32)
+		return false;
+	const QVariant selected = item->property("selected");
+	if (selected.metaType().id() != QMetaType::Bool)
+		return false;
+	for (const char *prop : { "text", "toolTip" }) {
+		if (!item->property(prop).toString().isEmpty())
+			return false;
+	}
+	// Empty while unticked, a check-box icon ("check-box-select-ic.svg") while ticked.
+	const QVariant source = item->property("source");
+	const QString icon = source.metaType().id() == QMetaType::QUrl ? source.toUrl().toString() : source.toString();
+	return icon.isEmpty() || icon.contains(QLatin1StringView("check"));
 }
 
 bool readingOrder(const QQuickItem *a, const QQuickItem *b)
@@ -205,6 +262,7 @@ const QuickModel &modelFor(QQuickWindow *window)
 		return m;
 	m.order.clear();
 	m.names.clear();
+	m.checks.clear();
 	m.built.start();
 	QList<QQuickItem *> texts, clickables, images, qtItems;
 	if (QQuickItem *root = window->contentItem())
@@ -221,9 +279,28 @@ const QuickModel &modelFor(QQuickWindow *window)
 		if (area->width() * area->height() > windowArea * 0.6)
 			continue;
 		const QRectF rect = sceneRect(area);
+		// A small unlabelled LcQuickButton with a "selected" state inside a clickable row is that
+		// row's selection box (friend pickers): the row becomes a checkbox.
+		if (isSelectionBox(area)) {
+			QQuickItem *row = nullptr;
+			for (QQuickItem *other : std::as_const(clickables)) {
+				if (other != area && other->width() * other->height() <= windowArea * 0.6
+				    && sceneRect(other).contains(rect) && other->width() * other->height() > area->width() * area->height())
+					row = other;
+				if (row)
+					break;
+			}
+			if (row) {
+				m.checks.insert(row, area);
+				continue;
+			}
+		}
 		QList<QQuickItem *> inside;
 		for (QQuickItem *t : std::as_const(texts)) {
-			if (!claimed.contains(t) && rect.contains(sceneRect(t).center()))
+			// Mostly inside: a small edit icon next to a text does not take that text as its label.
+			const QRectF tr = sceneRect(t);
+			const QRectF common = rect.intersected(tr);
+			if (!claimed.contains(t) && common.width() * common.height() >= 0.5 * tr.width() * tr.height())
 				inside << t;
 		}
 		std::stable_sort(inside.begin(), inside.end(), readingOrder);
@@ -277,6 +354,18 @@ const QuickModel &modelFor(QQuickWindow *window)
 			nameInput(item);
 	}
 	presented << qtItems;
+	// Buttons made focusable earlier on a page now covered by another one leave the Tab chain.
+	const QSet<const QQuickItem *> shown(presented.cbegin(), presented.cend());
+	const std::function<void(QQuickItem *)> unfocus = [&](QQuickItem *item) {
+		if (item->property(kMadeFocusableProperty).toBool() && !shown.contains(item)) {
+			item->setActiveFocusOnTab(false);
+			item->setProperty(kMadeFocusableProperty, false);
+		}
+		for (QQuickItem *child : item->childItems())
+			unfocus(child);
+	};
+	if (QQuickItem *root = window->contentItem())
+		unfocus(root);
 	std::stable_sort(presented.begin(), presented.end(), readingOrder);
 	for (QQuickItem *item : std::as_const(presented))
 		m.order << item;
@@ -321,6 +410,17 @@ void clickItem(QQuickItem *item)
 		QMouseEvent release(QEvent::MouseButtonRelease, scene, scene, global, Qt::LeftButton, Qt::NoButton,
 		                    Qt::NoModifier);
 		QCoreApplication::sendEvent(window, &release);
+		// A picker row: report the new state of its selection box.
+		if (modelFor(window).checks.contains(guard.data())) {
+			QTimer::singleShot(200, guard, [guard] {
+				if (!guard)
+					return;
+				QAccessible::State changed;
+				changed.checked = true;
+				QAccessibleStateChangeEvent ev(guard.data(), changed);
+				QAccessible::updateAccessibility(&ev);
+			});
+		}
 	}, Qt::QueuedConnection);
 }
 
@@ -346,7 +446,16 @@ public:
 
 	QAccessible::Role role() const override
 	{
-		return m_kind == QuickKind::Clickable ? QAccessible::Button : QAccessible::StaticText;
+		if (m_kind != QuickKind::Clickable)
+			return QAccessible::StaticText;
+		return selectionBox() ? QAccessible::CheckBox : QAccessible::Button;
+	}
+
+	// The row's selection box (see modelFor), if it has one.
+	QQuickItem *selectionBox() const
+	{
+		QQuickWindow *w = item()->window();
+		return w ? modelFor(w).checks.value(item()).data() : nullptr;
 	}
 
 	QString text(QAccessible::Text t) const override
@@ -378,6 +487,10 @@ public:
 		if (m_kind == QuickKind::Clickable) {
 			st.focusable = true;
 			st.focused = i->hasActiveFocus();
+			if (QQuickItem *box = selectionBox()) {
+				st.checkable = true;
+				st.checked = box->property("selected").toBool();
+			}
 		}
 		return st;
 	}
@@ -389,11 +502,16 @@ public:
 		return nullptr;
 	}
 
-	QStringList actionNames() const override { return { pressAction(), setFocusAction() }; }
+	QStringList actionNames() const override
+	{
+		if (selectionBox())
+			return { pressAction(), toggleAction(), setFocusAction() };
+		return { pressAction(), setFocusAction() };
+	}
 	QStringList keyBindingsForAction(const QString &) const override { return {}; }
 	void doAction(const QString &actionName) override
 	{
-		if (actionName == pressAction())
+		if (actionName == pressAction() || actionName == toggleAction())
 			clickItem(item());
 		else if (actionName == setFocusAction())
 			item()->forceActiveFocus(Qt::OtherFocusReason);

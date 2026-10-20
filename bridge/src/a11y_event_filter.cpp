@@ -128,8 +128,21 @@ QString tagFor(QWidget *w)
 	return QString();
 }
 
+// LINE's combo boxes (Settings: language, font, lock delay) have no name; their label is the
+// LcText right above them.
+void labelComboBox(QWidget *box)
+{
+	if (!inheritsClass(box, "QComboBox") || !box->accessibleName().isEmpty() || !box->isVisible())
+		return;
+	if (const QString text = labelAboveText(box); !text.isEmpty())
+		box->setAccessibleName(text);
+	else if (const QString text = nearbyLabelText(box); !text.isEmpty())
+		box->setAccessibleName(text);
+}
+
 void tagWidget(QWidget *w)
 {
+	labelComboBox(w);
 	if (!w->objectName().isEmpty())
 		return;
 	if (const QString tag = tagFor(w); !tag.isEmpty())
@@ -472,14 +485,24 @@ public:
 				menuShown(w);
 			break;
 		case QEvent::WindowActivate:
-			// A dialog window LINE opens with nothing focused: start at its first control.
-			if (w->isWindow() && !isContextMenu(w) && !w->focusWidget()) {
-				QPointer<QWidget> window(w);
-				QTimer::singleShot(150, w, [window] {
-					if (window && window->isActiveWindow() && !window->focusWidget())
-						if (QWidget *first = firstContentTabStop(window))
-							first->setFocus(Qt::TabFocusReason);
-				});
+			// A dialog window LINE opens with nothing focused, or (first activation) with focus on a
+			// title-bar button such as Close: start at its first control.
+			if (w->isWindow() && !isContextMenu(w)) {
+				const auto unfocused = [](QWidget *window, bool first) {
+					QWidget *f = window->focusWidget();
+					return !f || (first && ancestorInheriting(f, "LcTitleBar")
+					              && !inheritsAnyClass(window, { "AllInOneWindow", "ChatWindow" }));
+				};
+				const bool first = !w->property("_lineA11yActivated").toBool();
+				w->setProperty("_lineA11yActivated", true);
+				if (unfocused(w, first)) {
+					QPointer<QWidget> window(w);
+					QTimer::singleShot(150, w, [window, first, unfocused] {
+						if (window && window->isActiveWindow() && unfocused(window, first))
+							if (QWidget *stop = firstContentTabStop(window))
+								stop->setFocus(Qt::TabFocusReason);
+					});
+				}
 			}
 			break;
 		case QEvent::Hide:
