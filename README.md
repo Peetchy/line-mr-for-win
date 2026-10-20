@@ -1,6 +1,6 @@
 # Line MR for Windows (Line Mai Roo)
 
-An NVDA add-on that makes **LINE for Windows** (`%LOCALAPPDATA%\LINE\bin\current\LINE.exe`, 26.5.0.3975, Qt 6.6.3) usable with a screen reader. It is the Windows counterpart of `line-mr-for-mac` (VoiceOver).
+An NVDA add-on that makes **LINE for Windows** (`%LOCALAPPDATA%\LINE\bin\current\LINE.exe`, 26.5.0.3975, Qt 6.6.3) usable with a screen reader. It is the Windows counterpart of [`line-mr-for-mac`](https://github.com/Peetchy/line-mr-for-mac) (VoiceOver).
 
 ทำให้ผู้ใช้ NVDA ใช้ LINE บน Windows ได้ เช่น อ่านปุ่มที่ไม่มีชื่อ ช่องข้อความ กล่องกาเครื่องหมาย และข้อความต่าง ๆ ใน LINE โดยไม่แก้ไขไฟล์ของ LINE
 
@@ -13,6 +13,12 @@ An NVDA add-on that makes **LINE for Windows** (`%LOCALAPPDATA%\LINE\bin\current
 3. Start LINE. LINE MR asks to install its bridge into LINE; choose **Yes**. LINE restarts with the bridge.
 
 ดาวน์โหลดไฟล์ `.nvda-addon` รุ่นล่าสุดได้จาก[หน้า release](https://github.com/Peetchy/line-mr-for-win/releases/latest) เปิดไฟล์ขณะที่ NVDA ทำงานอยู่ แล้วเปิด NVDA ใหม่ จากนั้นเปิด LINE และเลือก **ใช่** เมื่อ LINE MR ถามว่าจะติดตั้งตัวเชื่อมหรือไม่
+
+## LINE on macOS
+
+Using LINE on a Mac with VoiceOver? See **[line-mr-for-mac](https://github.com/Peetchy/line-mr-for-mac)**.
+
+ผู้ใช้ LINE บน Mac กับ VoiceOver ดูได้ที่ **[line-mr-for-mac](https://github.com/Peetchy/line-mr-for-mac)**
 
 ## How it works
 
