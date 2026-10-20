@@ -16,7 +16,8 @@ LINE is a Qt 6 Widgets app. Its custom widgets (`LcButton`, `LcText`, `LcTextFie
 ## Requirements
 
 - Windows 10/11 x64, NVDA 2024.1 or later (tested with 2026.1.1)
-- LINE for Windows 26.5.0.3975 (other Qt 6.6 builds are expected to work)
+- LINE for Windows 26.5.0.3975 (other Qt 6.6 builds are expected to work). **Install LINE from the Microsoft Store** (search for "LINE", publisher LY Corporation) for the best compatibility: that is the version LINE MR is developed and tested with. It installs LINE into `%LOCALAPPDATA%\LINE` and keeps it updated, so the bridge can be added there. Other installers may put LINE somewhere else or ship a different build.
+  แนะนำให้ติดตั้ง LINE จาก Microsoft Store (ค้นหา "LINE" ผู้เผยแพร่ LY Corporation) เพื่อให้ทำงานเข้ากันได้มากที่สุด เพราะเป็นรุ่นที่ใช้พัฒนาและทดสอบ LINE MR
 - To build: Visual Studio 2022 (C++ workload, includes CMake and Ninja), Python 3, and the Qt 6.6.3 MSVC SDK:
 
 ```powershell
