@@ -39,6 +39,8 @@ public:
 			m_transform = newState.transform();
 		if (dirty & QPaintEngine::DirtyOpacity)
 			m_opacity = newState.opacity();
+		if (dirty & QPaintEngine::DirtyBrush)
+			m_brush = newState.brush();
 		if (dirty & QPaintEngine::DirtyPen)
 			m_penAlpha = newState.pen().color().alpha();
 		if (dirty & (QPaintEngine::DirtyClipEnabled | QPaintEngine::DirtyClipPath | QPaintEngine::DirtyClipRegion))
@@ -118,8 +120,14 @@ private:
 
 	void recordShape(const QRectF &r)
 	{
-		if (m_opacity > 0.01)
-			m_out->shapes << m_transform.mapRect(r);
+		if (m_opacity <= 0.01)
+			return;
+		PaintedShape s;
+		s.rect = m_transform.mapRect(r);
+		s.brush = int(m_brush.style());
+		if (m_brush.style() == Qt::TexturePattern)
+			s.texture = m_brush.textureImage().isNull() ? m_brush.texture().size() : m_brush.textureImage().size();
+		m_out->shapes << s;
 	}
 
 	CaptureResult *m_out;
@@ -127,6 +135,7 @@ private:
 	qreal m_opacity = 1;
 	int m_penAlpha = 255;
 	bool m_clipped = false;
+	QBrush m_brush;
 };
 
 // Spare room right of and below the rendered area, for painting that runs a little past it.
@@ -268,10 +277,10 @@ CaptureResult captureRegionText(QWidget *w, const QRect &rect)
 			imagesInside << pi;
 	}
 	result.images = imagesInside;
-	QList<QRectF> shapesInside;
-	for (const QRectF &r : std::as_const(result.shapes)) {
-		if (r.bottom() > 0 && r.top() < area.height())
-			shapesInside << r;
+	QList<PaintedShape> shapesInside;
+	for (const PaintedShape &s : std::as_const(result.shapes)) {
+		if (s.rect.bottom() > 0 && s.rect.top() < area.height())
+			shapesInside << s;
 	}
 	result.shapes = shapesInside;
 	return result;

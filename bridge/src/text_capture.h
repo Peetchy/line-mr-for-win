@@ -33,13 +33,20 @@ struct PaintedImage {
 	bool clipped = false; // drawn with a clip set (LINE rounds photo corners that way)
 };
 
+// A path, rectangle or ellipse the widget drew.
+struct PaintedShape {
+	QRectF rect;   // bounding rectangle (device coordinates)
+	int brush = 0; // Qt::BrushStyle it was filled with
+	QSize texture; // size of the brush's image (pictures drawn as a filled shape)
+};
+
 struct CaptureResult {
 	QList<CapturedText> items;
 	int glyphRunsWithoutText = 0; // text drawn from glyph indexes only (not recoverable here)
 	int pixmaps = 0;              // pixmaps/images drawn (text may be baked into them)
 	QList<QRectF> pixmapRects;    // where they were drawn (device coordinates)
 	QList<PaintedImage> images;   // details of the same images, in paint order
-	QList<QRectF> shapes;         // paths / rectangles / ellipses drawn (bubbles, badges)
+	QList<PaintedShape> shapes;   // paths / rectangles / ellipses drawn (bubbles, badges)
 	bool skipped = false;         // not rendered (LINE was painting); use an earlier result
 };
 

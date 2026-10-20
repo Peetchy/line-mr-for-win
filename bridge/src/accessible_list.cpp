@@ -196,7 +196,8 @@ bool isFileSize(const QString &text)
 //    small play icon at its centre; an album is a grid of equal squares;
 //  - a sticker is a large transparent image without a clip, LINE emoji are smaller ones (~60 px);
 //  - a call is a small bubble (~85x76) holding a 24 px phone icon and its length or status;
-//  - pictures not downloaded yet leave only their frame (a large empty rectangle).
+//  - pictures LINE has not loaded leave only their frame (a large empty rectangle); a video's
+//    play button is drawn even then.
 // Returns the English label ("Sticker", ...) or nullptr; `callBubble` receives a call's bubble.
 const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fileSize, QRectF *callBubble)
 {
@@ -261,20 +262,33 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 		return "Sticker";
 	if (emoji > 0)
 		return "LINE emoji";
-	// Not downloaded yet: empty frames. Several equal squares are an album.
+	// Not loaded yet: empty frames. Several equal squares are an album; a video still has its play
+	// button (a local icon) at the centre of the frame.
 	int squares = 0;
 	bool frame = false;
-	for (const QRectF &r : cap.shapes) {
+	bool playButton = false;
+	for (const PaintedShape &s : cap.shapes) {
+		const QRectF &r = s.rect;
 		if (!inRow(r) || r.width() >= rowRect.width() - 20 || textInside(r))
 			continue;
-		if (r.width() >= 80 && r.width() <= 130 && qAbs(r.width() - r.height()) < 2)
+		if (r.width() >= 80 && r.width() <= 130 && qAbs(r.width() - r.height()) < 2) {
 			++squares;
-		else if (r.width() >= 120 && r.height() >= 120)
+		} else if (r.width() >= 120 && r.height() >= 120) {
 			frame = true;
+			for (const PaintedShape &icon : cap.shapes) {
+				const QRectF &ir = icon.rect;
+				if (ir.width() >= 24 && ir.width() <= 48 && qAbs(ir.width() - ir.height()) < 3
+				    && (ir.center() - r.center()).manhattanLength() < 12)
+					playButton = true;
+			}
+			playButton = playButton || centredIcon(r, 24, 48);
+		}
 	}
 	if (squares >= 4) // each tile is drawn twice
 		return "Photos";
-	return frame ? "Photo or video" : nullptr;
+	if (playButton)
+		return "Video";
+	return frame ? "Photo" : nullptr;
 }
 
 // A chat message row: sender, content, then time and read receipt (which LINE draws beside the

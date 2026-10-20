@@ -160,7 +160,6 @@ const QHash<QString, QString> &thaiLabels()
 		{ QStringLiteral("%1 unread"), QStringLiteral("ยังไม่อ่าน %1") },
 		{ QStringLiteral("Photo or sticker"), QStringLiteral("รูปภาพหรือสติกเกอร์") },
 		{ QStringLiteral("Photos"), QStringLiteral("อัลบั้มรูปภาพ") },
-		{ QStringLiteral("Photo or video"), QStringLiteral("รูปภาพหรือวิดีโอ") },
 		{ QStringLiteral("Sticker"), QStringLiteral("สติกเกอร์") },
 		{ QStringLiteral("LINE emoji"), QStringLiteral("อีโมจิ LINE") },
 		{ QStringLiteral("File"), QStringLiteral("ไฟล์") },
