@@ -17,9 +17,9 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
@@ -28,7 +28,7 @@ jobs:
 
       - name: Cache Qt SDK
         id: qt-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}\Qt
           key: qt-${{ env.QT_VERSION }}-win64_msvc2019_64-qtbase
@@ -52,7 +52,7 @@ jobs:
         shell: pwsh
         run: tools/build.ps1 -QtDir "${{ runner.temp }}\Qt\${{ env.QT_VERSION }}\msvc2019_64" -Config Release
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: lineMR-addon
           path: dist/*.nvda-addon
