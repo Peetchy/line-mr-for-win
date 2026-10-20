@@ -304,6 +304,14 @@ void pressMenuItem(QWidget *item)
 	QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(item);
 	if (QAccessibleActionInterface *actions = iface ? iface->actionInterface() : nullptr)
 		actions->doAction(QAccessibleActionInterface::pressAction());
+	// The item's clicked() runs the command (e.g. "Reply" opens the reply bar and focuses the
+	// message input), but LINE closes the menu only on a real mouse click: close it here, or it
+	// stays the active window and swallows what the user types.
+	QPointer<QWidget> menu(contextMenuOf(item));
+	QTimer::singleShot(100, menu, [menu] {
+		if (menu && menu->isVisible())
+			menu->hide();
+	});
 }
 
 // ---- Call windows --------------------------------------------------------------------------------
@@ -520,14 +528,22 @@ private:
 		m_menu = nullptr;
 		QPointer<QWidget> back = m_menuReturnFocus;
 		m_menuReturnFocus = nullptr;
-		// Back to where the menu was opened, unless the chosen item moved focus on purpose
-		// (e.g. "Reply" goes to the message input).
+		// The menu is a window of its own: give the keyboard back to the window it was opened from,
+		// to the widget the chosen item focused there (e.g. "Reply" focuses the message input) or
+		// else to where the menu was opened.
 		QTimer::singleShot(0, this, [back] {
-			QWidget *focus = QApplication::focusWidget();
-			if (back && back->isVisible() && (!focus || contextMenuOf(focus) || !focus->isVisible())) {
-				back->window()->activateWindow();
-				back->setFocus(Qt::PopupFocusReason);
-			}
+			if (!back || !back->isVisible())
+				return;
+			QWidget *window = back->window();
+			QWidget *target = window->focusWidget();
+			if (!target || !target->isVisible() || contextMenuOf(target))
+				target = back;
+			if (!window->isActiveWindow())
+				window->activateWindow();
+			target->setFocus(Qt::PopupFocusReason);
+			static int logged = 0;
+			if (logged++ < 5)
+				a11yLog("[menu] closed; focus to %s", target->metaObject()->className());
 		});
 	}
 
