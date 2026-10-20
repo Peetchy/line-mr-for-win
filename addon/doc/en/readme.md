@@ -13,6 +13,10 @@ LINE draws its own buttons and text, so on its own it exposes almost nothing to 
 
 After a LINE update the bridge may have to be installed again; LINE MR notices and asks again.
 
+## Updating LINE MR
+
+When NVDA starts, LINE MR checks GitHub for a newer release. If there is one, a dialog offers **Update now**, **Later** or **Skip this version**. Update now downloads the new version and hands it to NVDA, which asks you to confirm the installation and then to restart NVDA. To turn the check off or check right away: NVDA menu, Preferences, Settings, category "LINE MR". The command "Checks for a newer version of LINE MR" (no key by default) can be given a key in Input gestures.
+
 ## What works now
 
 - Login window: email and password fields, the log-in button, the "log in automatically" checkboxes, the QR-code instructions and the title bar buttons are named.

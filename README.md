@@ -14,6 +14,8 @@ Release notes and older versions: [releases](https://github.com/Peetchy/line-mr-
 2. Download the `.nvda-addon` file with the link above, open it while NVDA is running, and restart NVDA.
 3. Start LINE. LINE MR asks to install its bridge into LINE; choose **Yes**. LINE restarts with the bridge.
 
+Later versions are offered automatically: when NVDA starts, LINE MR checks for a new release and asks whether to update (NVDA settings, category "LINE MR", turns this off).
+
 [ดาวน์โหลดไฟล์ `.nvda-addon` รุ่นล่าสุด](https://github.com/Peetchy/line-mr-for-win/releases/latest/download/lineMR.nvda-addon) เปิดไฟล์ขณะที่ NVDA ทำงานอยู่ แล้วเปิด NVDA ใหม่ จากนั้นเปิด LINE และเลือก **ใช่** เมื่อ LINE MR ถามว่าจะติดตั้งตัวเชื่อมหรือไม่
 
 ## LINE on macOS

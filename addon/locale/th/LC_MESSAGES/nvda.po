@@ -97,3 +97,51 @@ msgstr "ปฏิเสธสายเรียกเข้าของ LINE (�
 
 msgid "Call declined"
 msgstr "ปฏิเสธสายแล้ว"
+
+msgid "Could not check for LINE MR updates."
+msgstr "ตรวจหาอัปเดต LINE MR ไม่ได้"
+
+msgid "LINE MR {version} is up to date."
+msgstr "LINE MR {version} เป็นรุ่นล่าสุดแล้ว"
+
+msgid ""
+"LINE MR {new} is available (installed: {old}).\n"
+"\n"
+"Update now? NVDA downloads and installs it, then asks to restart."
+msgstr ""
+"มี LINE MR รุ่น {new} ให้อัปเดตแล้ว (รุ่นที่ติดตั้งอยู่: {old})\n"
+"\n"
+"ต้องการอัปเดตตอนนี้หรือไม่ NVDA จะดาวน์โหลดและติดตั้ง แล้วถามให้เริ่ม NVDA ใหม่"
+
+msgid "LINE MR update"
+msgstr "อัปเดต LINE MR"
+
+msgid "&Update now"
+msgstr "อัปเดตตอนนี้ (&U)"
+
+msgid "&Later"
+msgstr "ไว้ทีหลัง (&L)"
+
+msgid "&Skip this version"
+msgstr "ข้ามรุ่นนี้ (&S)"
+
+msgid "Downloading LINE MR {version}"
+msgstr "กำลังดาวน์โหลด LINE MR {version}"
+
+msgid "Could not download the LINE MR update."
+msgstr "ดาวน์โหลดอัปเดต LINE MR ไม่ได้"
+
+msgid "LINE MR"
+msgstr "LINE MR"
+
+msgid "Check for LINE MR &updates when NVDA starts"
+msgstr "ตรวจหาอัปเดต LINE MR เมื่อเปิด NVDA (&U)"
+
+msgid "&Check for updates now"
+msgstr "ตรวจหาอัปเดตตอนนี้ (&C)"
+
+msgid "Checks for a newer version of LINE MR"
+msgstr "ตรวจหา LINE MR รุ่นใหม่"
+
+msgid "Checking for LINE MR updates"
+msgstr "กำลังตรวจหาอัปเดต LINE MR"
