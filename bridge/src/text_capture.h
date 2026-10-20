@@ -1,0 +1,46 @@
+// Recovers the text a widget draws by rendering it into a paint device whose engine records
+// every text item instead of rasterising it.
+//
+// LINE's LcText has no text property; on macOS its text was read through reverse-engineered
+// offsets. Recording QPainter text calls needs no offsets and survives LINE updates, as long
+// as LINE draws text through QPainter (and not from pre-rendered pixmaps).
+
+#pragma once
+
+#include <QtCore/QList>
+#include <QtCore/QPointF>
+#include <QtCore/QRect>
+#include <QtCore/QRectF>
+#include <QtCore/QString>
+
+class QWidget;
+
+namespace line_a11y {
+
+struct CapturedText {
+	QPointF pos; // baseline origin, in the rendered widget's coordinates
+	QString text;
+};
+
+struct CaptureResult {
+	QList<CapturedText> items;
+	int glyphRunsWithoutText = 0; // text drawn from glyph indexes only (not recoverable here)
+	int pixmaps = 0;              // pixmaps/images drawn (text may be baked into them)
+	QList<QRectF> pixmapRects;    // where they were drawn (device coordinates)
+	bool skipped = false;         // not rendered (LINE was painting); use an earlier result
+};
+
+// Renders `w` (and, if `children`, its children) and returns the text items in paint order.
+CaptureResult captureWidgetText(QWidget *w, bool children);
+
+// Renders only `rect` (in w's coordinates; e.g. one row of a list viewport) and returns the text
+// items whose baseline lies inside it, with positions relative to rect.topLeft().
+CaptureResult captureRegionText(QWidget *w, const QRect &rect);
+
+// Safe mode (set after repeated crashes): captureRegionText() renders nothing.
+void setSafeMode(bool on);
+
+// The captured items joined in reading order (top-to-bottom, then left-to-right).
+QString capturedTextInReadingOrder(const CaptureResult &r);
+
+} // namespace line_a11y

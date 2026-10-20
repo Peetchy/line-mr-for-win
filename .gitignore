@@ -1,0 +1,6 @@
+bridge/build/
+build/
+dist/
+__pycache__/
+*.pyc
+*.mo
