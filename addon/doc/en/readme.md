@@ -6,7 +6,7 @@ LINE draws its own buttons and text, so on its own it exposes almost nothing to 
 
 ## Installing
 
-**Recommended: install LINE from the Microsoft Store** (open Microsoft Store, search for "LINE" and choose the app from LY Corporation). LINE MR is developed and tested with the Microsoft Store version, so it gives the best compatibility. It installs LINE into `%LOCALAPPDATA%\LINE` and keeps it up to date. LINE from other sources may be installed somewhere else or be a different build, and the bridge may not install or work there.
+**Recommended: install [LINE from the Microsoft Store](https://apps.microsoft.com/detail/XPFCC4CD725961)** ("LINE Desktop" by LY Corporation; in the Microsoft Store app you can also search for "LINE"). LINE MR is developed and tested with the Microsoft Store version, so it gives the best compatibility. It installs LINE into `%LOCALAPPDATA%\LINE` and keeps it up to date. LINE from other sources may be installed somewhere else or be a different build, and the bridge may not install or work there.
 
 1. Install the add-on and restart NVDA.
 2. Start LINE (or switch to it). LINE MR asks to install its bridge into LINE. Choose **Yes**. LINE closes and starts again with the bridge.
