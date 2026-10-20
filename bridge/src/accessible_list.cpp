@@ -180,6 +180,103 @@ bool isReceipt(const QString &text)
 	return pattern.match(text.trimmed()).hasMatch();
 }
 
+// "ขนาด 2.6MB" / "Size: 388 KB" under a file's name.
+bool isFileSize(const QString &text)
+{
+	static const QRegularExpression pattern(QStringLiteral("^(ขนาด|Size:?)\\s*[\\d.,]+\\s*(B|KB|MB|GB)$"),
+	                                        QRegularExpression::CaseInsensitiveOption);
+	return pattern.match(text.trimmed()).hasMatch();
+}
+
+// What a message without (much) text is, from what LINE draws for it. ChatMessageData has no
+// properties and the row's delegate (ChatRecvStickerDelegateWidget, ...) paints without Qt events
+// or signals, so the drawing is all there is (measured on LINE 26.5):
+//  - text bubbles, date pills and notices are images with the text drawn inside them;
+//  - a photo is an opaque image drawn under a clip (rounded corners), a video the same with a
+//    small play icon at its centre; an album is a grid of equal squares;
+//  - a sticker is a large transparent image without a clip, LINE emoji are smaller ones (~60 px);
+//  - a call is a small bubble (~85x76) holding a 24 px phone icon and its length or status;
+//  - pictures not downloaded yet leave only their frame (a large empty rectangle).
+// Returns the English label ("Sticker", ...) or nullptr; `callBubble` receives a call's bubble.
+const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fileSize, QRectF *callBubble)
+{
+	if (fileSize)
+		return "File";
+	auto textInside = [&cap](const QRectF &r) {
+		const QRectF area = r.adjusted(-2, -2, 2, 2);
+		for (const CapturedText &it : cap.items) {
+			if (!it.text.trimmed().isEmpty() && area.contains(it.pos))
+				return true;
+		}
+		return false;
+	};
+	// Pictures cut off at the top belong to the row above (or show only their lower part).
+	auto inRow = [](const QRectF &r) { return r.top() >= -4; };
+	auto isAvatar = [](const PaintedImage &pi) {
+		return pi.rect.width() >= 30 && pi.rect.width() <= 45 && pi.rect.height() <= 45 && pi.rect.left() < 20;
+	};
+	auto centredIcon = [&cap](const QRectF &r, int minSide, int maxSide) {
+		for (const PaintedImage &icon : cap.images) {
+			const QRectF ir = icon.rect;
+			if (icon.alpha && ir.width() >= minSide && ir.width() <= maxSide && qAbs(ir.width() - ir.height()) < 3
+			    && (ir.center() - r.center()).manhattanLength() < 12)
+				return true;
+		}
+		return false;
+	};
+	int photos = 0, emoji = 0;
+	bool video = false, sticker = false;
+	for (const PaintedImage &pi : cap.images) {
+		const QRectF &r = pi.rect;
+		if (isAvatar(pi) || !inRow(r))
+			continue;
+		// A call: a small bubble with a phone icon inside (and its length or status as text).
+		if (r.height() >= 60 && r.height() <= 95 && r.width() <= 140) {
+			for (const PaintedImage &icon : cap.images) {
+				if (icon.alpha && icon.rect.width() >= 20 && icon.rect.width() <= 28 && r.contains(icon.rect)) {
+					*callBubble = r;
+					return "Call message";
+				}
+			}
+		}
+		if (r.width() < 48 || r.height() < 48 || textInside(r))
+			continue;
+		const bool large = r.width() >= 100 || r.height() >= 100;
+		if (large && (pi.clipped || !pi.alpha)) {
+			++photos;
+			video = video || centredIcon(r, 24, 48);
+		} else if (large && pi.clearCorners) {
+			sticker = true;
+		} else if (pi.clearCorners && !pi.clipped) {
+			++emoji;
+		}
+	}
+	if (video)
+		return "Video";
+	if (photos > 1)
+		return "Photos";
+	if (photos == 1)
+		return "Photo";
+	if (sticker)
+		return "Sticker";
+	if (emoji > 0)
+		return "LINE emoji";
+	// Not downloaded yet: empty frames. Several equal squares are an album.
+	int squares = 0;
+	bool frame = false;
+	for (const QRectF &r : cap.shapes) {
+		if (!inRow(r) || r.width() >= rowRect.width() - 20 || textInside(r))
+			continue;
+		if (r.width() >= 80 && r.width() <= 130 && qAbs(r.width() - r.height()) < 2)
+			++squares;
+		else if (r.width() >= 120 && r.height() >= 120)
+			frame = true;
+	}
+	if (squares >= 4) // each tile is drawn twice
+		return "Photos";
+	return frame ? "Photo or video" : nullptr;
+}
+
 // A chat message row: sender, content, then time and read receipt (which LINE draws beside the
 // bubble). Sent messages are drawn on the right and have no sender name.
 QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, bool *skipped)
@@ -219,24 +316,32 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	// a reply quote) starts a new part.
 	auto isThai = [](QChar c) { return c.unicode() >= 0x0E00 && c.unicode() <= 0x0E7F; };
 	QStringList content, trailing;
+	QList<qreal> trailingX;
 	bool receipt = false;
 	qreal minX = rowRect.width();
 	qreal maxRight = 0;
 	qreal lastX = -1000;
 	bool photoMenu = false;
+	bool fileSize = false;
+	// Received group messages start with the sender's name, beside the avatar at the top.
+	bool sender = false;
 	for (const Line &l : std::as_const(lines)) {
 		const QString t = cleanText(l.text);
 		if (t.isEmpty())
 			continue;
+		fileSize = fileSize || isFileSize(t);
 		if (isTimeOrReceipt(t)) {
 			receipt = receipt || isReceipt(t);
 			trailing << t;
+			trailingX << l.x;
 			continue;
 		}
 		if (isPhotoMenu(t)) {
 			photoMenu = true;
 			continue;
 		}
+		if (content.isEmpty())
+			sender = l.y < 18 && l.x < rowRect.width() * 0.3;
 		minX = qMin(minX, l.x);
 		maxRight = qMax(maxRight, l.right);
 		if (!content.isEmpty() && qAbs(l.x - lastX) <= 4) {
@@ -246,11 +351,25 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 		}
 		lastX = l.x;
 	}
-	if (content.isEmpty() && trailing.isEmpty())
+	QRectF callBubble;
+	const char *kind = messageKind(cap, rowRect, fileSize, &callBubble);
+	if (content.isEmpty() && trailing.isEmpty()) {
+		if (kind)
+			return label(kind);
 		return cap.pixmaps > 0 || photoMenu ? label("Photo or sticker") : QString();
-	// Date separators and notices are a single centred line without a time.
-	if (trailing.isEmpty())
+	}
+	// Date separators and notices are a single centred line without a time (as are tall pictures
+	// whose time is out of view: those have a kind).
+	if (trailing.isEmpty() && !kind)
 		return content.join(QLatin1StringView(", "));
+	// A call's length ("06:26") is drawn inside its bubble; the time it was made beside it.
+	QStringList callText;
+	for (qsizetype i = trailing.size() - 1; i >= 0 && !callBubble.isEmpty(); --i) {
+		if (trailingX[i] >= callBubble.left() && trailingX[i] < callBubble.right()) {
+			callText.prepend(trailing.takeAt(i));
+			trailingX.removeAt(i);
+		}
+	}
 	// Sent messages are drawn on the right. Rows without text (photos, stickers) are placed by
 	// their largest picture; small ones (avatars, icons) do not count.
 	bool own = receipt;
@@ -266,7 +385,14 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 		}
 		own = pictureX > rowRect.width() * 0.35;
 	}
-	if (content.isEmpty())
+	// The type comes after the sender's name, before what the message shows (file name, length).
+	if (kind) {
+		const qsizetype at = sender && !own ? 1 : 0;
+		content.insert(at, label(kind));
+		for (qsizetype i = 0; i < callText.size(); ++i)
+			content.insert(at + 1 + i, callText[i]);
+	}
+	else if (content.isEmpty() || (sender && content.size() == 1 && cap.pixmaps > 1))
 		content << label("Photo or sticker");
 	if (own)
 		content.prepend(label("You"));

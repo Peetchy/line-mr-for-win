@@ -11,6 +11,7 @@
 #include <QtCore/QPointF>
 #include <QtCore/QRect>
 #include <QtCore/QRectF>
+#include <QtCore/QSize>
 #include <QtCore/QString>
 
 class QWidget;
@@ -23,11 +24,22 @@ struct CapturedText {
 	qreal width = 0; // advance of the text, in the same coordinates
 };
 
+// An image or pixmap the widget drew.
+struct PaintedImage {
+	QRectF rect;          // where (device coordinates)
+	QSize size;           // the image's own size
+	bool alpha = false;   // has an alpha channel
+	bool clearCorners = false; // its four corner pixels are transparent (stickers, round icons)
+	bool clipped = false; // drawn with a clip set (LINE rounds photo corners that way)
+};
+
 struct CaptureResult {
 	QList<CapturedText> items;
 	int glyphRunsWithoutText = 0; // text drawn from glyph indexes only (not recoverable here)
 	int pixmaps = 0;              // pixmaps/images drawn (text may be baked into them)
 	QList<QRectF> pixmapRects;    // where they were drawn (device coordinates)
+	QList<PaintedImage> images;   // details of the same images, in paint order
+	QList<QRectF> shapes;         // paths / rectangles / ellipses drawn (bubbles, badges)
 	bool skipped = false;         // not rendered (LINE was painting); use an earlier result
 };
 

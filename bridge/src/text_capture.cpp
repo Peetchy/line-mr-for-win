@@ -9,6 +9,7 @@
 #include <QtGui/QTextItem>
 #include <QtGui/QFontMetricsF>
 #include <QtGui/QImage>
+#include <QtGui/QPainterPath>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
 
@@ -40,6 +41,8 @@ public:
 			m_opacity = newState.opacity();
 		if (dirty & QPaintEngine::DirtyPen)
 			m_penAlpha = newState.pen().color().alpha();
+		if (dirty & (QPaintEngine::DirtyClipEnabled | QPaintEngine::DirtyClipPath | QPaintEngine::DirtyClipRegion))
+			m_clipped = newState.isClipEnabled() && newState.clipOperation() != Qt::NoClip;
 	}
 
 	void drawTextItem(const QPointF &p, const QTextItem &ti) override
@@ -56,21 +59,34 @@ public:
 		m_out->items.push_back({ m_transform.map(p), text, width });
 	}
 
-	void drawPixmap(const QRectF &r, const QPixmap &, const QRectF &) override { recordPixmap(r); }
-	void drawImage(const QRectF &r, const QImage &, const QRectF &, Qt::ImageConversionFlags) override
+	void drawPixmap(const QRectF &r, const QPixmap &pm, const QRectF &) override
 	{
 		recordPixmap(r);
+		recordImage(r, pm.size(), pm.hasAlphaChannel(), [&pm] { return pm.toImage(); });
+	}
+	void drawImage(const QRectF &r, const QImage &image, const QRectF &, Qt::ImageConversionFlags) override
+	{
+		recordPixmap(r);
+		recordImage(r, image.size(), image.hasAlphaChannel(), [&image] { return image; });
 	}
 	void drawTiledPixmap(const QRectF &, const QPixmap &, const QPointF &) override { ++m_out->pixmaps; }
 	void drawPolygon(const QPointF *, int, PolygonDrawMode) override {}
 	void drawPolygon(const QPoint *, int, PolygonDrawMode) override {}
-	void drawRects(const QRectF *, int) override {}
-	void drawRects(const QRect *, int) override {}
+	void drawRects(const QRectF *rects, int n) override
+	{
+		for (int i = 0; i < n; ++i)
+			recordShape(rects[i]);
+	}
+	void drawRects(const QRect *rects, int n) override
+	{
+		for (int i = 0; i < n; ++i)
+			recordShape(rects[i]);
+	}
 	void drawLines(const QLineF *, int) override {}
 	void drawLines(const QLine *, int) override {}
-	void drawEllipse(const QRectF &) override {}
-	void drawEllipse(const QRect &) override {}
-	void drawPath(const QPainterPath &) override {}
+	void drawEllipse(const QRectF &r) override { recordShape(r); }
+	void drawEllipse(const QRect &r) override { recordShape(r); }
+	void drawPath(const QPainterPath &path) override { recordShape(path.boundingRect()); }
 	void drawPoints(const QPointF *, int) override {}
 	void drawPoints(const QPoint *, int) override {}
 
@@ -81,10 +97,36 @@ private:
 		m_out->pixmapRects << m_transform.mapRect(r);
 	}
 
+	template <typename ToImage>
+	void recordImage(const QRectF &r, const QSize &size, bool alpha, ToImage toImage)
+	{
+		if (m_opacity <= 0.01)
+			return;
+		PaintedImage pi;
+		pi.rect = m_transform.mapRect(r);
+		pi.size = size;
+		pi.alpha = alpha;
+		pi.clipped = m_clipped;
+		if (alpha && size.width() > 2 && size.height() > 2) {
+			const QImage image = toImage();
+			const int w = image.width() - 1, h = image.height() - 1;
+			pi.clearCorners = qAlpha(image.pixel(0, 0)) < 16 && qAlpha(image.pixel(w, 0)) < 16
+			               && qAlpha(image.pixel(0, h)) < 16 && qAlpha(image.pixel(w, h)) < 16;
+		}
+		m_out->images << pi;
+	}
+
+	void recordShape(const QRectF &r)
+	{
+		if (m_opacity > 0.01)
+			m_out->shapes << m_transform.mapRect(r);
+	}
+
 	CaptureResult *m_out;
 	QTransform m_transform;
 	qreal m_opacity = 1;
 	int m_penAlpha = 255;
+	bool m_clipped = false;
 };
 
 // Spare room right of and below the rendered area, for painting that runs a little past it.
@@ -220,6 +262,18 @@ CaptureResult captureRegionText(QWidget *w, const QRect &rect)
 	}
 	result.pixmapRects = pixmapsInside;
 	result.pixmaps = int(pixmapsInside.size());
+	QList<PaintedImage> imagesInside;
+	for (const PaintedImage &pi : std::as_const(result.images)) {
+		if (pi.rect.bottom() > 0 && pi.rect.top() < area.height())
+			imagesInside << pi;
+	}
+	result.images = imagesInside;
+	QList<QRectF> shapesInside;
+	for (const QRectF &r : std::as_const(result.shapes)) {
+		if (r.bottom() > 0 && r.top() < area.height())
+			shapesInside << r;
+	}
+	result.shapes = shapesInside;
 	return result;
 }
 
