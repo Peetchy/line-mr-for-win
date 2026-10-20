@@ -11,6 +11,7 @@
 #include "text_capture.h"
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
 #include <QtCore/QMetaObject>
@@ -19,6 +20,7 @@
 #include <QtWidgets/QApplication>
 
 #include <windows.h>
+#include <dbghelp.h>
 
 #include <atomic>
 
@@ -79,6 +81,47 @@ void checkPreviousSessions(QApplication *app)
 	});
 }
 
+// Crash dumps: LINE's heap-corruption crashes (0xc0000374) leave no dump (WER LocalDumps needs
+// administrator rights). Heap corruption is raised as an exception, so a vectored handler sees it
+// first and writes %LOCALAPPDATA%\LineMR\crash.dmp. Everything it needs is prepared here, at start-up:
+// the heap is not to be trusted at that point.
+using MiniDumpWriteDumpFn = BOOL(WINAPI *)(HANDLE, DWORD, HANDLE, MINIDUMP_TYPE, PMINIDUMP_EXCEPTION_INFORMATION,
+                                           PMINIDUMP_USER_STREAM_INFORMATION, PMINIDUMP_CALLBACK_INFORMATION);
+MiniDumpWriteDumpFn g_writeDump = nullptr;
+wchar_t g_dumpPath[MAX_PATH];
+
+LONG CALLBACK writeCrashDump(EXCEPTION_POINTERS *info)
+{
+	if (info->ExceptionRecord->ExceptionCode != 0xC0000374 /* STATUS_HEAP_CORRUPTION */)
+		return EXCEPTION_CONTINUE_SEARCH;
+	static LONG written = 0;
+	if (InterlockedExchange(&written, 1))
+		return EXCEPTION_CONTINUE_SEARCH;
+	const HANDLE file = CreateFileW(g_dumpPath, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (file != INVALID_HANDLE_VALUE) {
+		MINIDUMP_EXCEPTION_INFORMATION exception{ GetCurrentThreadId(), info, FALSE };
+		g_writeDump(GetCurrentProcess(), GetCurrentProcessId(), file,
+		            MINIDUMP_TYPE(MiniDumpWithIndirectlyReferencedMemory | MiniDumpWithThreadInfo
+		                          | MiniDumpWithUnloadedModules),
+		            &exception, nullptr, nullptr);
+		CloseHandle(file);
+	}
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+
+void installCrashDumpWriter()
+{
+	// LINE ships dbghelp.dll next to LINE.exe.
+	if (HMODULE dbghelp = LoadLibraryW(L"dbghelp.dll"))
+		g_writeDump = reinterpret_cast<MiniDumpWriteDumpFn>(GetProcAddress(dbghelp, "MiniDumpWriteDump"));
+	const QString path = QDir::toNativeSeparators(bridgeDirectory() + QStringLiteral("crash.dmp"));
+	if (!g_writeDump || path.size() >= MAX_PATH)
+		return;
+	path.toWCharArray(g_dumpPath);
+	g_dumpPath[path.size()] = L'\0';
+	AddVectoredExceptionHandler(1, writeCrashDump);
+}
+
 void startBridge()
 {
 	auto *app = qobject_cast<QApplication *>(QCoreApplication::instance());
@@ -90,6 +133,7 @@ void startBridge()
 	QAccessible::installFactory(lineAccessibleFactory);
 	enforceAccessibilityHandler("startBridge");
 	checkPreviousSessions(app);
+	installCrashDumpWriter();
 	installEventFilter(app);
 	startDiagnostics(app);
 	a11yLog("[bridge] started on %s (accessibility %s)", app->metaObject()->className(),

@@ -26,6 +26,8 @@ After a LINE update the bridge may have to be installed again; LINE MR notices a
 - Messages: each message reads as sender (or "You"), text, time and read receipt; photos and stickers read as "photo or sticker"; the list starts at the newest message. Home goes to the oldest loaded message (LINE then loads older ones; press Home again to go further back), End to the newest. New messages from others are announced while LINE is in front.
 - Context menus: the Applications key (or Shift+F10) on a message opens LINE's menu with focus on its first item; Up/Down and Home/End move, Enter or Space chooses, Escape closes it and returns to the message.
 - Incoming calls: the answer, answer-with-video and decline buttons are named; when the incoming-call window does not come to the front, its text is read out.
+- Pages that open in their own window are read: clicking a group's name or its member count (for example "(5)") opens the member list; members open their profile; the chat menu's Photos & videos, Links and Files open a window named after the chat. Focus starts on the page's first control and its texts are read. Pages that open inside the main window get focus too.
+- Picture messages (cards from official accounts such as banks) are pictures with the text drawn into them, so LINE gives no text to read: they are reported as "photo or sticker". Press NVDA+R on such a message to read its text with Windows OCR. When LINE could not download a card, it shows "Unable to load" with a "Try again" button, which is what you hear.
 
 ## Commands
 

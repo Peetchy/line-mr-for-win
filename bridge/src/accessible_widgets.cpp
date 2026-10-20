@@ -3,12 +3,14 @@
 #include "a11y_event_filter.h"
 #include "a11y_log.h"
 #include "accessible_list.h"
+#include "accessible_quick.h"
 #include "line_introspect.h"
 #include "qt_signal_utils.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QPointer>
 #include <QtCore/QSet>
+#include <QtCore/QTimer>
 #include <QtGui/QFontMetrics>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QTextCursor>
@@ -196,6 +198,10 @@ WidgetKind classifyWidget(const QWidget *w)
 		return WidgetKind::Input;
 	if (isLineListView(w))
 		return WidgetKind::List;
+	// The main window and chat windows already carry a useful title.
+	if (w->isWindow() && inheritsClass(w, "LcWindow")
+	    && !inheritsAnyClass(w, { "AllInOneWindow", "ChatWindow", "LcContextMenu" }))
+		return WidgetKind::Window;
 	if (inheritsAnyClass(w, { "LcContextMenu", "LcContextMenuItem", "LcCheckableContextMenuItem",
 	                          "LcCheckboxContextMenuItem", "LcContextMenuSeperator" }))
 		return WidgetKind::Menu;
@@ -212,8 +218,10 @@ WidgetKind classifyWidget(const QWidget *w)
 
 QAccessibleInterface *lineAccessibleFactory(const QString &key, QObject *object)
 {
-	if (!object || !object->isWidgetType())
+	if (!object)
 		return nullptr;
+	if (!object->isWidgetType())
+		return quickAccessibleFactory(key, object);
 	// Qt calls the factory once per class in the hierarchy; decide on the most-derived one.
 	if (key != QLatin1StringView(object->metaObject()->className()))
 		return nullptr;
@@ -232,6 +240,8 @@ QAccessibleInterface *lineAccessibleFactory(const QString &key, QObject *object)
 		return new LineAccessibleInput(w);
 	case WidgetKind::Menu:
 		return new LineAccessibleMenu(w);
+	case WidgetKind::Window:
+		return new LineAccessibleWindow(w);
 	case WidgetKind::List:
 		return new LineAccessibleList(w);
 	case WidgetKind::Delegate:
@@ -343,6 +353,7 @@ void LineAccessibleWidget::doAction(const QString &actionName)
 {
 	endListBrowsing();
 	if ((actionName == pressAction() || actionName == toggleAction()) && isPressable()) {
+		notePress(widget());
 		press();
 		return;
 	}
@@ -552,6 +563,7 @@ void LineAccessibleButton::doAction(const QString &actionName)
 {
 	endListBrowsing();
 	if ((actionName == pressAction() || actionName == toggleAction()) && widget()->isEnabled()) {
+		notePress(widget());
 		press();
 		return;
 	}
@@ -1117,6 +1129,30 @@ QAccessible::State LineAccessibleDelegate::state() const
 	return st;
 }
 
+// ---- LineAccessibleWindow ------------------------------------------------------------------------
+
+LineAccessibleWindow::LineAccessibleWindow(QWidget *w)
+	: QAccessibleWidget(w, QAccessible::Window)
+{
+}
+
+QString LineAccessibleWindow::text(QAccessible::Text t) const
+{
+	if (t != QAccessible::Name)
+		return QAccessibleWidget::text(t);
+	const QString title = cleanText(widget()->windowTitle());
+	if (!title.isEmpty() && title != QLatin1String("LINE"))
+		return title;
+	for (QWidget *child : widget()->findChildren<QWidget *>()) {
+		if (inheritsClass(child, "LcTitleBar")) {
+			if (const QString text = collectVisibleChildTexts(child, QStringLiteral(" ")); !text.isEmpty())
+				return text;
+			break;
+		}
+	}
+	return title.isEmpty() ? QStringLiteral("LINE") : title;
+}
+
 // ---- LineAccessibleMenu --------------------------------------------------------------------------
 
 LineAccessibleMenu::LineAccessibleMenu(QWidget *w)
@@ -1184,7 +1220,15 @@ void LineAccessibleMenu::press()
 		// An item LINE connected a signal to is pressed through it; otherwise it is clicked.
 		for (const char *signal : { "clicked()", "triggered()" }) {
 			if (isSignalConnected(guard, signal)) {
+				// clicked() runs the command (e.g. "Reply" opens the reply bar and focuses the message
+				// input), but LINE closes the menu only on a real mouse click: close it here, or it
+				// stays the active window and swallows what the user types.
+				QPointer<QWidget> menu(ancestorInheriting(guard, "LcContextMenu"));
 				emitSignal(guard, signal);
+				QTimer::singleShot(100, menu, [menu] {
+					if (menu && menu->isVisible())
+						menu->hide();
+				});
 				return;
 			}
 		}

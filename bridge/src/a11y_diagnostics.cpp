@@ -1,11 +1,13 @@
 #include "a11y_diagnostics.h"
 
 #include "a11y_log.h"
+#include "accessible_quick.h"
 #include "text_capture.h"
 
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QDirIterator>
 #include <QtCore/QFile>
+#include <QtCore/QMap>
 #include <QtCore/QMetaProperty>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QTextStream>
@@ -75,6 +77,21 @@ QString ownSignals(const QObject *o)
 	return parts.join(QLatin1Char(' '));
 }
 
+// Every method LINE's own classes declare (invokables and slots can be data getters).
+QString ownMethods(const QObject *o)
+{
+	static const char *const kinds[] = { "method", "signal", "slot", "constructor" };
+	QStringList parts;
+	for (const QMetaObject *mo = o->metaObject(); mo && mo->className()[0] != 'Q'; mo = mo->superClass()) {
+		for (int i = mo->methodOffset(); i < mo->methodCount(); ++i) {
+			const QMetaMethod m = mo->method(i);
+			parts << QStringLiteral("%1:%2 %3").arg(QLatin1String(kinds[m.methodType()]), QLatin1String(m.typeName()),
+			                                        QString::fromLatin1(m.methodSignature()));
+		}
+	}
+	return parts.join(QStringLiteral(" | "));
+}
+
 void dumpModel(QTextStream &out, const QString &indent, QAbstractItemView *view)
 {
 	QAbstractItemModel *m = view->model();
@@ -86,6 +103,10 @@ void dumpModel(QTextStream &out, const QString &indent, QAbstractItemView *view)
 	for (auto it = roles.begin(); it != roles.end(); ++it)
 		out << it.key() << ':' << it.value() << ' ';
 	out << '\n';
+	out << indent << "  view methods: " << ownMethods(view) << '\n';
+	out << indent << "  model methods: " << ownMethods(m) << '\n';
+	if (QObject *first = m->rowCount() > 0 ? m->data(m->index(0, 0), 257).value<QObject *>() : nullptr)
+		out << indent << "  item methods: " << ownMethods(first) << '\n';
 	for (int r = 0; r < std::min(m->rowCount(), kMaxModelRows); ++r) {
 		const QModelIndex idx = m->index(r, 0);
 		const QVariant item = m->data(idx, 257);
@@ -207,10 +228,38 @@ void writeDump(const QString &fileName, const QWidgetList &windows)
 		out << '\n';
 	}
 	int hidden = 0;
-	for (QWidget *w : windows)
-		hidden += w->isVisible() ? 0 : 1;
+	QMap<QByteArray, int> hiddenClasses;
+	for (QWidget *w : windows) {
+		if (!w->isVisible()) {
+			++hidden;
+			++hiddenClasses[w->metaObject()->className()];
+		}
+	}
+	for (auto it = hiddenClasses.cbegin(); it != hiddenClasses.cend(); ++it)
+		out << "hidden top-level " << it.key() << " x" << it.value() << '\n';
 	out << "(" << hidden << " hidden top-level widgets not dumped)\n";
 	a11yLog("[diag] wrote %s", qUtf8Printable(path));
+}
+
+// The hidden row templates LcListView paints message rows from (state of the last row painted).
+void writeDelegateDump(const QString &path)
+{
+	QFile f(path);
+	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
+		return;
+	QTextStream out(&f);
+	out.setEncoding(QStringConverter::Utf8);
+	bool first = false;
+	for (QWidget *w : QApplication::topLevelWidgets()) {
+		if (w->isVisible() || !QLatin1StringView(w->metaObject()->className()).endsWith(QLatin1StringView("DelegateWidget")))
+			continue;
+		out << "=== " << w->metaObject()->className() << '\n';
+		dumpWidget(out, w, 0, first);
+		if (w->width() > 0 && w->height() > 0) {
+			const QString text = capturedTextInReadingOrder(captureWidgetText(w, true));
+			out << "  painted: \"" << QString(text).replace(QLatin1Char('\n'), QStringLiteral(" / ")) << "\"\n";
+		}
+	}
 }
 
 } // namespace
@@ -218,6 +267,12 @@ void writeDump(const QString &fileName, const QWidgetList &windows)
 void writeWidgetDump()
 {
 	writeDump(QStringLiteral("widget-dump.txt"), QApplication::topLevelWidgets());
+	if (QFile f(bridgeDirectory() + QStringLiteral("quick-dump.txt")); f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+		QTextStream out(&f);
+		out.setEncoding(QStringConverter::Utf8);
+		dumpQuickWindows(out);
+	}
+	writeDelegateDump(bridgeDirectory() + QStringLiteral("delegates-dump.txt"));
 	writeResourceList(bridgeDirectory() + QStringLiteral("resource-list.txt"));
 }
 

@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
 
-find_package(Qt6 6.6 REQUIRED COMPONENTS Core Gui Widgets)
+find_package(Qt6 6.6 REQUIRED COMPONENTS Core Gui Widgets Qml Quick)
 
 add_library(line_a11y MODULE
     src/plugin_main.cpp
@@ -18,12 +18,13 @@ add_library(line_a11y MODULE
     src/qt_signal_utils.cpp
     src/accessible_list.cpp
     src/accessible_widgets.cpp
+    src/accessible_quick.cpp
     src/a11y_event_filter.cpp
     src/a11y_diagnostics.cpp
     src/a11y_announce.cpp
 )
 target_include_directories(line_a11y PRIVATE src)
-target_link_libraries(line_a11y PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::GuiPrivate Qt6::CorePrivate uiautomationcore oleaut32)
+target_link_libraries(line_a11y PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Qml Qt6::Quick Qt6::GuiPrivate Qt6::CorePrivate uiautomationcore oleaut32)
 target_compile_definitions(line_a11y PRIVATE QT_NO_KEYWORDS UNICODE _UNICODE _CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN
     $<$<CONFIG:Release,RelWithDebInfo>:QT_NO_DEBUG>)
 target_compile_options(line_a11y PRIVATE /W4 /utf-8 /permissive- /wd4100)

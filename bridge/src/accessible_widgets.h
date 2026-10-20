@@ -18,7 +18,7 @@ namespace line_a11y {
 QAccessibleInterface *lineAccessibleFactory(const QString &key, QObject *object);
 
 // Which bridge interface (if any) a widget should get.
-enum class WidgetKind { None, Input, Menu, List, Delegate, Button, Text };
+enum class WidgetKind { None, Input, Menu, List, Delegate, Button, Text, Window };
 WidgetKind classifyWidget(const QWidget *w);
 
 // If Qt cached a stock interface for a widget that should use a bridge interface (this happens
@@ -164,6 +164,14 @@ public:
 protected:
 	QString computeName() const override;
 	QString computeDescription() const override;
+};
+
+// LINE's secondary windows (photos & files, settings, ...) are all titled "LINE" or nothing; their
+// name is the title shown in their title bar.
+class LineAccessibleWindow : public QAccessibleWidget {
+public:
+	explicit LineAccessibleWindow(QWidget *w);
+	QString text(QAccessible::Text t) const override;
 };
 
 class LineAccessibleMenu : public LineAccessibleWidget {

@@ -21,7 +21,7 @@ LINE is a Qt 6 Widgets app. Its custom widgets (`LcButton`, `LcText`, `LcTextFie
 
 ```powershell
 python -m pip install aqtinstall markdown comtypes
-python -m aqt install-qt windows desktop 6.6.3 win64_msvc2019_64 --archives qtbase --outputdir $HOME\Qt
+python -m aqt install-qt windows desktop 6.6.3 win64_msvc2019_64 --archives qtbase qtdeclarative --outputdir $HOME\Qt
 ```
 
 ## Build, install, test
@@ -49,6 +49,7 @@ For a normal install, open `dist\lineMR-<version>.nvda-addon` with NVDA.
 - `python tools\post_keys.py down up contextmenu` and `python tools\focus_tag.py list_chats`: send keys / move focus inside LINE only (safe while the user works); `tools\nvda_speech_probe.py` presses global keys and prints NVDA's speech.
 - `python tests\verify_main_window.py`: main-window checks (tags, named tabs, readable list rows).
 - `python tools\focus_line.py`: brings LINE's window to the foreground (so NVDA reads it).
+- Crash dumps: on a heap-corruption crash the bridge writes `%LOCALAPPDATA%\LineMR\crash.dmp` (read it with WinDbg's `cdb -z`). Creating `%LOCALAPPDATA%\LineMR\heap-check` makes the bridge validate the heap around every render (slow). Dump requests also write `quick-dump.txt` (Qt Quick item trees) and `delegates-dump.txt` (LcListView row templates).
 - Bridge log: `%LOCALAPPDATA%\LineMR\logs\bridge.log`. What NVDA speaks appears in `%TEMP%\nvda.log` as `Speaking [...]` when NVDA's log level is "debug" or "input/output".
 - Crash breadcrumbs: the bridge's last 64 actions live in `%LOCALAPPDATA%\LineMR\breadcrumbs.bin`; after a crash they are copied into the next session's `bridge.log` (`[guard]` lines). `widget-dump.txt` requests also write `resource-list.txt` (LINE's call-related resource names), and an opened call window is dumped to `call-window.txt`.
 
@@ -61,6 +62,7 @@ For a normal install, open `dist\lineMR-<version>.nvda-addon` with NVDA.
 | `bridge/src/line_introspect.*` | Class/property helpers, icon names, Thai/English labels, reading order |
 | `bridge/src/accessible_widgets.*` | Buttons, checkboxes, texts, inputs, menus |
 | `bridge/src/accessible_list.*` | `LcListView` rows (chat list, friends, messages) |
+| `bridge/src/accessible_quick.*` | LINE's Qt Quick (QML) windows: member list, profiles, ... |
 | `bridge/src/a11y_announce.*` | UIA notification announcements |
 | `bridge/src/a11y_event_filter.*`, `a11y_diagnostics.*` | Event fixes, on-demand dumps |
 | `addon/appModules/line/` | NVDA app module (`bridge.py` installs and checks the DLL) |
@@ -69,7 +71,7 @@ For a normal install, open `dist\lineMR-<version>.nvda-addon` with NVDA.
 
 ## Status
 
-- Done: login window; keyboard access (Tab to every control, Space/Enter); main window (sidebar, chat list, friend list, message list, chat header and input bar); chat-list browsing with arrows; Home/End in messages; keyboard context menus; add-on commands (Alt+1/2/3, Alt+L/M/I, NVDA+Alt+1…9); new-message announcements (untested with a real incoming message); crash guard; bridge install/update from NVDA.
+- Done: login window; keyboard access (Tab to every control, Space/Enter); main window (sidebar, chat list, friend list, message list, chat header and input bar); chat-list browsing with arrows; Home/End in messages; keyboard context menus; Qt Quick pages (member list, profiles) and other windows read and focused when opened; heap-corruption crash fixed; add-on commands (Alt+1/2/3, Alt+L/M/I, NVDA+Alt+1…9); new-message announcements (untested with a real incoming message); crash guard; bridge install/update from NVDA.
 - Next: message kinds (stickers vs photos, files), section folding state, error/notice announcements, call window (incoming-call buttons are named; the in-call view is partly Qt Quick and not yet checked).
 
 ## License

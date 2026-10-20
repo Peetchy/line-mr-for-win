@@ -63,8 +63,15 @@ DIALOG_WINDOW_CLASSES = frozenset({
 })
 
 
+#: LINE windows that are not dialogs.
+MAIN_WINDOW_CLASSES = frozenset({
+	"AllInOneWindow",
+	"ChatWindow",
+})
+
+
 class DialogWindow(Dialog):
-	"""A LINE window that is really a dialog (login): NVDA reads its static texts on entry."""
+	"""A LINE window that is really a dialog (login, Qt Quick pages): NVDA reads its texts on entry."""
 
 	role = controlTypes.Role.DIALOG
 
@@ -80,7 +87,13 @@ class AppModule(appModuleHandler.AppModule):
 		className = _uiaClassName(obj)
 		if className.startswith(("shadow_corner_", "shadow_side_")):
 			clsList.insert(0, ShadowWindow)
-		elif className in DIALOG_WINDOW_CLASSES:
+		elif className in DIALOG_WINDOW_CLASSES or (
+			# LINE's other windows (photos & files, settings, Qt Quick pages such as the member list
+			# and profiles) work like dialogs; the main window and chat windows do not.
+			obj.role == controlTypes.Role.WINDOW
+			and ("_QMLTYPE_" in className or className.endswith("Window"))
+			and className not in MAIN_WINDOW_CLASSES
+		):
 			clsList.insert(0, DialogWindow)
 		elif obj.role in (controlTypes.Role.GROUPING, controlTypes.Role.PANE) and (
 			className in LAYOUT_CLASSES or className.endswith("Panel")

@@ -20,6 +20,9 @@ void installEventFilter(QApplication *app);
 // stop sending focus back to a list LINE pulled it away from.
 void endListBrowsing();
 
+// A control was pressed (keyboard or screen reader): a panel it opens gets focus (see the .cpp).
+void notePress(QWidget *pressed);
+
 // Is the user browsing `list` (focus there, or briefly pulled into the open chat by LINE)?
 bool isBrowsingList(const QWidget *list);
 

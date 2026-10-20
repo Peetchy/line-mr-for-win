@@ -155,6 +155,7 @@ const QHash<QString, QString> &thaiLabels()
 		{ QStringLiteral("%1 members"), QStringLiteral("สมาชิก %1 คน") },
 		{ QStringLiteral("%1 unread"), QStringLiteral("ยังไม่อ่าน %1") },
 		{ QStringLiteral("Photo or sticker"), QStringLiteral("รูปภาพหรือสติกเกอร์") },
+		{ QStringLiteral("Photo"), QStringLiteral("รูปภาพ") },
 		{ QStringLiteral("You"), QStringLiteral("คุณ") },
 		{ QStringLiteral("Messages"), QStringLiteral("ข้อความ") },
 		{ QStringLiteral("Services"), QStringLiteral("บริการ") },

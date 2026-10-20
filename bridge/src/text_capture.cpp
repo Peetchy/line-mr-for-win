@@ -2,12 +2,16 @@
 
 #include "a11y_log.h"
 
+#include <QtCore/QFile>
+
 #include <QtGui/QPaintDevice>
 #include <QtGui/QPaintEngine>
 #include <QtGui/QTextItem>
 #include <QtGui/QImage>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
+
+#include <windows.h>
 
 #include <algorithm>
 #include <cmath>
@@ -81,14 +85,19 @@ private:
 	int m_penAlpha = 255;
 };
 
+// Spare room right of and below the rendered area, for painting that runs a little past it.
+constexpr int kMargin = 64;
+
 // A real QImage (so code in LINE that inspects or casts the painter's device to QImage, or
 // writes pixels into it, stays within valid memory) whose paint engine records text instead of
 // rasterising. LINE crashed with heap corruption while message rows with images were rendered
-// into the previous, bare QPaintDevice.
+// into the previous, bare QPaintDevice. (Rendering at an offset inside a larger image loses the
+// text of tall message rows: LcListView paints its rows relative to the device origin.)
 class TextCaptureDevice final : public QImage {
 public:
 	TextCaptureDevice(const QSize &size, int dpi, CaptureResult *out)
-		: QImage(size.expandedTo(QSize(1, 1)), QImage::Format_ARGB32_Premultiplied), m_engine(out)
+		: QImage(size.expandedTo(QSize(1, 1)) + QSize(kMargin, kMargin), QImage::Format_ARGB32_Premultiplied),
+		  m_engine(out)
 	{
 		const int dotsPerMeter = int(std::lround(dpi / 0.0254));
 		setDotsPerMeterX(dotsPerMeter);
@@ -104,6 +113,24 @@ private:
 
 bool g_capturing = false;
 bool g_safeMode = false;
+
+// Diagnostics (%LOCALAPPDATA%\LineMR\heap-check exists at start-up): validate the whole heap
+// around every render and log the first corruption found, to tell whether rendering causes it.
+bool heapCheckEnabled()
+{
+	static const bool on = QFile::exists(bridgeDirectory() + QStringLiteral("heap-check"));
+	return on;
+}
+
+void checkHeap(const char *when, const QWidget *w)
+{
+	static bool reported = false;
+	if (reported || !heapCheckEnabled() || HeapValidate(GetProcessHeap(), 0, nullptr))
+		return;
+	reported = true;
+	a11yLog("[heap] corrupt %s rendering %s", when, w->metaObject()->className());
+}
+
 
 // Rendering re-enters LINE's paint code: never while LINE itself is painting (a screen-reader
 // query can arrive from a message loop LINE runs inside a paint event) or while another capture
@@ -142,7 +169,9 @@ CaptureResult captureWidgetText(QWidget *w, bool children)
 	if (children)
 		flags |= QWidget::DrawChildren;
 	breadcrumb("render %s %dx%d%s", w->metaObject()->className(), w->width(), w->height(), children ? " +children" : "");
+	checkHeap("before", w);
 	w->render(&dev, QPoint(), QRegion(), flags);
+	checkHeap("after", w);
 	breadcrumb("render done");
 	return result;
 }
@@ -172,7 +201,9 @@ CaptureResult captureRegionText(QWidget *w, const QRect &rect)
 	// neighbouring rows may still draw: keep what lies inside the area.
 	breadcrumb("render region of %s at %d,%d %dx%d", w->metaObject()->className(), area.x(), area.y(), area.width(),
 	           area.height());
+	checkHeap("before", w);
 	w->render(&dev, QPoint(), QRegion(area), QWidget::DrawChildren);
+	checkHeap("after", w);
 	breadcrumb("render done");
 	QList<CapturedText> inside;
 	for (const CapturedText &it : std::as_const(result.items)) {

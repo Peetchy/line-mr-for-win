@@ -31,11 +31,11 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}\Qt
-          key: qt-${{ env.QT_VERSION }}-win64_msvc2019_64-qtbase
+          key: qt-${{ env.QT_VERSION }}-win64_msvc2019_64-qtbase-qtdeclarative
 
       - name: Install Qt SDK
         if: steps.qt-cache.outputs.cache-hit != 'true'
-        run: python -m aqt install-qt windows desktop ${{ env.QT_VERSION }} win64_msvc2019_64 --archives qtbase --outputdir "${{ runner.temp }}\Qt"
+        run: python -m aqt install-qt windows desktop ${{ env.QT_VERSION }} win64_msvc2019_64 --archives qtbase qtdeclarative --outputdir "${{ runner.temp }}\Qt"
 
       - name: Check add-on sources compile
         run: python -m compileall -q addon tools tests

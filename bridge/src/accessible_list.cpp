@@ -31,6 +31,15 @@ constexpr const char *kCurrentIndexSignal = "currentIndexChanged()";
 // Painted row texts are reused this long (NVDA asks for a name several times per focus change).
 constexpr qint64 kRowTextTtlMs = 1500;
 
+// The bridge interface of `view`, looked up whenever it is needed. Never keep an interface's id
+// from its constructor: QAccessible::uniqueId() there registers the interface in Qt's cache before
+// Qt does, Qt then registers it a second time, and when the view is destroyed Qt deletes it twice
+// (LINE's heap-corruption crashes when a window with a list closed or a photo grid went away).
+LineAccessibleList *listFor(const QPointer<QAbstractItemView> &view)
+{
+	return view ? dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(view.data())) : nullptr;
+}
+
 // ---- Row text from the model's data object ------------------------------------------------------
 
 // LINE's list models hand out one QObject per row (ChatData, ...). Most expose the row's content as
@@ -444,9 +453,19 @@ LineAccessibleList::~LineAccessibleList()
 {
 	for (const QMetaObject::Connection &c : std::as_const(m_connections))
 		QObject::disconnect(c);
-	for (QAccessible::Id id : std::as_const(m_items)) {
-		if (QAccessible::accessibleInterface(id))
-			QAccessible::deleteAccessibleInterface(id);
+	for (const QMetaObject::Connection &c : std::as_const(m_modelConnections))
+		QObject::disconnect(c);
+	// This destructor runs inside QAccessibleCache::deleteInterface() (the view was destroyed): do not
+	// change Qt's cache from here. The row items are invalid once the view is gone; delete them on the
+	// next turn of the event loop.
+	const QList<QAccessible::Id> items = m_items.values();
+	if (!items.isEmpty()) {
+		QTimer::singleShot(0, QCoreApplication::instance(), [items] {
+			for (QAccessible::Id id : items) {
+				if (QAccessible::accessibleInterface(id))
+					QAccessible::deleteAccessibleInterface(id);
+			}
+		});
 	}
 }
 
@@ -460,22 +479,49 @@ void LineAccessibleList::connectView()
 	QAbstractItemView *v = view();
 	if (!v)
 		return;
-	const QAccessible::Id listId = QAccessible::uniqueId(this);
-	auto notify = [listId] {
-		if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::accessibleInterface(listId)))
+	const QPointer<QAbstractItemView> listView = v;
+	auto notify = [listView] {
+		if (auto *list = listFor(listView))
+			list->notifyCurrentRow();
+	};
+	if (const int sig = signalIndex(v, kCurrentIndexSignal); sig >= 0)
+		m_connections << connectRaw(v, sig, v, [notify](void **) { notify(); });
+	connectModel();
+}
+
+void LineAccessibleList::checkModel() const
+{
+	QAbstractItemView *v = view();
+	if (v && v->model() != m_model.data())
+		const_cast<LineAccessibleList *>(this)->connectModel();
+}
+
+// LINE gives the view a new model (and selection model) for each chat it opens: follow it, and
+// forget what the old model's rows said.
+void LineAccessibleList::connectModel()
+{
+	for (const QMetaObject::Connection &c : std::as_const(m_modelConnections))
+		QObject::disconnect(c);
+	m_modelConnections.clear();
+	m_painted.clear();
+	QAbstractItemView *v = view();
+	m_model = v ? v->model() : nullptr;
+	if (!v)
+		return;
+	const QPointer<QAbstractItemView> listView = v;
+	auto notify = [listView] {
+		if (auto *list = listFor(listView))
 			list->notifyCurrentRow();
 	};
 	if (QItemSelectionModel *sm = v->selectionModel())
-		m_connections << QObject::connect(sm, &QItemSelectionModel::currentChanged, v, notify);
-	if (const int sig = signalIndex(v, kCurrentIndexSignal); sig >= 0)
-		m_connections << connectRaw(v, sig, v, [notify](void **) { notify(); });
+		m_modelConnections << QObject::connect(sm, &QItemSelectionModel::currentChanged, v, notify);
 	if (QAbstractItemModel *model = v->model()) {
-		auto prune = [listId] {
-			if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::accessibleInterface(listId)))
+		auto prune = [listView] {
+			if (auto *list = listFor(listView))
 				list->schedulePrune();
 		};
-		auto forget = [listId] {
-			if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::accessibleInterface(listId)))
+		auto forget = [listView] {
+			if (auto *list = listFor(listView))
 				list->m_painted.clear();
 		};
 		if (ancestorInheriting(v, "ChatMessageView")) {
@@ -483,14 +529,14 @@ void LineAccessibleList::connectView()
 			// back loads many rows at once (or resets the model) and is not announced.
 			auto loaded = std::make_shared<QElapsedTimer>();
 			loaded->start();
-			m_connections << QObject::connect(model, &QAbstractItemModel::modelReset, v, [loaded] { loaded->start(); });
-			m_connections << QObject::connect(model, &QAbstractItemModel::rowsInserted, v,
-				[listId, loaded](const QModelIndex &, int first, int last) {
-					auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::accessibleInterface(listId));
+			m_modelConnections << QObject::connect(model, &QAbstractItemModel::modelReset, v, [loaded] { loaded->start(); });
+			m_modelConnections << QObject::connect(model, &QAbstractItemModel::rowsInserted, v,
+				[listView, loaded](const QModelIndex &, int first, int last) {
+					auto *list = listFor(listView);
 					if (!list || last - first > 2 || loaded->elapsed() < 2000 || last != list->rowCount() - 1)
 						return;
-					QTimer::singleShot(400, list->view(), [listId] {
-						auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::accessibleInterface(listId));
+					QTimer::singleShot(400, list->view(), [listView] {
+						auto *list = listFor(listView);
 						QAbstractItemView *v = list ? list->view() : nullptr;
 						if (!v || !v->isVisible())
 							return;
@@ -503,7 +549,7 @@ void LineAccessibleList::connectView()
 					});
 				});
 		}
-		m_connections << QObject::connect(model, &QAbstractItemModel::rowsRemoved, v, prune)
+		m_modelConnections << QObject::connect(model, &QAbstractItemModel::rowsRemoved, v, prune)
 		              << QObject::connect(model, &QAbstractItemModel::modelReset, v, prune)
 		              << QObject::connect(model, &QAbstractItemModel::layoutChanged, v, prune)
 		              << QObject::connect(model, &QAbstractItemModel::rowsRemoved, v, forget)
@@ -518,9 +564,9 @@ void LineAccessibleList::schedulePrune() const
 	if (!v || m_prunePending)
 		return;
 	m_prunePending = true;
-	const QAccessible::Id id = QAccessible::uniqueId(const_cast<LineAccessibleList *>(this));
-	QTimer::singleShot(0, v, [id] {
-		auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::accessibleInterface(id));
+	const QPointer<QAbstractItemView> listView = v;
+	QTimer::singleShot(0, v, [listView] {
+		auto *list = listFor(listView);
 		if (!list)
 			return;
 		list->m_prunePending = false;
@@ -561,7 +607,12 @@ QString LineAccessibleList::paintedRowText(int row, QObject *data) const
 	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
 	const quintptr key = data ? quintptr(data) : quintptr(row) + 1;
 	const qint64 now = clock().elapsed();
-	const auto cached = m_painted.constFind(key);
+	auto cached = m_painted.constFind(key);
+	// A message object freed and another one created at the same address is not the same row.
+	if (cached != m_painted.cend() && data && cached->object.data() != data) {
+		m_painted.remove(key);
+		cached = m_painted.cend();
+	}
 	if (cached != m_painted.cend() && now - cached->at < kRowTextTtlMs)
 		return cached->text;
 	const QRect r = v->visualRect(idx);
@@ -573,9 +624,9 @@ QString LineAccessibleList::paintedRowText(int row, QObject *data) const
 	if (skipped) {
 		// LINE was painting: answer with what we knew and read the row again shortly; NVDA
 		// hears about the real text through a name change.
-		const QAccessible::Id listId = QAccessible::uniqueId(const_cast<LineAccessibleList *>(this));
-		QTimer::singleShot(300, v, [listId, row] {
-			auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::accessibleInterface(listId));
+		const QPointer<QAbstractItemView> listView = v;
+		QTimer::singleShot(300, v, [listView, row] {
+			auto *list = listFor(listView);
 			if (!list || row >= list->rowCount())
 				return;
 			QAccessibleInterface *item = list->itemAt(row);
@@ -593,7 +644,7 @@ QString LineAccessibleList::paintedRowText(int row, QObject *data) const
 		text = cached->text;
 	if (m_painted.size() > 5000)
 		m_painted.clear();
-	m_painted.insert(key, { text, now });
+	m_painted.insert(key, { text, now, data });
 	return text;
 }
 
@@ -619,6 +670,9 @@ void LineAccessibleList::focusLastVisibleRow()
 			return;
 		}
 	}
+	// Only the text-less part of a tall row (a picture message) is on screen: scroll to the newest
+	// row that says something instead of leaving the oldest row current.
+	focusEdgeRow(true);
 }
 
 void LineAccessibleList::focusEdgeRow(bool last)
@@ -627,6 +681,8 @@ void LineAccessibleList::focusEdgeRow(bool last)
 	const int rows = rowCount();
 	if (!v || rows == 0)
 		return;
+	// Rows LINE just added have no position until the view's delayed layout has run.
+	v->doItemsLayout();
 	const int step = last ? -1 : 1;
 	int target = last ? rows - 1 : 0;
 	// The rows at the ends can be blank spacers: take the first one from that end with text.
@@ -713,6 +769,7 @@ QAccessibleInterface *LineAccessibleList::itemAt(int row) const
 
 int LineAccessibleList::rowCount() const
 {
+	checkModel();
 	QAbstractItemView *v = view();
 	return v && v->model() ? v->model()->rowCount(v->rootIndex()) : 0;
 }

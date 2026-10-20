@@ -4,7 +4,7 @@
 
 .PARAMETER QtDir
   Qt 6.6.3 MSVC SDK (headers + import libs). Get it with:
-  python -m aqt install-qt windows desktop 6.6.3 win64_msvc2019_64 --archives qtbase --outputdir $HOME\Qt
+  python -m aqt install-qt windows desktop 6.6.3 win64_msvc2019_64 --archives qtbase qtdeclarative --outputdir $HOME\Qt
 #>
 param(
 	[string]$QtDir = "$HOME\Qt\6.6.3\msvc2019_64",

@@ -4,6 +4,7 @@
 #include "a11y_diagnostics.h"
 #include "a11y_log.h"
 #include "accessible_list.h"
+#include "accessible_quick.h"
 #include "accessible_widgets.h"
 #include "line_introspect.h"
 #include "qt_signal_utils.h"
@@ -20,6 +21,7 @@
 #include <QtGui/private/qguiapplication_p.h>
 #include <QtGui/qpa/qplatformaccessibility.h>
 #include <QtGui/qpa/qplatformintegration.h>
+#include <QtQuick/QQuickWindow>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
@@ -160,13 +162,67 @@ QWidget *firstContentTabStop(QWidget *window)
 	return nullptr;
 }
 
+// ---- Pages opened by a press ---------------------------------------------------------------------
+//
+// A press that opens a panel inside the window (profile, settings page, search) leaves focus on the
+// pressed control, so NVDA says nothing about the new page. Panels shown shortly after a press are
+// remembered, and focus moves to the first control of the outermost one.
+
+QPointer<QWidget> g_pressed;
+QElapsedTimer g_pressTimer;
+QPointer<QWidget> g_newContent;
+
+bool pressIsRecent()
+{
+	return g_pressed && g_pressTimer.isValid() && g_pressTimer.elapsed() < 1500;
+}
+
+void noteShownAfterPress(QWidget *w)
+{
+	QWidget *pressed = g_pressed;
+	if (w->isWindow() || w->window() != pressed->window() || w == pressed || w->isAncestorOf(pressed)
+	    || pressed->isAncestorOf(w) || w->width() < 80 || w->height() < 40 || ancestorInheriting(w, "LcTitleBar"))
+		return;
+	if (g_newContent && (g_newContent == w || g_newContent->isAncestorOf(w)))
+		return;
+	if (!g_newContent || w->isAncestorOf(g_newContent))
+		g_newContent = w;
+}
+
+void moveFocusToNewContent()
+{
+	QWidget *content = g_newContent;
+	g_newContent = nullptr;
+	if (!content || !content->isVisible() || !content->window()->isActiveWindow())
+		return;
+	QWidget *focus = QApplication::focusWidget();
+	if (focus && focus->isVisible() && focus != g_pressed.data() && !focus->isAncestorOf(content))
+		return; // LINE (or the user) already put focus somewhere on purpose
+	if (focus && content->isAncestorOf(focus))
+		return;
+	QList<QWidget *> stops, titleBar;
+	collectTabStops(content, stops, titleBar, false);
+	// A page built around a list (friends, chats, search results) starts in the list.
+	std::stable_partition(stops.begin(), stops.end(), [](QWidget *stop) { return isLineListView(stop); });
+	for (QWidget *stop : std::as_const(stops) + titleBar) {
+		if (stop->isVisible() && stop->isEnabled()) {
+			static int logged = 0;
+			if (logged++ < 10)
+				a11yLog("[keyboard] new %s after a press: focus to %s", content->metaObject()->className(),
+				        stop->metaObject()->className());
+			stop->setFocus(Qt::TabFocusReason);
+			return;
+		}
+	}
+}
+
 void pressWithKeyboard(QWidget *w)
 {
 	QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(w);
 	QAccessibleActionInterface *actions = iface ? iface->actionInterface() : nullptr;
 	if (!actions)
 		return;
-	actions->doAction(QAccessibleActionInterface::pressAction());
+	actions->doAction(QAccessibleActionInterface::pressAction()); // also notes the press
 	// When the press switches the view (e.g. "Log in with smartphone >" swaps the login panel),
 	// the pressed control disappears and Qt hands focus to whatever follows it in the chain.
 	// Start at the top of the new view instead.
@@ -303,15 +359,7 @@ void pressMenuItem(QWidget *item)
 {
 	QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(item);
 	if (QAccessibleActionInterface *actions = iface ? iface->actionInterface() : nullptr)
-		actions->doAction(QAccessibleActionInterface::pressAction());
-	// The item's clicked() runs the command (e.g. "Reply" opens the reply bar and focuses the
-	// message input), but LINE closes the menu only on a real mouse click: close it here, or it
-	// stays the active window and swallows what the user types.
-	QPointer<QWidget> menu(contextMenuOf(item));
-	QTimer::singleShot(100, menu, [menu] {
-		if (menu && menu->isVisible())
-			menu->hide();
-	});
+		actions->doAction(QAccessibleActionInterface::pressAction()); // also closes the menu
 }
 
 // ---- Call windows --------------------------------------------------------------------------------
@@ -391,8 +439,20 @@ public:
 		default:
 			break;
 		}
-		if (!watched->isWidgetType())
+		if (!watched->isWidgetType()) {
+			if (isQuickWindow(watched)) {
+				auto *window = static_cast<QQuickWindow *>(watched);
+				if (event->type() == QEvent::Show)
+					quickWindowShown(window);
+				else if (event->type() == QEvent::KeyPress) {
+					auto *key = static_cast<QKeyEvent *>(event);
+					if (!key->isAutoRepeat() && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier))
+					    && handleQuickKey(window, key->key()))
+						return true;
+				}
+			}
 			return false;
+		}
 		auto *w = static_cast<QWidget *>(watched);
 		switch (event->type()) {
 		case QEvent::Polish:
@@ -406,8 +466,21 @@ public:
 			tagWidgetsIn(w);
 			if (w->isWindow())
 				windowShown(w);
+			else if (pressIsRecent())
+				noteShownAfterPress(w);
 			if (isContextMenu(w))
 				menuShown(w);
+			break;
+		case QEvent::WindowActivate:
+			// A dialog window LINE opens with nothing focused: start at its first control.
+			if (w->isWindow() && !isContextMenu(w) && !w->focusWidget()) {
+				QPointer<QWidget> window(w);
+				QTimer::singleShot(150, w, [window] {
+					if (window && window->isActiveWindow() && !window->focusWidget())
+						if (QWidget *first = firstContentTabStop(window))
+							first->setFocus(Qt::TabFocusReason);
+				});
+			}
 			break;
 		case QEvent::Hide:
 			if (w->isWindow())
@@ -645,6 +718,15 @@ void installEventFilter(QApplication *app)
 {
 	g_filter = new A11yEventFilter(app);
 	app->installEventFilter(g_filter);
+}
+
+void notePress(QWidget *pressed)
+{
+	g_pressed = pressed;
+	g_pressTimer.start();
+	g_newContent = nullptr;
+	if (pressed)
+		QTimer::singleShot(450, pressed->window(), [] { moveFocusToNewContent(); });
 }
 
 bool isBrowsingList(const QWidget *list)

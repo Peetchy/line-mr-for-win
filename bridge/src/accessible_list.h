@@ -12,10 +12,12 @@
 
 #include <QtCore/QHash>
 #include <QtCore/QList>
+#include <QtCore/QPointer>
 #include <QtGui/QAccessible>
 #include <QtWidgets/QAccessibleWidget>
 
 QT_BEGIN_NAMESPACE
+class QAbstractItemModel;
 class QAbstractItemView;
 QT_END_NAMESPACE
 
@@ -60,6 +62,9 @@ public:
 
 private:
 	void connectView();
+	void connectModel();
+	// Reconnects when the view got a new model.
+	void checkModel() const;
 	// Drops items past the end once the model has settled after rows went away.
 	void schedulePrune() const;
 
@@ -67,10 +72,13 @@ private:
 	struct PaintedText {
 		QString text;
 		qint64 at = 0;
+		QPointer<QObject> object; // the row's data object the text belongs to
 	};
 	mutable QHash<quintptr, PaintedText> m_painted;
 	mutable bool m_prunePending = false;
 	QList<QMetaObject::Connection> m_connections;
+	QList<QMetaObject::Connection> m_modelConnections;
+	QPointer<QAbstractItemModel> m_model;
 };
 
 } // namespace line_a11y

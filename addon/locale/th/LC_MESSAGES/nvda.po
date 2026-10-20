@@ -1,7 +1,7 @@
 # Thai translation of LINE MR.
 msgid ""
 msgstr ""
-"Project-Id-Version: lineMR 0.3.0\n"
+"Project-Id-Version: lineMR 0.4.0\n"
 "Language: th\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
