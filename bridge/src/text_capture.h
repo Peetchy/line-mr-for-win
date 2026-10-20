@@ -20,6 +20,7 @@ namespace line_a11y {
 struct CapturedText {
 	QPointF pos; // baseline origin, in the rendered widget's coordinates
 	QString text;
+	qreal width = 0; // advance of the text, in the same coordinates
 };
 
 struct CaptureResult {

@@ -196,6 +196,7 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 		qreal y;
 		qreal x;
 		QString text;
+		qreal right;
 	};
 	QList<Line> lines;
 	for (const CapturedText &it : cap.items) {
@@ -203,10 +204,12 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 		if (t.isEmpty())
 			continue;
 		// Fragments on one baseline that touch belong together (LINE draws runs separately).
-		if (!lines.isEmpty() && qAbs(lines.last().y - it.pos.y()) < 1)
+		if (!lines.isEmpty() && qAbs(lines.last().y - it.pos.y()) < 1) {
 			lines.last().text += it.text;
-		else
-			lines.append({ it.pos.y(), it.pos.x(), it.text });
+			lines.last().right = qMax(lines.last().right, it.pos.x() + it.width);
+		} else {
+			lines.append({ it.pos.y(), it.pos.x(), it.text, it.pos.x() + it.width });
+		}
 	}
 	std::stable_sort(lines.begin(), lines.end(), [](const Line &a, const Line &b) {
 		return qAbs(a.y - b.y) > 4 ? a.y < b.y : a.x < b.x;
@@ -218,6 +221,7 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	QStringList content, trailing;
 	bool receipt = false;
 	qreal minX = rowRect.width();
+	qreal maxRight = 0;
 	qreal lastX = -1000;
 	bool photoMenu = false;
 	for (const Line &l : std::as_const(lines)) {
@@ -234,6 +238,7 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 			continue;
 		}
 		minX = qMin(minX, l.x);
+		maxRight = qMax(maxRight, l.right);
 		if (!content.isEmpty() && qAbs(l.x - lastX) <= 4) {
 			content.last() += isThai(content.last().back()) && isThai(t.front()) ? t : QLatin1Char(' ') + t;
 		} else {
@@ -250,7 +255,9 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	// their largest picture; small ones (avatars, icons) do not count.
 	bool own = receipt;
 	if (!own && !content.isEmpty()) {
-		own = minX > rowRect.width() * 0.35;
+		// Notices ("X left the group") are centred and have a time too; sent bubbles end at the right.
+		const bool centred = qAbs((minX + maxRight) / 2 - rowRect.width() / 2.0) < rowRect.width() * 0.08;
+		own = minX > rowRect.width() * 0.35 && !centred;
 	} else if (!own) {
 		qreal pictureX = -1;
 		for (const QRectF &r : cap.pixmapRects) {
@@ -374,11 +381,15 @@ public:
 		st.selectable = true;
 		st.focusable = true;
 		auto *list = dynamic_cast<LineAccessibleList *>(parent());
+		const int cursor = list ? list->cursorRow() : m_view->currentIndex().row();
 		// LINE moves the current row without selecting it; NVDA would say "not selected" on every row.
-		st.selected = (list && list->isRowSelected(m_row)) || m_view->currentIndex() == idx;
+		if (list && list->hasCursor())
+			st.selected = m_row == cursor;
+		else
+			st.selected = (list && list->isRowSelected(m_row)) || m_view->currentIndex() == idx;
 		// NVDA ignores a focus event unless the element still has focus when it looks: count the
 		// current row as focused while LINE briefly pulls focus into the chat being opened.
-		st.focused = m_view->currentIndex() == idx && (m_view->hasFocus() || isBrowsingList(m_view));
+		st.focused = m_row == cursor && (m_view->hasFocus() || isBrowsingList(m_view));
 		const QRect r = m_view->visualRect(idx);
 		if (r.isEmpty() || !m_view->viewport()->rect().intersects(r))
 			st.offscreen = true;
@@ -507,6 +518,7 @@ void LineAccessibleList::connectModel()
 		QObject::disconnect(c);
 	m_modelConnections.clear();
 	m_painted.clear();
+	m_cursor = QPersistentModelIndex();
 	QAbstractItemView *v = view();
 	m_model = v ? v->model() : nullptr;
 	if (!v)
@@ -590,7 +602,8 @@ void LineAccessibleList::schedulePrune() const
 void LineAccessibleList::notifyCurrentRow()
 {
 	QAbstractItemView *v = view();
-	if (!v || !v->isVisible() || !v->hasFocus())
+	// While the chat list cursor is elsewhere, LINE moving its current row is not the user's doing.
+	if (!v || !v->isVisible() || !v->hasFocus() || hasCursor())
 		return;
 	const QModelIndex current = v->currentIndex();
 	if (!current.isValid())
@@ -742,9 +755,79 @@ int LineAccessibleList::indexOfChild(const QAccessibleInterface *child) const
 QAccessibleInterface *LineAccessibleList::focusChild() const
 {
 	QAbstractItemView *v = view();
-	if (!v || !v->hasFocus() || !v->currentIndex().isValid())
+	if (!v || !v->hasFocus())
 		return nullptr;
-	return itemAt(v->currentIndex().row());
+	const int row = cursorRow();
+	return row >= 0 ? itemAt(row) : nullptr;
+}
+
+bool LineAccessibleList::moveCursor(int key)
+{
+	QAbstractItemView *v = view();
+	const int rows = rowCount();
+	if (!v || rows == 0)
+		return false;
+	int row = cursorRow();
+	const int height = v->visualRect(v->model()->index(qMax(row, 0), 0, v->rootIndex())).height();
+	const int page = height > 0 ? qMax(1, v->viewport()->height() / height - 1) : 5;
+	switch (key) {
+	case Qt::Key_Up:
+		row = row < 0 ? 0 : row - 1;
+		break;
+	case Qt::Key_Down:
+		row = row < 0 ? 0 : row + 1;
+		break;
+	case Qt::Key_PageUp:
+		row -= page;
+		break;
+	case Qt::Key_PageDown:
+		row = row < 0 ? page : row + page;
+		break;
+	case Qt::Key_Home:
+		row = 0;
+		break;
+	case Qt::Key_End:
+		row = rows - 1;
+		break;
+	default:
+		return false;
+	}
+	row = qBound(0, row, rows - 1);
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	m_cursor = idx;
+	// Scrolling does not change LINE's current row (so no chat is opened).
+	v->scrollTo(idx);
+	if (QAccessibleInterface *item = itemAt(row)) {
+		QAccessibleEvent event(item, QAccessible::Focus);
+		QAccessible::updateAccessibility(&event);
+	}
+	return true;
+}
+
+bool LineAccessibleList::openCursorRow()
+{
+	QAbstractItemView *v = view();
+	const QPersistentModelIndex idx = m_cursor;
+	m_cursor = QPersistentModelIndex();
+	if (!v || !idx.isValid() || idx == QPersistentModelIndex(v->currentIndex()))
+		return false;
+	// A click opens the chat the way LINE expects (setting the current row alone may not).
+	v->scrollTo(idx);
+	sendClick(v->viewport(), QRectF(v->visualRect(idx)).center());
+	return true;
+}
+
+void LineAccessibleList::resetCursor()
+{
+	m_cursor = QPersistentModelIndex();
+}
+
+int LineAccessibleList::cursorRow() const
+{
+	if (m_cursor.isValid() && m_cursor.model() == m_model.data())
+		return m_cursor.row();
+	QAbstractItemView *v = view();
+	return v && v->currentIndex().isValid() ? v->currentIndex().row() : -1;
 }
 
 QAccessibleInterface *LineAccessibleList::childAt(int x, int y) const

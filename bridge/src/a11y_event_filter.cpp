@@ -512,6 +512,12 @@ public:
 				menuHidden();
 			break;
 		case QEvent::FocusIn:
+			// Entering the chat list starts at the open chat (unless the bridge is sending focus
+			// back while the user browses).
+			if (isLineListView(w) && w != m_browsingList.data() && ancestorInheriting(w, "MainChatPanel")) {
+				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
+					list->resetCursor();
+			}
 			if (isLineListView(w) && ancestorInheriting(w, "ChatMessageView")) {
 				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
 					list->focusLastVisibleRow();
@@ -537,6 +543,11 @@ public:
 			break;
 		case QEvent::MouseButtonPress:
 			m_browsingList = nullptr; // the user went somewhere on purpose
+			// A click opens a chat itself: the chat list cursor follows LINE's current row again.
+			if (QWidget *view = isLineListView(w) ? w : w->parentWidget(); view && isLineListView(view)) {
+				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(view)))
+					list->resetCursor();
+			}
 			break;
 		case QEvent::KeyPress: {
 			auto *key = static_cast<QKeyEvent *>(event);
@@ -569,12 +580,28 @@ public:
 					view->scrollTo(view->currentIndex());
 			}
 			if (isLineListView(w) && ancestorInheriting(w, "MainChatPanel")) {
+				auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
+				const bool plain = !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier));
 				if (isListNavigationKey(key->key())) {
 					m_browsingList = w;
 					m_listKeyTimer.start();
+					// The bridge's cursor moves; LINE's current row (the open chat) stays.
+					if (plain && list && list->moveCursor(key->key()))
+						return true;
 				} else if ((key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)
 				           && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier))) {
-					// Enter: go to the open chat (opened by the selection) and start typing.
+					// Enter: open the chat under the cursor, go to it and start typing.
+					if (list && list->openCursorRow()) {
+						m_browsingList = nullptr;
+						QPointer<QWidget> listView = w;
+						QTimer::singleShot(0, this, [listView] {
+							if (!listView || !listView->hasFocus())
+								return;
+							if (QWidget *input = messageInputIn(listView->window()))
+								input->setFocus(Qt::OtherFocusReason);
+						});
+						return true;
+					}
 					if (QWidget *input = messageInputIn(w->window())) {
 						input->setFocus(Qt::OtherFocusReason);
 						return true;

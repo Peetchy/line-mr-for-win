@@ -7,6 +7,7 @@
 #include <QtGui/QPaintDevice>
 #include <QtGui/QPaintEngine>
 #include <QtGui/QTextItem>
+#include <QtGui/QFontMetricsF>
 #include <QtGui/QImage>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
@@ -51,7 +52,8 @@ public:
 			++m_out->glyphRunsWithoutText;
 			return;
 		}
-		m_out->items.push_back({ m_transform.map(p), text });
+		const qreal width = QFontMetricsF(ti.font()).horizontalAdvance(text) * m_transform.m11();
+		m_out->items.push_back({ m_transform.map(p), text, width });
 	}
 
 	void drawPixmap(const QRectF &r, const QPixmap &, const QRectF &) override { recordPixmap(r); }

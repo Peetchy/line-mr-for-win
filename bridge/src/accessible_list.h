@@ -12,6 +12,7 @@
 
 #include <QtCore/QHash>
 #include <QtCore/QList>
+#include <QtCore/QPersistentModelIndex>
 #include <QtCore/QPointer>
 #include <QtGui/QAccessible>
 #include <QtWidgets/QAccessibleWidget>
@@ -60,6 +61,18 @@ public:
 	// Makes the first (or last) row that has text current, scrolling it into view.
 	void focusEdgeRow(bool last);
 
+	// Chat list cursor. LINE opens a chat whenever the current row changes and stalls while it
+	// loads (up to ~2 s per chat), so Up/Down/PageUp/PageDown/Home/End move the bridge's own
+	// cursor instead; Enter opens the chat under it. Returns false for other keys.
+	bool moveCursor(int key);
+	// Opens the chat under the cursor if it is not the open one; false if there is nothing to open.
+	bool openCursorRow();
+	// Back to following LINE's current row (the open chat).
+	void resetCursor();
+	// The row the user is on: the cursor while it is set, else LINE's current row (-1: none).
+	int cursorRow() const;
+	bool hasCursor() const { return m_cursor.isValid() && m_cursor.model() == m_model.data(); }
+
 private:
 	void connectView();
 	void connectModel();
@@ -79,6 +92,8 @@ private:
 	QList<QMetaObject::Connection> m_connections;
 	QList<QMetaObject::Connection> m_modelConnections;
 	QPointer<QAbstractItemModel> m_model;
+	// Follows its chat when LINE re-sorts the list (new messages move chats to the top).
+	QPersistentModelIndex m_cursor;
 };
 
 } // namespace line_a11y
