@@ -192,8 +192,10 @@ bool isFileSize(const QString &text)
 // properties (nor dynamic properties or children), the model returns it for every role, and the row's
 // delegate (ChatRecvStickerDelegateWidget, ...) paints without Qt events or signals (probed with
 // type-probe), so the drawing is all there is (measured on LINE 26.5):
-//  - a voice message has LINE's own play / pause icon in its bubble (recognised by its shape, see
-//    knownIcon()) and its length ("00:04") drawn there too;
+//  - LINE's own icons are recognised by their shape (knownIcon()): a voice message has a play / pause
+//    icon in a small bubble and its length ("00:04") drawn there too, a video a play icon on its
+//    thumbnail (the two triangles look alike, so what they are drawn on decides), a file a file type
+//    icon, a location a red flag, sound stickers and stickers that failed to load an icon of their own;
 //  - text bubbles, date pills and notices are images with the text drawn inside them;
 //  - a photo is an opaque image drawn under a clip (rounded corners), a video the same with a
 //    small play icon at its centre; an album is a grid of equal squares;
@@ -208,17 +210,66 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 {
 	if (fileSize)
 		return "File";
+	// LINE's own icons. The play triangles of videos and voice messages look alike: one drawn on a
+	// large picture (or its empty frame) is a video's, one in a small bubble a voice message's.
+	// (The row's own background, as wide as the row, is not a picture.)
+	auto isPicture = [&rowRect](const QRectF &r) {
+		return r.width() >= 100 && r.height() >= 100 && r.width() < rowRect.width() - 20;
+	};
+	auto onPicture = [&cap, &isPicture](const QRectF &icon) {
+		for (const PaintedImage &pi : cap.images) {
+			if (isPicture(pi.rect) && pi.rect.contains(icon))
+				return true;
+		}
+		for (const PaintedShape &s : cap.shapes) {
+			if (isPicture(s.rect) && s.rect.contains(icon))
+				return true;
+		}
+		return false;
+	};
+	auto isAvatar = [](const PaintedImage &pi) {
+		return pi.rect.width() >= 30 && pi.rect.width() <= 45 && pi.rect.height() <= 45 && pi.rect.left() < 20;
+	};
+	const PaintedImage *voice = nullptr;
+	bool fileIcon = false, stickerIcon = false, photoIcon = false, locationIcon = false;
 	for (const PaintedImage &icon : cap.images) {
-		if (icon.icon != QLatin1StringView("voice"))
+		// Round profile pictures look like the round sticker icons.
+		if (icon.icon.isEmpty() || icon.rect.top() < -4 || isAvatar(icon))
 			continue;
+		const bool play = icon.icon == QLatin1StringView("voice") || icon.icon == QLatin1StringView("video");
+		if (play && onPicture(icon.rect))
+			return "Video";
+		if (play)
+			voice = voice ? voice : &icon;
+		else if (icon.icon == QLatin1StringView("file"))
+			fileIcon = true;
+		else if (icon.icon == QLatin1StringView("sticker"))
+			stickerIcon = true;
+		else if (icon.icon == QLatin1StringView("photo"))
+			photoIcon = true;
+		else if (icon.icon == QLatin1StringView("location"))
+			locationIcon = true;
+	}
+	// A location bubble also has an arrow at its right end that looks like a play icon.
+	if (locationIcon)
+		return "Location";
+	if (voice) {
 		for (const PaintedImage &bubble : cap.images) {
-			if (bubble.rect.width() > icon.rect.width() * 2 && bubble.rect.contains(icon.rect)) {
+			if (bubble.rect.width() > voice->rect.width() * 2 && bubble.rect.height() < 80
+			    && bubble.rect.contains(voice->rect)) {
 				*lengthBubble = bubble.rect;
 				break;
 			}
 		}
-		return "Voice message";
+		if (!lengthBubble->isEmpty() || voice->icon == QLatin1StringView("voice"))
+			return "Voice message";
 	}
+	if (fileIcon)
+		return "File";
+	if (stickerIcon)
+		return "Sticker";
+	if (photoIcon)
+		return "Photo";
 	auto textInside = [&cap](const QRectF &r) {
 		const QRectF area = r.adjusted(-2, -2, 2, 2);
 		for (const CapturedText &it : cap.items) {
@@ -229,9 +280,6 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 	};
 	// Pictures cut off at the top belong to the row above (or show only their lower part).
 	auto inRow = [](const QRectF &r) { return r.top() >= -4; };
-	auto isAvatar = [](const PaintedImage &pi) {
-		return pi.rect.width() >= 30 && pi.rect.width() <= 45 && pi.rect.height() <= 45 && pi.rect.left() < 20;
-	};
 	auto centredIcon = [&cap](const QRectF &r, int minSide, int maxSide) {
 		for (const PaintedImage &icon : cap.images) {
 			const QRectF ir = icon.rect;

@@ -43,6 +43,33 @@ const KnownIcon kKnownIcons[] = {
 	{ ":/resource/img/basic/chat/chat_word_send_voice_pause_icon.png", 4, "voice" },
 	{ ":/resource/img/basic/chat/chat_word_receive_voice_play_icon.png", 4, "voice" },
 	{ ":/resource/img/basic/chat/chat_word_receive_voice_pause_icon.png", 4, "voice" },
+	// The play button over a video's thumbnail (34x34; a white triangle like the voice play icon,
+	// so messageKind() also looks at what it is drawn on).
+	{ ":/resource/img/basic/chat/chat_video_icon.svg", 1, "video" },
+	{ ":/resource/img/basic/chat/chatcontents/chat_video_icon.svg", 1, "video" },
+	{ ":/resource/img/basic/chat/chatcontents/video_icon.svg", 1, "video" },
+	{ ":/resource/img/basic/chat/flex_video_play.svg", 1, "video" },
+	{ ":/resource/img/basic/chat/chatcontents/no_mov_icon.svg", 1, "video" },
+	{ ":/resource/img/basic/chat/chatcontents/no_img_icon.svg", 1, "photo" },
+	// File type icons beside a file's name (45x45).
+	{ ":/resource/img/basic/chat/chatcontents/ai_ic.svg", 1, "file" },
+	{ ":/resource/img/basic/chat/chatcontents/docx_ic.svg", 1, "file" },
+	{ ":/resource/img/basic/chat/chatcontents/mic_ic.svg", 1, "file" },
+	{ ":/resource/img/basic/chat/chatcontents/mov_ic.svg", 1, "file" },
+	{ ":/resource/img/basic/chat/chatcontents/mp3_ic.svg", 1, "file" },
+	{ ":/resource/img/basic/chat/chatcontents/pdf_ic.svg", 1, "file" },
+	{ ":/resource/img/basic/chat/chatcontents/ppt_ic.svg", 1, "file" },
+	{ ":/resource/img/basic/chat/chatcontents/psd_ic.svg", 1, "file" },
+	{ ":/resource/img/basic/chat/chatcontents/txt_ic.svg", 1, "file" },
+	{ ":/resource/img/basic/chat/chatcontents/xlsx_ic.svg", 1, "file" },
+	{ ":/resource/img/basic/chat/chatcontents/zip_ic.svg", 1, "file" },
+	// The red flag in a location's bubble (14x16).
+	{ ":/resource/img/basic/chat/chat_word_flag.png", 1, "location" },
+	// Sound stickers and stickers that could not be loaded.
+	{ ":/resource/img/basic/chat/sticker_icon_sound.png", 1, "sticker" },
+	{ ":/resource/img/basic/chat/chat_word_sticker_error_icon.svg", 1, "sticker" },
+	{ ":/resource/img/basic/chat/chat_word_send_sticker_error_icon.png", 1, "sticker" },
+	{ ":/resource/img/basic/chat/chat_word_receive_sticker_error_icon.png", 1, "sticker" },
 };
 
 struct IconMask {

@@ -137,6 +137,7 @@ const QHash<QString, QString> &thaiLabels()
 		{ QStringLiteral("Send image"), QStringLiteral("ส่งรูปภาพ") },
 		{ QStringLiteral("Take screenshot"), QStringLiteral("จับภาพหน้าจอ") },
 		{ QStringLiteral("Voice message"), QStringLiteral("ข้อความเสียง") },
+		{ QStringLiteral("Location"), QStringLiteral("ตำแหน่งที่ตั้ง") },
 		{ QStringLiteral("Send"), QStringLiteral("ส่ง") },
 		{ QStringLiteral("Keyboard"), QStringLiteral("แป้นพิมพ์") },
 		{ QStringLiteral("Send a gift"), QStringLiteral("ส่งของขวัญ") },

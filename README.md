@@ -108,8 +108,8 @@ For a normal install, open `dist\lineMR-<version>.nvda-addon` with NVDA.
 
 ## Status
 
-- Done: login window; keyboard access (Tab to every control, Space/Enter); main window (sidebar, chat list, friend list, message list, chat header and input bar); chat-list browsing with arrows; Home/End in messages; keyboard context menus; Qt Quick pages (member list, profiles) and other windows read and focused when opened; heap-corruption crash fixed; add-on commands (Alt+1/2/3, Alt+C/L/M/I, NVDA+Alt+1…9); message kinds including voice messages (recognised by LINE's own icons); incoming calls and the in-call window (LineCall.exe); new-message announcements (untested with a real incoming message); crash guard; bridge install/update from NVDA.
-- Next: more message kinds by icon (location, contact, gift), section folding state, error/notice announcements, video-call window.
+- Done: login window; keyboard access (Tab to every control, Space/Enter); main window (sidebar, chat list, friend list, message list, chat header and input bar); chat-list browsing with arrows; Home/End in messages; keyboard context menus; Qt Quick pages (member list, profiles) and other windows read and focused when opened; heap-corruption crash fixed; add-on commands (Alt+1/2/3, Alt+C/L/M/I, NVDA+Alt+1…9); message kinds including voice messages, videos, files and locations (recognised by LINE's own icons); incoming calls and the in-call window (LineCall.exe); new-message announcements (untested with a real incoming message); crash guard; bridge install/update from NVDA.
+- Next: more message kinds by icon (contact, gift), section folding state, error/notice announcements, video-call window.
 
 ## License
 
