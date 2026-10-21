@@ -194,7 +194,8 @@ bool isFileSize(const QString &text)
 //  - text bubbles, date pills and notices are images with the text drawn inside them;
 //  - a photo is an opaque image drawn under a clip (rounded corners), a video the same with a
 //    small play icon at its centre; an album is a grid of equal squares;
-//  - a sticker is a large transparent image without a clip, LINE emoji are smaller ones (~60 px);
+//  - a sticker is a large transparent image without a clip (or an empty bubble), LINE emoji are
+//    smaller images (~60 px);
 //  - a call is a small bubble (~85x76) holding a 24 px phone icon and its length or status;
 //  - pictures LINE has not loaded leave only their frame (a large empty rectangle); a video's
 //    play button is drawn even then.
@@ -240,7 +241,14 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 				}
 			}
 		}
-		if (r.width() < 48 || r.height() < 48 || textInside(r))
+		if (textInside(r))
+			continue;
+		// A bubble with nothing written in it is a sticker LINE draws inside a bubble (seen at 150x38).
+		if (r.width() >= 100 && r.height() >= 30 && r.height() < 60 && pi.alpha && pi.clearCorners && !pi.clipped) {
+			sticker = true;
+			continue;
+		}
+		if (r.width() < 48 || r.height() < 48)
 			continue;
 		const bool large = r.width() >= 100 || r.height() >= 100;
 		if (large && (pi.clipped || !pi.alpha)) {
