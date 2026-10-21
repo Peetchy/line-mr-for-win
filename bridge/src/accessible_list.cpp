@@ -210,19 +210,29 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 {
 	if (fileSize)
 		return "File";
-	// LINE's own icons. The play triangles of videos and voice messages look alike: one drawn on a
-	// large picture (or its empty frame) is a video's, one in a small bubble a voice message's.
-	// (The row's own background, as wide as the row, is not a picture.)
+	auto textInside = [&cap](const QRectF &r) {
+		const QRectF area = r.adjusted(-2, -2, 2, 2);
+		for (const CapturedText &it : cap.items) {
+			if (!it.text.trimmed().isEmpty() && area.contains(it.pos))
+				return true;
+		}
+		return false;
+	};
+	// LINE's own icons. The play triangles of videos and voice messages look alike (as do the arrows
+	// of "See more" under long texts and of location bubbles, 16 px): one drawn on a large picture (or
+	// its empty frame) is a video's, one in a small bubble with a length ("00:04") a voice message's.
+	// (The row's own background, as wide as the row, and text bubbles are not pictures.)
 	auto isPicture = [&rowRect](const QRectF &r) {
 		return r.width() >= 100 && r.height() >= 100 && r.width() < rowRect.width() - 20;
 	};
-	auto onPicture = [&cap, &isPicture](const QRectF &icon) {
+	// (A video's length may be drawn on its thumbnail; thumbnails are clipped or opaque, bubbles not.)
+	auto onPicture = [&cap, &isPicture, &textInside](const QRectF &icon) {
 		for (const PaintedImage &pi : cap.images) {
-			if (isPicture(pi.rect) && pi.rect.contains(icon))
+			if (isPicture(pi.rect) && pi.rect.contains(icon) && (pi.clipped || !pi.alpha || !textInside(pi.rect)))
 				return true;
 		}
 		for (const PaintedShape &s : cap.shapes) {
-			if (isPicture(s.rect) && s.rect.contains(icon))
+			if (isPicture(s.rect) && s.rect.contains(icon) && !textInside(s.rect))
 				return true;
 		}
 		return false;
@@ -237,7 +247,7 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 		if (icon.icon.isEmpty() || icon.rect.top() < -4 || isAvatar(icon))
 			continue;
 		const bool play = icon.icon == QLatin1StringView("voice") || icon.icon == QLatin1StringView("video");
-		if (play && onPicture(icon.rect))
+		if (play && icon.rect.width() >= 20 && onPicture(icon.rect))
 			return "Video";
 		if (play)
 			voice = voice ? voice : &icon;
@@ -254,15 +264,19 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 	if (locationIcon)
 		return "Location";
 	if (voice) {
+		static const QRegularExpression length(QStringLiteral("^\\d{1,2}:\\d{2}$"));
 		for (const PaintedImage &bubble : cap.images) {
-			if (bubble.rect.width() > voice->rect.width() * 2 && bubble.rect.height() < 80
-			    && bubble.rect.contains(voice->rect)) {
-				*lengthBubble = bubble.rect;
-				break;
+			if (bubble.rect.width() <= voice->rect.width() * 2 || bubble.rect.height() >= 80
+			    || !bubble.rect.contains(voice->rect))
+				continue;
+			const QRectF area = bubble.rect.adjusted(-2, -2, 2, 2);
+			for (const CapturedText &it : cap.items) {
+				if (area.contains(it.pos) && length.match(it.text.trimmed()).hasMatch()) {
+					*lengthBubble = bubble.rect;
+					return "Voice message";
+				}
 			}
 		}
-		if (!lengthBubble->isEmpty() || voice->icon == QLatin1StringView("voice"))
-			return "Voice message";
 	}
 	if (fileIcon)
 		return "File";
@@ -270,14 +284,6 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 		return "Sticker";
 	if (photoIcon)
 		return "Photo";
-	auto textInside = [&cap](const QRectF &r) {
-		const QRectF area = r.adjusted(-2, -2, 2, 2);
-		for (const CapturedText &it : cap.items) {
-			if (!it.text.trimmed().isEmpty() && area.contains(it.pos))
-				return true;
-		}
-		return false;
-	};
 	// Pictures cut off at the top belong to the row above (or show only their lower part).
 	auto inRow = [](const QRectF &r) { return r.top() >= -4; };
 	auto centredIcon = [&cap](const QRectF &r, int minSide, int maxSide) {

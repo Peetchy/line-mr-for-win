@@ -52,9 +52,38 @@ bool wantsKeyboardFocus(QWidget *w)
 	return false;
 }
 
+// The same control twice: LINE nests a button in a button (the chat list's show / hide arrow) or lays
+// equal buttons over each other (the chat list's ad). Only the outer / first one becomes a Tab stop.
+bool duplicatesTabStop(QWidget *w)
+{
+	auto nameOf = [](QWidget *o) {
+		QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(o);
+		return iface ? iface->text(QAccessible::Name) : QString();
+	};
+	const QString name = nameOf(w);
+	if (name.isEmpty())
+		return false;
+	for (QWidget *p = w->parentWidget(); p && !p->isWindow(); p = p->parentWidget()) {
+		if (classifyWidget(p) == WidgetKind::Button && nameOf(p) == name)
+			return true;
+	}
+	QWidget *parent = w->parentWidget();
+	if (!parent)
+		return false;
+	for (QObject *o : parent->children()) {
+		if (o == w)
+			break;
+		auto *sibling = qobject_cast<QWidget *>(o);
+		if (sibling && !sibling->isWindow() && sibling->geometry() == w->geometry()
+		    && (sibling->property(kMadeFocusableProperty).toBool() || wantsKeyboardFocus(sibling)) && nameOf(sibling) == name)
+			return true;
+	}
+	return false;
+}
+
 bool makeFocusable(QWidget *w)
 {
-	if (w->property(kMadeFocusableProperty).toBool() || !wantsKeyboardFocus(w))
+	if (w->property(kMadeFocusableProperty).toBool() || !wantsKeyboardFocus(w) || duplicatesTabStop(w))
 		return false;
 	// TabFocus only: clicking does not move focus, so mouse users see no difference.
 	w->setFocusPolicy(Qt::TabFocus);
@@ -100,6 +129,17 @@ void collectTabStops(QWidget *w, QList<QWidget *> &content, QList<QWidget *> &ti
 			std::stable_partition(stops.begin() + first, stops.end(), [](QWidget *stop) {
 				return !isLineListView(stop) || ancestorInheriting(stop, "LcListView");
 			});
+		// The chat list panel: its buttons (sort, show / hide, create chat, the ad) first, then the
+		// search field and the chat list, which leads on to the open chat (user request).
+		if (inheritsClass(c, "MainChatPanel")) {
+			auto rank = [](QWidget *stop) {
+				if (isLineListView(stop) && !ancestorInheriting(stop, "LcListView"))
+					return 2;
+				return inheritsClass(stop, "QLineEdit") || ancestorInheriting(stop, "QLineEdit") ? 1 : 0;
+			};
+			std::stable_sort(stops.begin() + first, stops.end(),
+			                 [&rank](QWidget *a, QWidget *b) { return rank(a) < rank(b); });
+		}
 	}
 }
 

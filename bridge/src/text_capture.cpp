@@ -376,35 +376,42 @@ CaptureResult captureRegionText(QWidget *w, const QRect &rect)
 	CaptureScope scope;
 	TextCaptureDevice dev(area.size(), w->logicalDpiX() > 0 ? w->logicalDpiX() : 96, &result);
 	// render() maps the region's top-left to the target offset; the engine does not clip, so
-	// neighbouring rows may still draw: keep what lies inside the area.
+	// neighbouring rows may still draw: keep what lies inside `rect`. LINE draws a row whole even when
+	// part of it is scrolled out (a message taller than the list), so that part is kept too.
 	breadcrumb("render region of %s at %d,%d %dx%d", w->metaObject()->className(), area.x(), area.y(), area.width(),
 	           area.height());
 	checkHeap("before", w);
 	w->render(&dev, QPoint(), QRegion(area), QWidget::DrawChildren);
 	checkHeap("after", w);
 	breadcrumb("render done");
-	QList<CapturedText> inside;
-	for (const CapturedText &it : std::as_const(result.items)) {
-		if (it.pos.y() > 0 && it.pos.y() <= area.height() + 2)
-			inside << it;
+	// From the rendered area's coordinates to rect's.
+	const QPointF offset = area.topLeft() - rect.topLeft();
+	auto inside = [&rect](const QRectF &r) { return r.bottom() > 0 && r.top() < rect.height(); };
+	QList<CapturedText> itemsInside;
+	for (CapturedText it : std::as_const(result.items)) {
+		it.pos += offset;
+		if (it.pos.y() > 0 && it.pos.y() <= rect.height() + 2)
+			itemsInside << it;
 	}
-	result.items = inside;
+	result.items = itemsInside;
 	QList<QRectF> pixmapsInside;
 	for (const QRectF &r : std::as_const(result.pixmapRects)) {
-		if (r.bottom() > 0 && r.top() < area.height())
-			pixmapsInside << r;
+		if (inside(r.translated(offset)))
+			pixmapsInside << r.translated(offset);
 	}
 	result.pixmapRects = pixmapsInside;
 	result.pixmaps = int(pixmapsInside.size());
 	QList<PaintedImage> imagesInside;
-	for (const PaintedImage &pi : std::as_const(result.images)) {
-		if (pi.rect.bottom() > 0 && pi.rect.top() < area.height())
+	for (PaintedImage pi : std::as_const(result.images)) {
+		pi.rect.translate(offset);
+		if (inside(pi.rect))
 			imagesInside << pi;
 	}
 	result.images = imagesInside;
 	QList<PaintedShape> shapesInside;
-	for (const PaintedShape &s : std::as_const(result.shapes)) {
-		if (s.rect.bottom() > 0 && s.rect.top() < area.height())
+	for (PaintedShape s : std::as_const(result.shapes)) {
+		s.rect.translate(offset);
+		if (inside(s.rect))
 			shapesInside << s;
 	}
 	result.shapes = shapesInside;

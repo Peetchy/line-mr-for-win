@@ -31,7 +31,7 @@ Later versions are offered automatically: when NVDA starts, LINE MR checks for a
 | NVDA+Shift+Control+A / D | Answer / decline an incoming LINE call, from any application | รับสาย / ปฏิเสธสายเรียกเข้าของ LINE จากทุกโปรแกรม |
 | NVDA+Shift+Control+L | Report whether the bridge is running | บอกว่าตัวเชื่อมทำงานอยู่หรือไม่ |
 
-In lists: chat list - arrows, Page Up/Down and Home/End browse without opening a chat, Enter opens it; messages - Up/Down one message, Page Up/Down about a screen, Home the oldest loaded message (again: load older ones), End the newest, Applications key or Shift+F10 the message's menu. Tab order in a chat: header buttons, note, message list, message input, then the message bar buttons (stickers ... attach file). Full guide: [`addon/doc/en/readme.md`](addon/doc/en/readme.md), [ภาษาไทย](addon/doc/th/readme.md). Commands can be changed in NVDA's Input gestures, category "LINE MR".
+In lists: chat list - arrows, Page Up/Down and Home/End browse without opening a chat, Enter opens it; messages - Up/Down one message, Page Up/Down about a screen, Home the oldest loaded message (again: load older ones), End the newest, Applications key or Shift+F10 the message's menu. Tab order in the chat list panel: buttons, search field, chat list. In a chat: header buttons, note, message list, message input, then the message bar buttons (stickers ... attach file). Full guide: [`addon/doc/en/readme.md`](addon/doc/en/readme.md), [ภาษาไทย](addon/doc/th/readme.md). Commands can be changed in NVDA's Input gestures, category "LINE MR".
 
 ## LINE on macOS
 
