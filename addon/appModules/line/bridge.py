@@ -2,8 +2,10 @@
 #
 # LINE's Qt loads plugins only from its own directory, so the bridge is copied to
 # %LOCALAPPDATA%\LINE\bin\current\platformthemes\line_a11y.dll, where Qt picks it up as the
-# "windows" platform theme at start-up. LINE updates can replace the "current" folder, and the
-# DLL is locked while LINE runs, so installing means: quit LINE, copy, start LINE again.
+# "windows" platform theme at start-up. LINE's call process (LineCall.exe: incoming-call
+# notification, call windows) gets a copy in LINE\Data\plugin\LineCall\<version>\platformthemes.
+# LINE updates can replace these folders, and the DLL is locked while LINE runs, so installing
+# means: quit LINE, copy, start LINE again.
 
 import ctypes
 import ctypes.wintypes as wintypes
@@ -43,6 +45,24 @@ def lineBinDir():
 
 def installedDllPath():
 	return os.path.join(lineBinDir(), "current", "platformthemes", DLL_NAME)
+
+
+def callDllPaths():
+	"""Bridge locations for each installed LineCall.exe version."""
+	root = os.path.join(os.environ.get("LOCALAPPDATA", ""), "LINE", "Data", "plugin", "LineCall")
+	try:
+		versions = os.listdir(root)
+	except OSError:
+		return []
+	return [
+		os.path.join(root, v, "platformthemes", DLL_NAME)
+		for v in versions
+		if os.path.isfile(os.path.join(root, v, "LineCall.exe"))
+	]
+
+
+def installedDllPaths():
+	return [installedDllPath()] + callDllPaths()
 
 
 def _sameFile(a, b):
@@ -108,10 +128,10 @@ def status(pid=None):
 		return Status.NO_LINE
 	if not os.path.isfile(BUNDLED_DLL):
 		return Status.NOT_BUNDLED
-	target = installedDllPath()
-	if not os.path.isfile(target):
+	targets = installedDllPaths()
+	if not all(os.path.isfile(t) for t in targets):
 		return Status.MISSING
-	if not _sameFile(BUNDLED_DLL, target):
+	if not all(_sameFile(BUNDLED_DLL, t) for t in targets):
 		return Status.OUTDATED
 	if pid and DLL_NAME not in _processModules(pid):
 		return Status.NOT_LOADED
@@ -146,8 +166,9 @@ def _waitForExit(pid, timeout=10.0):
 
 
 def _linePids():
+	"""LINE.exe and LineCall.exe (started by LINE; it locks its copy of the bridge)."""
 	out = subprocess.run(
-		["tasklist", "/FI", "IMAGENAME eq LINE.exe", "/FO", "CSV", "/NH"],
+		["tasklist", "/FO", "CSV", "/NH"],
 		capture_output=True,
 		text=True,
 		creationflags=subprocess.CREATE_NO_WINDOW,
@@ -155,7 +176,7 @@ def _linePids():
 	pids = []
 	for line in out.splitlines():
 		parts = [p.strip('"') for p in line.split('","')]
-		if len(parts) > 1 and parts[1].isdigit():
+		if len(parts) > 1 and parts[0].lower() in ("line.exe", "linecall.exe") and parts[1].isdigit():
 			pids.append(int(parts[1]))
 	return pids
 
@@ -174,20 +195,20 @@ def installAndRestart():
 		os.remove(os.path.join(os.environ.get("LOCALAPPDATA", ""), "LineMR", "session.running"))
 	except OSError:
 		pass
-	target = installedDllPath()
-	for _attempt in range(20):
-		try:
-			os.makedirs(os.path.dirname(target), exist_ok=True)
-			shutil.copyfile(BUNDLED_DLL, target)
-			break
-		except OSError:
-			time.sleep(0.25)  # the DLL can stay locked for a moment after LINE exits
-	else:
-		log.error("LINE MR: could not install the bridge to %s", target, exc_info=True)
-		# Translators: Reported when copying the bridge into LINE failed.
-		wx.CallAfter(ui.message, _("Could not install the LINE MR bridge."))
-		return
-	log.info("LINE MR: installed bridge to %s", target)
+	for target in installedDllPaths():
+		for _attempt in range(20):
+			try:
+				os.makedirs(os.path.dirname(target), exist_ok=True)
+				shutil.copyfile(BUNDLED_DLL, target)
+				break
+			except OSError:
+				time.sleep(0.25)  # the DLL can stay locked for a moment after LINE exits
+		else:
+			log.error("LINE MR: could not install the bridge to %s", target, exc_info=True)
+			# Translators: Reported when copying the bridge into LINE failed.
+			wx.CallAfter(ui.message, _("Could not install the LINE MR bridge."))
+			return
+		log.info("LINE MR: installed bridge to %s", target)
 	launcher = os.path.join(lineBinDir(), "LineLauncher.exe")
 	subprocess.Popen([launcher], cwd=lineBinDir(), close_fds=True)
 	# Translators: Reported while LINE restarts after the bridge was installed.

@@ -189,8 +189,11 @@ bool isFileSize(const QString &text)
 }
 
 // What a message without (much) text is, from what LINE draws for it. ChatMessageData has no
-// properties and the row's delegate (ChatRecvStickerDelegateWidget, ...) paints without Qt events
-// or signals, so the drawing is all there is (measured on LINE 26.5):
+// properties (nor dynamic properties or children), the model returns it for every role, and the row's
+// delegate (ChatRecvStickerDelegateWidget, ...) paints without Qt events or signals (probed with
+// type-probe), so the drawing is all there is (measured on LINE 26.5):
+//  - a voice message has LINE's own play / pause icon in its bubble (recognised by its shape, see
+//    knownIcon()) and its length ("00:04") drawn there too;
 //  - text bubbles, date pills and notices are images with the text drawn inside them;
 //  - a photo is an opaque image drawn under a clip (rounded corners), a video the same with a
 //    small play icon at its centre; an album is a grid of equal squares;
@@ -199,11 +202,23 @@ bool isFileSize(const QString &text)
 //  - a call is a small bubble (~85x76) holding a 24 px phone icon and its length or status;
 //  - pictures LINE has not loaded leave only their frame (a large empty rectangle); a video's
 //    play button is drawn even then.
-// Returns the English label ("Sticker", ...) or nullptr; `callBubble` receives a call's bubble.
-const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fileSize, QRectF *callBubble)
+// Returns the English label ("Sticker", ...) or nullptr; `lengthBubble` receives the bubble of a
+// call or voice message (its length is drawn inside).
+const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fileSize, QRectF *lengthBubble)
 {
 	if (fileSize)
 		return "File";
+	for (const PaintedImage &icon : cap.images) {
+		if (icon.icon != QLatin1StringView("voice"))
+			continue;
+		for (const PaintedImage &bubble : cap.images) {
+			if (bubble.rect.width() > icon.rect.width() * 2 && bubble.rect.contains(icon.rect)) {
+				*lengthBubble = bubble.rect;
+				break;
+			}
+		}
+		return "Voice message";
+	}
 	auto textInside = [&cap](const QRectF &r) {
 		const QRectF area = r.adjusted(-2, -2, 2, 2);
 		for (const CapturedText &it : cap.items) {
@@ -236,7 +251,7 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 		if (r.height() >= 60 && r.height() <= 95 && r.width() <= 140) {
 			for (const PaintedImage &icon : cap.images) {
 				if (icon.alpha && icon.rect.width() >= 20 && icon.rect.width() <= 28 && r.contains(icon.rect)) {
-					*callBubble = r;
+					*lengthBubble = r;
 					return "Call message";
 				}
 			}
@@ -373,8 +388,8 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 		}
 		lastX = l.x;
 	}
-	QRectF callBubble;
-	const char *kind = messageKind(cap, rowRect, fileSize, &callBubble);
+	QRectF lengthBubble;
+	const char *kind = messageKind(cap, rowRect, fileSize, &lengthBubble);
 	if (content.isEmpty() && trailing.isEmpty()) {
 		if (kind)
 			return label(kind);
@@ -384,11 +399,12 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	// whose time is out of view: those have a kind).
 	if (trailing.isEmpty() && !kind)
 		return content.join(QLatin1StringView(", "));
-	// A call's length ("06:26") is drawn inside its bubble; the time it was made beside it.
-	QStringList callText;
-	for (qsizetype i = trailing.size() - 1; i >= 0 && !callBubble.isEmpty(); --i) {
-		if (trailingX[i] >= callBubble.left() && trailingX[i] < callBubble.right()) {
-			callText.prepend(trailing.takeAt(i));
+	// A call's or voice message's length ("06:26") is drawn inside its bubble; the time it was sent
+	// beside it.
+	QStringList lengthText;
+	for (qsizetype i = trailing.size() - 1; i >= 0 && !lengthBubble.isEmpty(); --i) {
+		if (trailingX[i] >= lengthBubble.left() && trailingX[i] < lengthBubble.right()) {
+			lengthText.prepend(trailing.takeAt(i));
 			trailingX.removeAt(i);
 		}
 	}
@@ -411,8 +427,8 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	if (kind) {
 		const qsizetype at = sender && !own ? 1 : 0;
 		content.insert(at, label(kind));
-		for (qsizetype i = 0; i < callText.size(); ++i)
-			content.insert(at + 1 + i, callText[i]);
+		for (qsizetype i = 0; i < lengthText.size(); ++i)
+			content.insert(at + 1 + i, lengthText[i]);
 	}
 	else if (content.isEmpty() || (sender && content.size() == 1 && cap.pixmaps > 1))
 		content << label("Photo or sticker");
@@ -858,11 +874,64 @@ void LineAccessibleList::focusEdgeRow(bool last)
 			break;
 		}
 	}
-	const QModelIndex idx = v->model()->index(target, 0, v->rootIndex());
-	if (idx == v->currentIndex())
-		notifyCurrentRow(); // already there: read it again
+	makeCurrent(target);
+}
+
+bool LineAccessibleList::stepRow(int key)
+{
+	QAbstractItemView *v = view();
+	const int rows = rowCount();
+	if (!v || rows == 0)
+		return false;
+	const bool page = key == Qt::Key_PageUp || key == Qt::Key_PageDown;
+	int step = 0;
+	if (key == Qt::Key_Up || key == Qt::Key_PageUp)
+		step = -1;
+	else if (key == Qt::Key_Down || key == Qt::Key_PageDown)
+		step = 1;
 	else
-		v->setCurrentIndex(idx);
+		return false;
+	const int current = v->currentIndex().isValid() ? v->currentIndex().row() : -1;
+	if (current < 0) {
+		focusEdgeRow(true);
+		return true;
+	}
+	const int pageHeight = v->viewport()->height();
+	int target = current;
+	int travelled = 0;
+	for (int row = current + step; row >= 0 && row < rows; row += step) {
+		const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+		v->scrollTo(idx);
+		// Blank rows (spacers) are skipped.
+		if (QAccessibleInterface *item = itemAt(row); item && !item->text(QAccessible::Name).isEmpty()) {
+			target = row;
+			if (!page || travelled >= pageHeight)
+				break;
+		}
+		travelled += v->visualRect(idx).height();
+	}
+	// At the top LINE loads older messages once the first row is in view; Up then goes on.
+	if (target == current)
+		v->scrollTo(v->model()->index(step < 0 ? 0 : rows - 1, 0, v->rootIndex()));
+	makeCurrent(target);
+	return true;
+}
+
+void LineAccessibleList::makeCurrent(int row)
+{
+	QAbstractItemView *v = view();
+	if (!v)
+		return;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	if (idx != v->currentIndex()) {
+		v->setCurrentIndex(idx); // LINE reports the change (notifyCurrentRow)
+		return;
+	}
+	v->scrollTo(idx);
+	if (QAccessibleInterface *item = itemAt(row)) {
+		QAccessibleEvent event(item, QAccessible::NameChanged);
+		QAccessible::updateAccessibility(&event);
+	}
 }
 
 QString LineAccessibleList::text(QAccessible::Text t) const

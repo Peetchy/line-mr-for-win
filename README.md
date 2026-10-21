@@ -18,6 +18,21 @@ Later versions are offered automatically: when NVDA starts, LINE MR checks for a
 
 [ดาวน์โหลดไฟล์ `.nvda-addon` รุ่นล่าสุด](https://github.com/Peetchy/line-mr-for-win/releases/latest/download/lineMR.nvda-addon) เปิดไฟล์ขณะที่ NVDA ทำงานอยู่ แล้วเปิด NVDA ใหม่ จากนั้นเปิด LINE และเลือก **ใช่** เมื่อ LINE MR ถามว่าจะติดตั้งตัวเชื่อมหรือไม่
 
+## Keyboard commands / คำสั่งแป้นพิมพ์
+
+| Command | Action | การทำงาน |
+|---|---|---|
+| Alt+1 / Alt+2 / Alt+3 | Friends / Chats / Add friends tab | แท็บเพื่อน / แชท / เพิ่มเพื่อน |
+| Alt+C | Move to the chat list (switches to the Chats tab first if needed) | ไปที่รายการแชท (สลับไปแท็บแชทก่อนถ้าจำเป็น) |
+| Alt+L | Move to the chat list or friend list | ไปที่รายการแชทหรือรายชื่อเพื่อน |
+| Alt+M | Move to the messages of the open chat (starts at the newest) | ไปที่ข้อความของแชทที่เปิดอยู่ (เริ่มที่ข้อความล่าสุด) |
+| Alt+I | Move to the message input | ไปที่ช่องพิมพ์ข้อความ |
+| NVDA+Alt+1 … 9 | Read a recent message (1 = newest) | อ่านข้อความล่าสุด (1 = ใหม่สุด) |
+| NVDA+Shift+Control+A / D | Answer / decline an incoming LINE call, from any application | รับสาย / ปฏิเสธสายเรียกเข้าของ LINE จากทุกโปรแกรม |
+| NVDA+Shift+Control+L | Report whether the bridge is running | บอกว่าตัวเชื่อมทำงานอยู่หรือไม่ |
+
+In lists: chat list - arrows, Page Up/Down and Home/End browse without opening a chat, Enter opens it; messages - Up/Down one message, Page Up/Down about a screen, Home the oldest loaded message (again: load older ones), End the newest, Applications key or Shift+F10 the message's menu. Tab order in a chat: header buttons, note, message list, message input, then the message bar buttons (stickers ... attach file). Full guide: [`addon/doc/en/readme.md`](addon/doc/en/readme.md), [ภาษาไทย](addon/doc/th/readme.md). Commands can be changed in NVDA's Input gestures, category "LINE MR".
+
 ## LINE on macOS
 
 Using LINE on a Mac with VoiceOver? See **[line-mr-for-mac](https://github.com/Peetchy/line-mr-for-mac)**.
@@ -65,6 +80,7 @@ For a normal install, open `dist\lineMR-<version>.nvda-addon` with NVDA.
 
 - `python tools\uia_inspect.py [--depth N] [--invoke NAME | --toggle NAME] [--nth N]`: prints LINE's live UIA tree (name, value, class, patterns and toggle state) and can invoke or toggle elements.
 - `New-Item $env:LOCALAPPDATA\LineMR\dump-request`: the bridge writes `%LOCALAPPDATA%\LineMR\widget-dump.txt` (widget tree, LINE properties, painted text, item models, accessible tree).
+- `New-Item $env:LOCALAPPDATA\LineMR\type-probe` (with a chat open): the bridge writes `type-probe.txt`, for each visible message row what it draws (texts, images with recognised icons, shapes), the signals row templates emit and what the model returns (shows that LINE exposes no message type).
 - `python tools\dbgview.py [--grep TEXT]`: shows `OutputDebugString` output (Qt's debug output, for example with `QT_DEBUG_PLUGINS=1`).
 - `python tools\uia_events.py [--keys tab,down]`: logs UIA focus events (what NVDA follows).
 - `python tools\post_keys.py down up contextmenu` and `python tools\focus_tag.py list_chats`: send keys / move focus inside LINE only (safe while the user works); `tools\nvda_speech_probe.py` presses global keys and prints NVDA's speech.
@@ -92,8 +108,8 @@ For a normal install, open `dist\lineMR-<version>.nvda-addon` with NVDA.
 
 ## Status
 
-- Done: login window; keyboard access (Tab to every control, Space/Enter); main window (sidebar, chat list, friend list, message list, chat header and input bar); chat-list browsing with arrows; Home/End in messages; keyboard context menus; Qt Quick pages (member list, profiles) and other windows read and focused when opened; heap-corruption crash fixed; add-on commands (Alt+1/2/3, Alt+L/M/I, NVDA+Alt+1…9); new-message announcements (untested with a real incoming message); crash guard; bridge install/update from NVDA.
-- Next: message kinds (stickers vs photos, files), section folding state, error/notice announcements, call window (incoming-call buttons are named; the in-call view is partly Qt Quick and not yet checked).
+- Done: login window; keyboard access (Tab to every control, Space/Enter); main window (sidebar, chat list, friend list, message list, chat header and input bar); chat-list browsing with arrows; Home/End in messages; keyboard context menus; Qt Quick pages (member list, profiles) and other windows read and focused when opened; heap-corruption crash fixed; add-on commands (Alt+1/2/3, Alt+C/L/M/I, NVDA+Alt+1…9); message kinds including voice messages (recognised by LINE's own icons); incoming calls and the in-call window (LineCall.exe); new-message announcements (untested with a real incoming message); crash guard; bridge install/update from NVDA.
+- Next: more message kinds by icon (location, contact, gift), section folding state, error/notice announcements, video-call window.
 
 ## License
 

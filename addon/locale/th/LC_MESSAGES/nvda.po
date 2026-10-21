@@ -65,6 +65,9 @@ msgstr "ไปที่รายการแชทหรือรายชื่
 msgid "No list is shown."
 msgstr "ไม่มีรายการแสดงอยู่"
 
+msgid "Moves to the chat list (switches to the chats tab first if needed)"
+msgstr "ไปที่รายการแชท (สลับไปที่แท็บแชทก่อนถ้าจำเป็น)"
+
 msgid "Moves to the messages of the open chat"
 msgstr "ไปที่ข้อความของแชทที่เปิดอยู่"
 

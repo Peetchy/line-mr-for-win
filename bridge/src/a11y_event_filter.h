@@ -4,7 +4,7 @@
 
 #pragma once
 
-class QApplication;
+class QCoreApplication;
 class QWidget;
 
 namespace line_a11y {
@@ -14,7 +14,7 @@ namespace line_a11y {
 // Logs whenever a foreign handler had to be removed.
 void enforceAccessibilityHandler(const char *reason);
 
-void installEventFilter(QApplication *app);
+void installEventFilter(QCoreApplication *app);
 
 // The user moved focus or pressed a control through a screen reader (UIA SetFocus / Invoke):
 // stop sending focus back to a list LINE pulled it away from.

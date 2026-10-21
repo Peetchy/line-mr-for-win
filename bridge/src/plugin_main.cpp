@@ -1,6 +1,8 @@
 // Entry point of line_a11y.dll.
 //
-// Qt loads this DLL as a "windows" platform-theme plugin from %QT_PLUGIN_PATH%\platformthemes.
+// Qt loads this DLL as a "windows" platform-theme plugin from <program folder>\platformthemes:
+// LINE.exe (bin\current) and LineCall.exe (Data\plugin\LineCall\<version>, LINE's call process,
+// which shows the incoming-call notification and the call windows).
 // create() bootstraps the accessibility bridge and returns nullptr, so Qt falls back to its
 // built-in QWindowsTheme (QWindowsIntegration::createPlatformTheme("windows")).
 
@@ -38,7 +40,9 @@ QString hostExecutable()
 
 bool isLineProcess(const QString &exe)
 {
-	return QFileInfo(exe).fileName().compare(QLatin1String("LINE.exe"), Qt::CaseInsensitive) == 0;
+	const QString name = QFileInfo(exe).fileName();
+	return name.compare(QLatin1String("LINE.exe"), Qt::CaseInsensitive) == 0
+	    || name.compare(QLatin1String("LineCall.exe"), Qt::CaseInsensitive) == 0;
 }
 
 // Qt never unloads a plugin whose create() returned nullptr today, but the bridge installs
@@ -114,7 +118,8 @@ void installCrashDumpWriter()
 	// LINE ships dbghelp.dll next to LINE.exe.
 	if (HMODULE dbghelp = LoadLibraryW(L"dbghelp.dll"))
 		g_writeDump = reinterpret_cast<MiniDumpWriteDumpFn>(GetProcAddress(dbghelp, "MiniDumpWriteDump"));
-	const QString path = QDir::toNativeSeparators(bridgeDirectory() + QStringLiteral("crash.dmp"));
+	const QString path = QDir::toNativeSeparators(
+		bridgeDirectory() + (inCallProcess() ? QStringLiteral("linecall-crash.dmp") : QStringLiteral("crash.dmp")));
 	if (!g_writeDump || path.size() >= MAX_PATH)
 		return;
 	path.toWCharArray(g_dumpPath);
@@ -122,8 +127,25 @@ void installCrashDumpWriter()
 	AddVectoredExceptionHandler(1, writeCrashDump);
 }
 
+// LineCall.exe: Qt Quick windows only. The crash guard, breadcrumbs and dump requests belong to
+// LINE.exe (both processes run at the same time and would share their files).
+void startCallBridge(QCoreApplication *app)
+{
+	QAccessible::removeFactory(lineAccessibleFactory);
+	QAccessible::installFactory(lineAccessibleFactory);
+	enforceAccessibilityHandler("startBridge");
+	installCrashDumpWriter();
+	installEventFilter(app);
+	a11yLog("[bridge] started on %s in the call process (accessibility %s)", app->metaObject()->className(),
+	        QAccessible::isActive() ? "active" : "inactive");
+}
+
 void startBridge()
 {
+	if (inCallProcess()) {
+		startCallBridge(QCoreApplication::instance());
+		return;
+	}
 	auto *app = qobject_cast<QApplication *>(QCoreApplication::instance());
 	if (!app) {
 		a11yLog("[bridge] application is not a QApplication; bridge not started");
@@ -164,7 +186,7 @@ class LineA11yPlugin : public QPlatformThemePlugin {
 public:
 	QPlatformTheme *create(const QString &key, const QStringList &) override
 	{
-		// QT_PLUGIN_PATH may reach other Qt programs; stay inert outside LINE.
+		// QT_PLUGIN_PATH may reach other Qt programs; stay inert outside LINE and its call process.
 		if (QCoreApplication::instance() && line_a11y::isLineProcess(line_a11y::hostExecutable()))
 			line_a11y::bootstrap();
 		Q_UNUSED(key);

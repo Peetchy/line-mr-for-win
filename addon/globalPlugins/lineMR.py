@@ -1,7 +1,7 @@
 # LINE MR: answers or declines an incoming LINE call from any application.
 #
-# LINE shows the incoming-call notification (a Qt Quick window, CallMessageToastWindow) without
-# activating it, so keyboard users cannot reach it while they work in another application. The
+# LINE's call process (LineCall.exe) shows the incoming-call notification (a Qt Quick window,
+# CallMessageToastWindow), and keyboard users may not reach it while they work in another application. The
 # bridge writes "Incoming call: <caller>, ..." to %LOCALAPPDATA%\LineMR\incoming-call.txt and
 # signals the event Local\lineMR.incomingCall, which this plugin waits for and speaks (NVDA drops
 # UI Automation notifications from background windows). The bridge also tags the notification's
@@ -91,7 +91,7 @@ class _CallListener(threading.Thread):
 
 
 def _lineWindows():
-	"""Visible top-level windows of LINE.exe."""
+	"""Visible top-level windows of LINE.exe and LineCall.exe."""
 	names = {}
 	found = []
 
@@ -104,7 +104,7 @@ def _lineWindows():
 					names[pid.value] = appModuleHandler.getAppNameFromProcessID(pid.value)
 				except Exception:
 					names[pid.value] = ""
-			if names[pid.value] == "line":
+			if names[pid.value] in ("line", "linecall"):
 				found.append(hwnd)
 		return True
 

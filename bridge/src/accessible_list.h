@@ -61,6 +61,12 @@ public:
 	// Makes the first (or last) row that has text current, scrolling it into view.
 	void focusEdgeRow(bool last);
 
+	// Up / Down / PageUp / PageDown in the message list: the previous / next row with text (a page:
+	// about a screen further). LINE moves from a row of its own that setCurrentIndex() does not
+	// change, so after Home / End or entering the list its arrows continued from an old position.
+	// Returns false for other keys.
+	bool stepRow(int key);
+
 	// Chat list cursor. LINE opens a chat whenever the current row changes and stalls while it
 	// loads (up to ~2 s per chat), so Up/Down/PageUp/PageDown/Home/End move the bridge's own
 	// cursor instead; Enter opens the chat under it. Returns false for other keys.
@@ -80,6 +86,8 @@ private:
 	void checkModel() const;
 	// Drops items past the end once the model has settled after rows went away.
 	void schedulePrune() const;
+	// Makes `row` current, or reads it again if it already is (NVDA ignores a repeated focus event).
+	void makeCurrent(int row);
 
 	mutable QHash<int, QAccessible::Id> m_items;
 	struct PaintedText {

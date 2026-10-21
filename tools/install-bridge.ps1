@@ -5,8 +5,10 @@
 .DESCRIPTION
   LINE's Qt only searches its own directory for plugins (QT_PLUGIN_PATH is ignored), so the
   bridge goes to %LOCALAPPDATA%\LINE\bin\current\platformthemes\line_a11y.dll, where Qt loads
-  it as the "windows" platform theme however LINE is started. LINE updates may replace the
-  "current" folder; run this script again (the NVDA add-on also re-installs it).
+  it as the "windows" platform theme however LINE is started. LINE's call process (incoming-call
+  notification, call windows) gets a copy in
+  %LOCALAPPDATA%\LINE\Data\plugin\LineCall\<version>\platformthemes. LINE updates may replace
+  these folders; run this script again (the NVDA add-on also re-installs it).
 
 .PARAMETER Restart
   Quit LINE first (the DLL is locked while LINE runs) and start it again afterwards.
@@ -23,15 +25,24 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $lineBin = Join-Path $env:LOCALAPPDATA "LINE\bin"
-$target = Join-Path $lineBin "current\platformthemes\line_a11y.dll"
 if (-not (Test-Path (Join-Path $lineBin "current\LINE.exe"))) { throw "LINE for Windows is not installed under $lineBin" }
+$targets = @(Join-Path $lineBin "current\platformthemes\line_a11y.dll")
+$callRoot = Join-Path $env:LOCALAPPDATA "LINE\Data\plugin\LineCall"
+if (Test-Path $callRoot) {
+	foreach ($dir in Get-ChildItem $callRoot -Directory) {
+		if (Test-Path (Join-Path $dir.FullName "LineCall.exe")) {
+			$targets += Join-Path $dir.FullName "platformthemes\line_a11y.dll"
+		}
+	}
+}
 
-function Test-LineRunning { [bool](Get-Process LINE -ErrorAction SilentlyContinue) }
+# LINE starts LineCall.exe, which locks its copy of the bridge too.
+function Test-LineRunning { [bool](Get-Process LINE, LineCall -ErrorAction SilentlyContinue) }
 
 $wasRunning = Test-LineRunning
 if ($wasRunning) {
 	if (-not $Restart) { throw "LINE is running and locks the bridge DLL; quit LINE or pass -Restart" }
-	Get-Process LINE -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+	Get-Process LINE, LineCall -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 	for ($i = 0; $i -lt 50 -and (Test-LineRunning); $i++) { Start-Sleep -Milliseconds 200 }
 	if (Test-LineRunning) { throw "LINE did not quit" }
 	# Not a crash: keep the bridge's crash guard from counting it.
@@ -39,16 +50,20 @@ if ($wasRunning) {
 }
 
 if ($Uninstall) {
-	if (Test-Path $target) { Remove-Item $target -Force }
-	$dir = Split-Path $target
-	if ((Test-Path $dir) -and -not (Get-ChildItem $dir)) { Remove-Item $dir }
-	Write-Host "Removed $target"
+	foreach ($target in $targets) {
+		if (Test-Path $target) { Remove-Item $target -Force }
+		$dir = Split-Path $target
+		if ((Test-Path $dir) -and -not (Get-ChildItem $dir)) { Remove-Item $dir }
+		Write-Host "Removed $target"
+	}
 } else {
 	if (-not $Dll) { $Dll = Join-Path $root "bridge\build\line_a11y.dll" }
 	if (-not (Test-Path $Dll)) { throw "No bridge DLL at $Dll; build it with tools\build.ps1" }
-	New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
-	Copy-Item $Dll $target -Force
-	Write-Host "Installed $target"
+	foreach ($target in $targets) {
+		New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
+		Copy-Item $Dll $target -Force
+		Write-Host "Installed $target"
+	}
 	# Keep a dev-installed add-on's bundled copy identical, or it reports the bridge as outdated.
 	$addonDll = Join-Path $env:APPDATA "nvda\addons\lineMR\bridge\line_a11y.dll"
 	if (Test-Path $addonDll) {

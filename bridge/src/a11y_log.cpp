@@ -31,8 +31,10 @@ QString computeDirectory()
 FILE *logFile()
 {
 	if (!g_logFile) {
-		const QString path = bridgeDirectory() + QStringLiteral("logs/bridge.log");
-		const QString old = bridgeDirectory() + QStringLiteral("logs/bridge.old.log");
+		// LINE.exe and LineCall.exe run at the same time: one log each.
+		const QString name = inCallProcess() ? QStringLiteral("logs/linecall") : QStringLiteral("logs/bridge");
+		const QString path = bridgeDirectory() + name + QStringLiteral(".log");
+		const QString old = bridgeDirectory() + name + QStringLiteral(".old.log");
 		QFile::remove(old);
 		QFile::rename(path, old);
 		g_logFile = _wfopen(reinterpret_cast<const wchar_t *>(path.utf16()), L"ab");
@@ -46,6 +48,16 @@ const QString &bridgeDirectory()
 {
 	static const QString dir = computeDirectory();
 	return dir;
+}
+
+bool inCallProcess()
+{
+	static const bool call = [] {
+		wchar_t buf[MAX_PATH];
+		const DWORD n = GetModuleFileNameW(nullptr, buf, MAX_PATH);
+		return QString::fromWCharArray(buf, int(n)).endsWith(QLatin1StringView("\\LineCall.exe"), Qt::CaseInsensitive);
+	}();
+	return call;
 }
 
 void a11yLogString(const QString &line)

@@ -8,6 +8,7 @@
 import addonHandler
 import appModuleHandler
 import controlTypes
+import core
 import ui
 from logHandler import log
 from NVDAObjects.behaviors import Dialog
@@ -76,29 +77,34 @@ class DialogWindow(Dialog):
 	role = controlTypes.Role.DIALOG
 
 
+def chooseOverlayClasses(obj, clsList):
+	"""Overlay classes for LINE's UIA objects (also used for LineCall.exe, see appModules/linecall.py)."""
+	if not isinstance(obj, UIA):
+		return
+	className = _uiaClassName(obj)
+	if className.startswith(("shadow_corner_", "shadow_side_")):
+		clsList.insert(0, ShadowWindow)
+	elif className in DIALOG_WINDOW_CLASSES or (
+		# LINE's other windows (photos & files, settings, Qt Quick pages such as the member list
+		# and profiles) work like dialogs; the main window and chat windows do not.
+		obj.role == controlTypes.Role.WINDOW
+		and ("_QMLTYPE_" in className or className.endswith("Window"))
+		and className not in MAIN_WINDOW_CLASSES
+	):
+		clsList.insert(0, DialogWindow)
+	elif obj.role in (controlTypes.Role.GROUPING, controlTypes.Role.PANE) and (
+		className in LAYOUT_CLASSES or className.endswith("Panel")
+	):
+		clsList.insert(0, LayoutGroup)
+
+
 class AppModule(appModuleHandler.AppModule):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		bridge.checkOnStart(self.processID)
 
 	def chooseNVDAObjectOverlayClasses(self, obj, clsList):
-		if not isinstance(obj, UIA):
-			return
-		className = _uiaClassName(obj)
-		if className.startswith(("shadow_corner_", "shadow_side_")):
-			clsList.insert(0, ShadowWindow)
-		elif className in DIALOG_WINDOW_CLASSES or (
-			# LINE's other windows (photos & files, settings, Qt Quick pages such as the member list
-			# and profiles) work like dialogs; the main window and chat windows do not.
-			obj.role == controlTypes.Role.WINDOW
-			and ("_QMLTYPE_" in className or className.endswith("Window"))
-			and className not in MAIN_WINDOW_CLASSES
-		):
-			clsList.insert(0, DialogWindow)
-		elif obj.role in (controlTypes.Role.GROUPING, controlTypes.Role.PANE) and (
-			className in LAYOUT_CLASSES or className.endswith("Panel")
-		):
-			clsList.insert(0, LayoutGroup)
+		chooseOverlayClasses(obj, clsList)
 
 	@script(
 		# Translators: Describes the command that reports whether the LINE accessibility bridge works.
@@ -131,7 +137,8 @@ class AppModule(appModuleHandler.AppModule):
 			if obj is not None:
 				obj.setFocus()
 				return obj
-		ui.message(notFound)
+		if notFound:
+			ui.message(notFound)
 		return None
 
 	@script(
@@ -171,6 +178,25 @@ class AppModule(appModuleHandler.AppModule):
 	def script_focusList(self, gesture):
 		# Translators: Reported when no chat or friend list is shown.
 		self._focus(("list_chats", "list_friends"), _("No list is shown."))
+
+	@script(
+		# Translators: Describes the command that moves focus to LINE's chat list.
+		description=_("Moves to the chat list (switches to the chats tab first if needed)"),
+		category=SCRIPT_CATEGORY,
+		gesture="kb:alt+c",
+	)
+	def script_focusChats(self, gesture):
+		if self._focus(("list_chats",), None) is not None:
+			return
+		# Another tab is shown: switch to the chats tab, then go to its list once LINE has shown it.
+		if self._activate("gnb-chat", _("Not available here. Switch to LINE's main window.")) is None:
+			return
+
+		def focusList(triesLeft=5):
+			if self._focus(("list_chats",), None) is None and triesLeft > 0:
+				core.callLater(200, focusList, triesLeft - 1)
+
+		core.callLater(200, focusList)
 
 	@script(
 		# Translators: Describes the command that moves focus to the messages of the open chat.

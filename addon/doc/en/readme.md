@@ -29,9 +29,10 @@ When NVDA starts, LINE MR checks GitHub for a newer release. If there is one, a 
 - LINE's window-shadow windows and its unnamed layout groups are hidden from object navigation.
 - Main window: sidebar tabs, chat header and message-bar buttons are named. The chat list reads name, member count, last message, time and unread count; the friend list reads names, member counts and group sections.
 - Chat list: Up/Down, Page Up/Page Down and Home/End browse chats quickly without opening them (opening a chat makes LINE pause for up to two seconds); Enter opens the chat and moves to its message input. The chat on the right changes only when you press Enter.
-- Messages: each message reads as sender (or "You"), text, time and read receipt; messages without text say what they are: photo, photo album, video, sticker, LINE emoji, file (with its name and size) or call (with its length or status); the list starts at the newest message. Home goes to the oldest loaded message (LINE then loads older ones; press Home again to go further back), End to the newest. New messages from others are announced while LINE is in front.
+- Messages: each message reads as sender (or "You"), text, time and read receipt; messages without text say what they are: photo, photo album, video, sticker, LINE emoji, voice message (with its length), file (with its name and size) or call (with its length or status). Entering the list (Tab, Shift+Tab or Alt+M) starts at the newest message. Up/Down move one message, Page Up/Page Down about a screen; Home goes to the oldest loaded message (LINE then loads older ones; press Home again to go further back), End to the newest; pressing Home or End again reads that message again. New messages from others are announced while LINE is in front.
+- Tab order in an open chat: chat header buttons, the chat's note (if it has one), "Scroll to latest message", the message list, the message input, then the message bar buttons from the input outwards (Stickers and emoji, Screenshot options, Screenshot, Keep, Attach file).
 - Context menus: the Applications key (or Shift+F10) on a message opens LINE's menu with focus on its first item; Up/Down and Home/End move, Enter or Space chooses, Escape closes it and returns to the message.
-- Incoming calls: LINE MR says "Incoming call" with the caller's name, even while you work in another application. Press NVDA+Shift+Control+A to answer or NVDA+Shift+Control+D to decline, from any application. When LINE is in front, focus moves to the call notification's Answer button (Tab reaches Decline).
+- Incoming calls: LINE MR says "Incoming call" with the caller's name, even while you work in another application. Press NVDA+Shift+Control+A to answer or NVDA+Shift+Control+D to decline, from any application. Focus moves to the call notification's Answer button (Tab reaches Decline; Enter or Space presses). During a call, the call window's buttons are named (End call, Mute microphone, Start video call, Mute speaker) and its texts (caller, call length) are read.
 - Pages that open in their own window are read: clicking a group's name or its member count (for example "(5)") opens the member list; members open their profile; the chat menu's Photos & videos, Links and Files open a window named after the chat. Focus starts on the page's first control and its texts are read. Pages that open inside the main window get focus too.
 - Other windows: Settings (More > Settings; its sections and sub-sections are radio buttons, combo boxes carry their label), profile settings, Albums and Notes, Search friends, and Create group (friends are checkboxes: Space ticks one). Polls open as a web page, read in browse mode.
 - Picture messages (cards from official accounts such as banks) are pictures with the text drawn into them, so LINE gives no text to read: they are reported as "photo or sticker". Press NVDA+R on such a message to read its text with Windows OCR. When LINE could not download a card, it shows "Unable to load" with a "Try again" button, which is what you hear.
@@ -41,7 +42,8 @@ When NVDA starts, LINE MR checks GitHub for a newer release. If there is one, a 
 | Command | Action |
 |---|---|
 | Alt+1 / Alt+2 / Alt+3 | Friends / Chats / Add friends tab |
-| Alt+L | Move to the chat list or friend list |
+| Alt+C | Move to the chat list (switches to the Chats tab first if needed) |
+| Alt+L | Move to the chat list or friend list (whichever is shown) |
 | Alt+M | Move to the messages of the open chat |
 | Alt+I | Move to the message input of the open chat |
 | NVDA+Alt+1 … NVDA+Alt+9 | Read a recent message (1 = newest) |
@@ -51,9 +53,19 @@ When NVDA starts, LINE MR checks GitHub for a newer release. If there is one, a 
 
 Commands can be changed under NVDA menu, Preferences, Input gestures, category "LINE MR".
 
+### Keys in LINE
+
+| Where | Keys |
+|---|---|
+| Everywhere | Tab / Shift+Tab move between controls; Space or Enter presses buttons, checkboxes and links |
+| Chat list | Up/Down, Page Up/Page Down, Home/End browse chats without opening them; Enter opens the chat and moves to its message input |
+| Messages | Up/Down: previous / next message; Page Up/Page Down: about a screen; Home: oldest loaded message (again: load older ones); End: newest message; Applications key or Shift+F10: the message's menu |
+| Message menu | Up/Down, Home/End move; Enter or Space chooses; Escape closes and returns to the message |
+| Incoming call | Enter or Space on Answer / Decline; NVDA+Shift+Control+A / D from any application |
+
 ## How the bridge works
 
-The bridge is `line_a11y.dll`, a Qt platform-theme plugin placed in `%LOCALAPPDATA%\LINE\bin\current\platformthemes`. LINE's Qt loads it at start-up; it returns no theme (so LINE looks exactly the same) and installs accessibility interfaces for LINE's custom widgets. It reads text by recording what each widget paints, so it does not depend on LINE's internal memory layout. No LINE files are modified; to remove it, delete that DLL.
+The bridge is `line_a11y.dll`, a Qt platform-theme plugin placed in `%LOCALAPPDATA%\LINE\bin\current\platformthemes`, with a copy for LINE's call program (`LineCall.exe`, which shows incoming calls and the call window) in `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<version>\platformthemes`. LINE's Qt loads it at start-up; it returns no theme (so LINE looks exactly the same) and installs accessibility interfaces for LINE's custom widgets. It reads text by recording what each widget paints, so it does not depend on LINE's internal memory layout. No LINE files are modified; to remove it, delete those DLLs.
 
 Logs: `%LOCALAPPDATA%\LineMR\logs\bridge.log`.
 

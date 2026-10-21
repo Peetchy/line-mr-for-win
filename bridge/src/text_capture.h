@@ -31,6 +31,7 @@ struct PaintedImage {
 	bool alpha = false;   // has an alpha channel
 	bool clearCorners = false; // its four corner pixels are transparent (stickers, round icons)
 	bool clipped = false; // drawn with a clip set (LINE rounds photo corners that way)
+	QString icon;         // which of LINE's known icons it is ("voice", see text_capture.cpp), or empty
 };
 
 // A path, rectangle or ellipse the widget drew.

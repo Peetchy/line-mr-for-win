@@ -3,6 +3,7 @@
 #include "a11y_log.h"
 
 #include <QtCore/QFile>
+#include <QtCore/QHash>
 
 #include <QtGui/QPaintDevice>
 #include <QtGui/QPaintEngine>
@@ -20,6 +21,99 @@
 
 namespace line_a11y {
 namespace {
+
+// ---- Known icons -----------------------------------------------------------------------------------
+//
+// Some message types are drawn with an icon of their own from LINE's resources (default.dat, mounted
+// at :/resource): the play / pause button of a voice message, ... The images LINE draws are compared
+// with those icons by shape: both are scaled to a small alpha mask (sizes differ with the display
+// scale and @2x variants). Button sprites hold their states side by side.
+
+constexpr int kMaskSide = 12;
+constexpr int kMaxMaskDifference = 28; // mean alpha difference (0-255) still taken as the same icon
+
+struct KnownIcon {
+	const char *path;
+	int slices;
+	const char *name;
+};
+
+const KnownIcon kKnownIcons[] = {
+	{ ":/resource/img/basic/chat/chat_word_send_voice_play_icon.png", 4, "voice" },
+	{ ":/resource/img/basic/chat/chat_word_send_voice_pause_icon.png", 4, "voice" },
+	{ ":/resource/img/basic/chat/chat_word_receive_voice_play_icon.png", 4, "voice" },
+	{ ":/resource/img/basic/chat/chat_word_receive_voice_pause_icon.png", 4, "voice" },
+};
+
+struct IconMask {
+	QByteArray alpha; // kMaskSide x kMaskSide
+	qreal aspect = 1;
+	const char *name = nullptr;
+};
+
+QByteArray alphaMask(const QImage &image)
+{
+	const QImage small = image.scaled(kMaskSide, kMaskSide, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+	                         .convertToFormat(QImage::Format_Alpha8);
+	QByteArray mask;
+	mask.reserve(kMaskSide * kMaskSide);
+	for (int y = 0; y < kMaskSide; ++y)
+		mask.append(reinterpret_cast<const char *>(small.constScanLine(y)), kMaskSide);
+	return mask;
+}
+
+const QList<IconMask> &iconMasks()
+{
+	static const QList<IconMask> masks = [] {
+		QList<IconMask> list;
+		for (const KnownIcon &icon : kKnownIcons) {
+			const QImage sprite(QString::fromLatin1(icon.path));
+			if (sprite.isNull()) {
+				a11yLog("[icons] %s not found", icon.path);
+				continue;
+			}
+			const int w = sprite.width() / icon.slices;
+			for (int i = 0; i < icon.slices; ++i) {
+				const QImage slice = sprite.copy(i * w, 0, w, sprite.height());
+				list.append({ alphaMask(slice), qreal(w) / sprite.height(), icon.name });
+			}
+		}
+		return list;
+	}();
+	return masks;
+}
+
+// The known icon `image` shows, or nullptr. Results are kept per image (LINE draws the same
+// pixmaps again and again).
+const char *knownIcon(qint64 key, const QImage &image)
+{
+	static QHash<qint64, const char *> cache;
+	if (const auto it = cache.constFind(key); key && it != cache.constEnd())
+		return it.value();
+	const char *found = nullptr;
+	if (!image.isNull()) {
+		const QByteArray mask = alphaMask(image);
+		const qreal aspect = qreal(image.width()) / image.height();
+		int best = kMaxMaskDifference + 1;
+		for (const IconMask &known : iconMasks()) {
+			if (qAbs(aspect - known.aspect) > known.aspect * 0.15)
+				continue;
+			int sum = 0;
+			for (int i = 0; i < mask.size(); ++i)
+				sum += qAbs(int(quint8(mask[i])) - int(quint8(known.alpha[i])));
+			const int mean = sum / int(mask.size());
+			if (mean < best) {
+				best = mean;
+				found = known.name;
+			}
+		}
+	}
+	if (cache.size() > 4000)
+		cache.clear();
+	if (key)
+		cache.insert(key, found);
+	return found;
+}
 
 class TextCaptureEngine final : public QPaintEngine {
 public:
@@ -64,12 +158,12 @@ public:
 	void drawPixmap(const QRectF &r, const QPixmap &pm, const QRectF &) override
 	{
 		recordPixmap(r);
-		recordImage(r, pm.size(), pm.hasAlphaChannel(), [&pm] { return pm.toImage(); });
+		recordImage(r, pm.size(), pm.hasAlphaChannel(), pm.cacheKey(), [&pm] { return pm.toImage(); });
 	}
 	void drawImage(const QRectF &r, const QImage &image, const QRectF &, Qt::ImageConversionFlags) override
 	{
 		recordPixmap(r);
-		recordImage(r, image.size(), image.hasAlphaChannel(), [&image] { return image; });
+		recordImage(r, image.size(), image.hasAlphaChannel(), image.cacheKey(), [&image] { return image; });
 	}
 	void drawTiledPixmap(const QRectF &, const QPixmap &, const QPointF &) override { ++m_out->pixmaps; }
 	void drawPolygon(const QPointF *, int, PolygonDrawMode) override {}
@@ -100,7 +194,7 @@ private:
 	}
 
 	template <typename ToImage>
-	void recordImage(const QRectF &r, const QSize &size, bool alpha, ToImage toImage)
+	void recordImage(const QRectF &r, const QSize &size, bool alpha, qint64 key, ToImage toImage)
 	{
 		if (m_opacity <= 0.01)
 			return;
@@ -114,6 +208,10 @@ private:
 			const int w = image.width() - 1, h = image.height() - 1;
 			pi.clearCorners = qAlpha(image.pixel(0, 0)) < 16 && qAlpha(image.pixel(w, 0)) < 16
 			               && qAlpha(image.pixel(0, h)) < 16 && qAlpha(image.pixel(w, h)) < 16;
+			// Icons only: pictures are larger.
+			if (size.width() <= 96 && size.height() <= 96 && size.width() >= 8 && size.height() >= 8)
+				if (const char *icon = knownIcon(key, image))
+					pi.icon = QLatin1String(icon);
 		}
 		m_out->images << pi;
 	}

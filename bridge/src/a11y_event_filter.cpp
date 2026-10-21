@@ -10,6 +10,8 @@
 #include "qt_signal_utils.h"
 #include "text_capture.h"
 
+#include <algorithm>
+
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QEvent>
 #include <QtCore/QObject>
@@ -24,6 +26,7 @@
 #include <QtQuick/QQuickWindow>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QSplitter>
 #include <QtWidgets/QWidget>
 
 namespace line_a11y {
@@ -59,19 +62,44 @@ bool makeFocusable(QWidget *w)
 	return true;
 }
 
+// `w`'s child widgets in reading order. A splitter's panes are in display order, which is not their
+// creation order: the open chat's splitter creates the message input before the message list above it.
+QList<QWidget *> childWidgetsInOrder(QWidget *w)
+{
+	QList<QWidget *> children;
+	if (auto *splitter = qobject_cast<QSplitter *>(w)) {
+		for (int i = 0; i < splitter->count(); ++i)
+			children << splitter->widget(i);
+	}
+	for (QObject *child : w->children()) {
+		if (child->isWidgetType() && !children.contains(static_cast<QWidget *>(child)))
+			children << static_cast<QWidget *>(child);
+	}
+	return children;
+}
+
 void collectTabStops(QWidget *w, QList<QWidget *> &content, QList<QWidget *> &titleBar, bool inTitleBar)
 {
 	inTitleBar = inTitleBar || inheritsClass(w, "LcTitleBar");
-	for (QObject *child : w->children()) {
-		if (!child->isWidgetType())
-			continue;
-		auto *c = static_cast<QWidget *>(child);
+	for (QWidget *c : childWidgetsInOrder(w)) {
 		if (c->isWindow())
 			continue;
+		QList<QWidget *> &stops = inTitleBar ? titleBar : content;
+		const qsizetype first = stops.size();
 		if (c->focusPolicy() & Qt::TabFocus)
-			(inTitleBar ? titleBar : content) << c;
+			stops << c;
 		// A text field's own children (clear / show-password buttons) follow the field.
 		collectTabStops(c, content, titleBar, inTitleBar);
+		// The message input bar: from the message input (reached from the message list above it)
+		// out through its buttons, nearest first (stickers ... attach file).
+		if (inheritsClass(c, "MessageInputPanel"))
+			std::reverse(stops.begin() + first, stops.end());
+		// The open chat's note banner and the buttons over the messages come before the message
+		// list, which leads on to the message input (user request).
+		if (inheritsClass(c, "ChatMessageView"))
+			std::stable_partition(stops.begin() + first, stops.end(), [](QWidget *stop) {
+				return !isLineListView(stop) || ancestorInheriting(stop, "LcListView");
+			});
 	}
 }
 
@@ -519,8 +547,19 @@ public:
 					list->resetCursor();
 			}
 			if (isLineListView(w) && ancestorInheriting(w, "ChatMessageView")) {
-				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
-					list->focusLastVisibleRow();
+				// Entering the messages (Tab, Shift+Tab, Alt+M) starts at the newest one; coming back
+				// (focus sent back by the bridge, menu closed, window activated, click) keeps the place.
+				const Qt::FocusReason reason = static_cast<QFocusEvent *>(event)->reason();
+				const bool returning = (w == m_browsingList.data() && m_listKeyTimer.isValid()
+				                        && m_listKeyTimer.elapsed() < 5000)
+				    || reason == Qt::PopupFocusReason || reason == Qt::ActiveWindowFocusReason
+				    || reason == Qt::MouseFocusReason;
+				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w))) {
+					if (returning)
+						list->focusLastVisibleRow();
+					else
+						list->focusEdgeRow(true);
+				}
 				// LINE hands focus on from the message list to the message input; reading
 				// messages needs it to stay (Tab still moves on).
 				m_browsingList = w;
@@ -571,6 +610,12 @@ public:
 					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
 						list->focusEdgeRow(key->key() == Qt::Key_End);
 					return true;
+				}
+				// The arrows move from the bridge's row too (LINE keeps a position of its own).
+				if (!(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier))) {
+					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
+					    list && list->stepRow(key->key()))
+						return true;
 				}
 			}
 			// Applications key: LINE opens the menu where the current row is; make sure it is on screen.
@@ -764,7 +809,7 @@ void enforceAccessibilityHandler(const char *reason)
 	QAccessible::setActive(true);
 }
 
-void installEventFilter(QApplication *app)
+void installEventFilter(QCoreApplication *app)
 {
 	g_filter = new A11yEventFilter(app);
 	app->installEventFilter(g_filter);
