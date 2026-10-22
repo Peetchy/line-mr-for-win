@@ -10,6 +10,7 @@
 #include "a11y_event_filter.h"
 #include "a11y_log.h"
 #include "accessible_widgets.h"
+#include "call_install.h"
 #include "text_capture.h"
 
 #include <QtCore/QCoreApplication>
@@ -158,6 +159,7 @@ void startBridge()
 	installCrashDumpWriter();
 	installEventFilter(app);
 	startDiagnostics(app);
+	startCallBridgeSync(app);
 	a11yLog("[bridge] started on %s (accessibility %s)", app->metaObject()->className(),
 	        QAccessible::isActive() ? "active" : "inactive");
 }

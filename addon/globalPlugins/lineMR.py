@@ -13,6 +13,7 @@ import threading
 from ctypes import wintypes
 
 import addonHandler
+import api
 import appModuleHandler
 import globalPluginHandler
 import queueHandler
@@ -65,7 +66,7 @@ def _speakIncomingCall():
 	if not text:
 		return
 	# Translators: Spoken after "Incoming call: <caller>"; names the add-on's answer and decline commands.
-	hint = _("NVDA+Shift+Control+A answers, NVDA+Shift+Control+D declines.")
+	hint = _("Alt+A answers, Alt+D declines.")
 	ui.message(f"{text}. {hint}", speechPriority=Spri.NOW)
 
 
@@ -112,6 +113,34 @@ def _lineWindows():
 	return found
 
 
+def _callWindowShown():
+	"""Does LineCall.exe show a window (an incoming call, a call, its notifications)? Cheap: no UIA."""
+	found = []
+	names = {}
+
+	def visit(hwnd, _lParam):
+		if _user32.IsWindowVisible(hwnd):
+			pid = wintypes.DWORD()
+			_user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+			if pid.value not in names:
+				try:
+					names[pid.value] = appModuleHandler.getAppNameFromProcessID(pid.value)
+				except Exception:
+					names[pid.value] = ""
+			if names[pid.value] == "linecall":
+				found.append(hwnd)
+				return False
+		return True
+
+	_user32.EnumWindows(_EnumWindowsProc(visit), 0)
+	return bool(found)
+
+
+def _lineInFront():
+	fg = api.getForegroundObject()
+	return bool(fg and fg.appModule and fg.appModule.appName in ("line", "linecall"))
+
+
 def _findCallButton(tag):
 	"""The tagged button of LINE's incoming-call notification, as an NVDA object, or None."""
 	handler = UIAHandler.handler
@@ -143,45 +172,88 @@ def _findCallButton(tag):
 	return None
 
 
+def _repairCallBridges():
+	try:
+		from appModules.line import bridge
+
+		bridge.repairCallBridges()
+	except Exception:
+		log.error("LINE MR: installing the bridge for LINE's call process failed", exc_info=True)
+
+
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self):
 		super().__init__()
 		self._listener = _CallListener()
 		self._listener.start()
+		# LINE downloads and updates its call process (LineCall.exe) on its own; give every version
+		# the bridge before a call comes in.
+		threading.Thread(target=_repairCallBridges, name="lineMR.callBridgeRepair", daemon=True).start()
 
 	def terminate(self):
 		self._listener.stop()
 		super().terminate()
 
-	def _press(self, tag, done):
+	def _pressButton(self, tag, done):
+		"""Presses the tagged call button; False if LINE shows none."""
 		button = _findCallButton(tag)
 		if button is None:
-			# Translators: Reported by the answer / decline commands when LINE shows no incoming call.
-			ui.message(_("No incoming LINE call."))
-			return
+			return False
 		try:
 			button.doAction()
 		except Exception:
 			log.error("LINE MR: pressing %s failed", tag, exc_info=True)
-			return
+			return True
 		ui.message(done)
+		return True
+
+	def _answer(self):
+		# Translators: Reported after answering a LINE call.
+		return self._pressButton("lineMR_call-answer", _("Answering"))
+
+	def _declineOrEnd(self, endCall):
+		# Translators: Reported after declining a LINE call.
+		if self._pressButton("lineMR_call-decline", _("Call declined")):
+			return True
+		# Translators: Reported after ending (hanging up) a LINE call.
+		return endCall and self._pressButton("lineMR_call-end", _("Call ended"))
 
 	@script(
 		# Translators: Describes the command that answers an incoming LINE call.
 		description=_("Answers an incoming LINE call (from any application)"),
 		category=SCRIPT_CATEGORY,
-		gesture="kb:NVDA+shift+control+a",
+		gestures=["kb:NVDA+shift+control+a", "kb:alt+a"],
 	)
 	def script_answerCall(self, gesture):
-		# Translators: Reported after answering a LINE call.
-		self._press("lineMR_call-answer", _("Answering"))
+		# Alt+A belongs to the application in front unless LINE shows a call.
+		plainAlt = "kb:alt+a" in gesture.normalizedIdentifiers
+		if plainAlt and not _callWindowShown():
+			gesture.send()
+			return
+		if not self._answer():
+			if plainAlt:
+				gesture.send()
+			else:
+				# Translators: Reported by the answer / decline commands when LINE shows no incoming call.
+				ui.message(_("No incoming LINE call."))
 
 	@script(
-		# Translators: Describes the command that declines an incoming LINE call.
-		description=_("Declines an incoming LINE call (from any application)"),
+		# Translators: Describes the command that declines an incoming LINE call or ends the current one.
+		description=_("Declines an incoming LINE call (from any application), or ends the current call"),
 		category=SCRIPT_CATEGORY,
-		gesture="kb:NVDA+shift+control+d",
+		gestures=["kb:NVDA+shift+control+d", "kb:alt+d"],
 	)
 	def script_declineCall(self, gesture):
-		# Translators: Reported after declining a LINE call.
-		self._press("lineMR_call-decline", _("Call declined"))
+		# Alt+D (the address bar in browsers) declines a ringing call from anywhere, but hangs up only
+		# while a LINE window is in front, so it cannot end a call by accident in another application.
+		plainAlt = "kb:alt+d" in gesture.normalizedIdentifiers
+		if plainAlt and not _callWindowShown():
+			gesture.send()
+			return
+		if self._declineOrEnd(endCall=not plainAlt or _lineInFront()):
+			return
+		if plainAlt:
+			gesture.send()
+		else:
+			# Translators: Reported by the decline / hang-up command when LINE shows no call.
+			ui.message(_("No LINE call."))

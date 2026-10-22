@@ -19,6 +19,7 @@
 #include <QtGui/QMouseEvent>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QScrollBar>
 
 #include <algorithm>
 #include <memory>
@@ -240,11 +241,21 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 	auto isAvatar = [](const PaintedImage &pi) {
 		return pi.rect.width() >= 30 && pi.rect.width() <= 45 && pi.rect.height() <= 45 && pi.rect.left() < 20;
 	};
+	// The quoted sender's small picture in a reply sits inside the bubble, beside their name.
+	auto inTextBubble = [&cap, &textInside](const QRectF &icon) {
+		for (const PaintedImage &bubble : cap.images) {
+			if (bubble.rect != icon && bubble.rect.contains(icon) && textInside(bubble.rect))
+				return true;
+		}
+		return false;
+	};
 	const PaintedImage *voice = nullptr;
 	bool fileIcon = false, stickerIcon = false, photoIcon = false, locationIcon = false;
 	for (const PaintedImage &icon : cap.images) {
 		// Round profile pictures look like the round sticker icons.
 		if (icon.icon.isEmpty() || icon.rect.top() < -4 || isAvatar(icon))
+			continue;
+		if (icon.icon == QLatin1StringView("sticker") && inTextBubble(icon.rect))
 			continue;
 		const bool play = icon.icon == QLatin1StringView("voice") || icon.icon == QLatin1StringView("video");
 		if (play && icon.rect.width() >= 20 && onPicture(icon.rect))
@@ -538,6 +549,110 @@ void sendClick(QWidget *target, QPointF local)
 	QCoreApplication::sendEvent(target, &release);
 }
 
+bool contextMenuVisible()
+{
+	for (QWidget *w : QApplication::topLevelWidgets()) {
+		if (w->isVisible() && inheritsClass(w, "LcContextMenu"))
+			return true;
+	}
+	return false;
+}
+
+// A right click at `local`: hover, press, release and, if LINE opened no menu on those, the mouse
+// context menu event.
+void sendContextClick(QWidget *target, QPointF local)
+{
+	QPointer<QWidget> guard(target);
+	const QPointF scene = target->mapTo(target->window(), local);
+	const QPointF global = target->mapToGlobal(local);
+	QEnterEvent enter(local, scene, global);
+	QCoreApplication::sendEvent(target, &enter);
+	QMouseEvent move(QEvent::MouseMove, local, scene, global, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+	if (guard)
+		QCoreApplication::sendEvent(target, &move);
+	QMouseEvent press(QEvent::MouseButtonPress, local, scene, global, Qt::RightButton, Qt::RightButton,
+	                  Qt::NoModifier);
+	if (guard)
+		QCoreApplication::sendEvent(target, &press);
+	QMouseEvent release(QEvent::MouseButtonRelease, local, scene, global, Qt::RightButton, Qt::NoButton,
+	                    Qt::NoModifier);
+	if (guard)
+		QCoreApplication::sendEvent(target, &release);
+	if (!guard || contextMenuVisible())
+		return;
+	QContextMenuEvent menu(QContextMenuEvent::Mouse, local.toPoint(), global.toPoint());
+	QCoreApplication::sendEvent(target, &menu);
+}
+
+// Where a mouse user right-clicks a message (row coordinates): its bubble or picture (an image with
+// text inside, else the largest image or shape that is neither the row's background nor the
+// avatar), else its first line of text. Null if the row drew nothing of the kind.
+QPointF messageContentPoint(const CaptureResult &cap, const QRect &rowRect)
+{
+	auto textInside = [&cap](const QRectF &r) {
+		for (const CapturedText &it : cap.items) {
+			if (!it.text.trimmed().isEmpty() && !isTimeOrReceipt(cleanText(it.text)) && r.contains(it.pos))
+				return true;
+		}
+		return false;
+	};
+	auto candidate = [&rowRect](const QRectF &r) {
+		const bool avatar = r.width() >= 30 && r.width() <= 45 && r.height() <= 45 && r.left() < 20;
+		return r.top() >= -4 && r.width() >= 16 && r.height() >= 16 && r.width() < rowRect.width() - 20 && !avatar;
+	};
+	QRectF best;
+	bool bestHasText = false;
+	auto consider = [&](const QRectF &r) {
+		if (!candidate(r))
+			return;
+		const bool hasText = textInside(r);
+		if ((hasText && !bestHasText) || (hasText == bestHasText && r.width() * r.height() > best.width() * best.height())) {
+			best = r;
+			bestHasText = hasText;
+		}
+	};
+	for (const PaintedImage &pi : cap.images)
+		consider(pi.rect);
+	for (const PaintedShape &s : cap.shapes)
+		consider(s.rect);
+	if (!best.isEmpty())
+		return best.center();
+	for (const CapturedText &it : cap.items) {
+		const QString t = cleanText(it.text);
+		if (!t.isEmpty() && !isTimeOrReceipt(t))
+			return it.pos + QPointF(qMin<qreal>(it.width / 2, 12), -4);
+	}
+	return QPointF();
+}
+
+// Pickers (ShareWindow "Share with...") tick rows: their data (ChatData, ProfileData) has `checked`.
+// The main window's lists carry the same property, always false; section headers have it too.
+bool isPickerRow(const QAbstractItemView *view, const QObject *data, bool *checked = nullptr)
+{
+	if (!view || !data || data->metaObject()->indexOfProperty("checked") < 0 || data->property("section").toBool()
+	    || inheritsAnyClass(view->window(), { "AllInOneWindow", "ChatWindow" }))
+		return false;
+	if (checked)
+		*checked = data->property("checked").toBool();
+	return true;
+}
+
+// A picker row was clicked: tell the screen reader once LINE has ticked it.
+void notifyPickerRowLater(QAbstractItemView *view, int row)
+{
+	QPointer<QAbstractItemView> guard(view);
+	QTimer::singleShot(150, view, [guard, row] {
+		auto *list = listFor(guard);
+		QAccessibleInterface *item = list ? list->itemAt(row) : nullptr;
+		if (!item)
+			return;
+		QAccessible::State changed;
+		changed.checked = true;
+		QAccessibleStateChangeEvent event(item, changed);
+		QAccessible::updateAccessibility(&event);
+	});
+}
+
 // One row of an LcListView.
 class LineAccessibleListItem : public QAccessibleInterface, public QAccessibleActionInterface {
 public:
@@ -561,7 +676,16 @@ public:
 	int indexOfChild(const QAccessibleInterface *) const override { return -1; }
 	QAccessibleInterface *childAt(int, int) const override { return nullptr; }
 	void setText(QAccessible::Text, const QString &) override {}
-	QAccessible::Role role() const override { return QAccessible::ListItem; }
+	QAccessible::Role role() const override
+	{
+		return isPickerRow(m_view, rowData()) ? QAccessible::CheckBox : QAccessible::ListItem;
+	}
+
+	QObject *rowData() const
+	{
+		const QModelIndex idx = index();
+		return idx.isValid() ? idx.data(kItemDataRole).value<QObject *>() : nullptr;
+	}
 
 	QString text(QAccessible::Text t) const override
 	{
@@ -598,6 +722,10 @@ public:
 		}
 		st.selectable = true;
 		st.focusable = true;
+		if (bool checked = false; isPickerRow(m_view, rowData(), &checked)) {
+			st.checkable = true;
+			st.checked = checked;
+		}
 		auto *list = dynamic_cast<LineAccessibleList *>(parent());
 		const int cursor = list ? list->cursorRow() : m_view->currentIndex().row();
 		// LINE moves the current row without selecting it; NVDA would say "not selected" on every row.
@@ -624,7 +752,12 @@ public:
 	}
 
 	// QAccessibleActionInterface
-	QStringList actionNames() const override { return { pressAction(), setFocusAction() }; }
+	QStringList actionNames() const override
+	{
+		if (isPickerRow(m_view, rowData()))
+			return { toggleAction(), pressAction(), setFocusAction() };
+		return { pressAction(), setFocusAction() };
+	}
 	QStringList keyBindingsForAction(const QString &) const override { return {}; }
 	void doAction(const QString &actionName) override
 	{
@@ -641,15 +774,18 @@ public:
 			}, Qt::QueuedConnection);
 			return;
 		}
-		if (actionName != pressAction())
+		if (actionName != pressAction() && actionName != toggleAction())
 			return;
 		// LcListView dispatches viewport mouse events to the row's delegate, so a click at the
-		// row's centre selects / opens it (opening a chat, folding a section).
-		QMetaObject::invokeMethod(view, [view, index] {
+		// row's centre selects / opens it (opening a chat, folding a section, ticking a picker row).
+		const bool picker = isPickerRow(m_view, rowData());
+		QMetaObject::invokeMethod(view, [view, index, picker] {
 			if (!view || !index.isValid())
 				return;
 			view->scrollTo(index);
 			sendClick(view->viewport(), QRectF(view->visualRect(index)).center());
+			if (picker)
+				notifyPickerRowLater(view, index.row());
 		}, Qt::QueuedConnection);
 	}
 
@@ -1085,6 +1221,91 @@ bool LineAccessibleList::openCursorRow()
 	// A click opens the chat the way LINE expects (setting the current row alone may not).
 	v->scrollTo(idx);
 	sendClick(v->viewport(), QRectF(v->visualRect(idx)).center());
+	return true;
+}
+
+bool LineAccessibleList::openSeeMore()
+{
+	// LINE's link under a long message, in the languages LINE offers.
+	static const QStringList kSeeMore = { QStringLiteral("ดูเพิ่มเติม"), QStringLiteral("See more"),
+		                                  QStringLiteral("Read more"), QStringLiteral("もっと見る"),
+		                                  QStringLiteral("続きを読む"), QStringLiteral("查看更多"),
+		                                  QStringLiteral("查看全文"), QStringLiteral("顯示更多"),
+		                                  QStringLiteral("查看更多內容"), QStringLiteral("Lihat selengkapnya") };
+	QAbstractItemView *v = view();
+	const int row = cursorRow();
+	if (!v || !v->model() || row < 0)
+		return false;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	v->scrollTo(idx);
+	const QRect r = v->visualRect(idx);
+	const CaptureResult cap = captureRegionText(v->viewport(), r);
+	if (cap.skipped)
+		return false;
+	for (const CapturedText &it : cap.items) {
+		if (!kSeeMore.contains(cleanText(it.text)))
+			continue;
+		// Text positions are baselines: click a little above, in the middle of the word.
+		const QPointF inRow(it.pos.x() + qMax<qreal>(it.width, 8) / 2, it.pos.y() - 5);
+		QPointF local = QPointF(r.topLeft()) + inRow;
+		// A long message is taller than the list: bring its end (where the link is) into view.
+		if (!v->viewport()->rect().contains(local.toPoint())) {
+			if (QScrollBar *bar = v->verticalScrollBar())
+				bar->setValue(bar->value() + int(local.y() - v->viewport()->height() / 2));
+			local = QPointF(v->visualRect(idx).topLeft()) + inRow;
+		}
+		if (!v->viewport()->rect().contains(local.toPoint())) {
+			a11yLog("[keyboard] \"See more\" in message row %d is out of view (%.0f,%.0f)", row, local.x(), local.y());
+			return false;
+		}
+		a11yLog("[keyboard] \"See more\" in message row %d: click at %.0f,%.0f", row, local.x(), local.y());
+		sendClick(v->viewport(), local);
+		return true;
+	}
+	return false;
+}
+
+bool LineAccessibleList::toggleCursorRow()
+{
+	QAbstractItemView *v = view();
+	const int row = cursorRow();
+	if (!v || !v->model() || row < 0)
+		return false;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	if (!isPickerRow(v, idx.data(kItemDataRole).value<QObject *>()))
+		return false;
+	v->scrollTo(idx);
+	sendClick(v->viewport(), QRectF(v->visualRect(idx)).center());
+	notifyPickerRowLater(v, row);
+	return true;
+}
+
+bool LineAccessibleList::openRowMenu()
+{
+	QAbstractItemView *v = view();
+	const int row = cursorRow();
+	if (!v || !v->model() || row < 0)
+		return false;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	v->scrollTo(idx);
+	const QRect r = v->visualRect(idx);
+	const CaptureResult cap = captureRegionText(v->viewport(), r);
+	if (cap.skipped)
+		return false;
+	const QPointF point = messageContentPoint(cap, r);
+	if (point.isNull())
+		return false;
+	// A tall message may reach past the viewport: click inside the part that is shown.
+	const QRectF shown = QRectF(r.intersected(v->viewport()->rect())).adjusted(1, 1, -1, -1);
+	if (shown.isEmpty())
+		return false;
+	const QPointF local(qBound(shown.left(), r.left() + point.x(), shown.right()),
+	                    qBound(shown.top(), r.top() + point.y(), shown.bottom()));
+	static int logged = 0;
+	if (logged++ < 10)
+		a11yLog("[menu] keyboard menu on message row %d: right click at %.0f,%.0f (row %d,%d %dx%d)", row,
+		        local.x(), local.y(), r.x(), r.y(), r.width(), r.height());
+	sendContextClick(v->viewport(), local);
 	return true;
 }
 

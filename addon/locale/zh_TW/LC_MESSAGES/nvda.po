@@ -1,0 +1,177 @@
+# Traditional Chinese translation of LINE MR.
+msgid ""
+msgstr ""
+"Project-Id-Version: lineMR 0.5.0\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Reports whether the LINE MR accessibility bridge is installed and running in LINE and its call windows"
+msgstr "報告 LINE MR 無障礙橋接元件是否已安裝並在 LINE 及其通話視窗中執行"
+
+msgid "Not available here. Switch to LINE's main window."
+msgstr "此處無法使用。請切換到 LINE 的主視窗。"
+
+msgid "Shows the friends list"
+msgstr "顯示好友列表"
+
+msgid "Shows the chat list"
+msgstr "顯示聊天列表"
+
+msgid "Shows add friends"
+msgstr "顯示加入好友"
+
+msgid "No list is shown."
+msgstr "沒有顯示列表。"
+
+msgid "Moves to the chat list or friend list"
+msgstr "移到聊天列表或好友列表"
+
+msgid "Moves to the chat list (switches to the chats tab first if needed)"
+msgstr "移到聊天列表(如有需要先切換到聊天分頁)"
+
+msgid "No search field is shown."
+msgstr "沒有顯示搜尋欄位。"
+
+msgid "Moves to the search field of the chat list or friend list"
+msgstr "移到聊天列表或好友列表的搜尋欄位"
+
+msgid "No chat is open."
+msgstr "沒有開啟的聊天。"
+
+msgid "Moves to the messages of the open chat"
+msgstr "移到已開啟聊天的訊息"
+
+msgid "Moves to the message input of the open chat"
+msgstr "移到已開啟聊天的訊息輸入框"
+
+msgid "Reads a recent message of the open chat: 1 is the newest, 9 the ninth newest"
+msgstr "朗讀已開啟聊天的最近訊息:1 為最新,9 為倒數第九則"
+
+msgid "No message {number}."
+msgstr "沒有第 {number} 則訊息。"
+
+msgid "LINE MR bridge installed. LINE is restarting."
+msgstr "已安裝 LINE MR 橋接元件。LINE 正在重新啟動。"
+
+msgid "LINE has to be restarted to use LINE MR. Restart LINE now?"
+msgstr "需要重新啟動 LINE 才能使用 LINE MR。現在重新啟動 LINE 嗎?"
+
+msgid "Calls: the bridge is running."
+msgstr "通話:橋接元件正在執行。"
+
+msgid "Calls: the bridge is installed."
+msgstr "通話:已安裝橋接元件。"
+
+msgid "Calls: the bridge is not loaded yet. Restart LINE to use LINE MR with calls."
+msgstr "通話:橋接元件尚未載入。請重新啟動 LINE,以便在通話中使用 LINE MR。"
+
+msgid "Calls: the bridge could not be installed."
+msgstr "通話:無法安裝橋接元件。"
+
+msgid "Calls: LINE has not set up calls yet."
+msgstr "通話:LINE 尚未設定通話功能。"
+
+msgid "LINE MR bridge is running."
+msgstr "LINE MR 橋接元件正在執行。"
+
+msgid "LINE MR bridge is installed, but LINE must be restarted to use it."
+msgstr "LINE MR 橋接元件已安裝,但需要重新啟動 LINE 才能使用。"
+
+msgid "An older LINE MR bridge is installed in LINE."
+msgstr "LINE 中安裝的是舊版 LINE MR 橋接元件。"
+
+msgid "LINE MR bridge is not installed in LINE."
+msgstr "LINE 中未安裝 LINE MR 橋接元件。"
+
+msgid "LINE for Windows was not found."
+msgstr "找不到 LINE for Windows。"
+
+msgid "This LINE MR package does not contain the bridge."
+msgstr "此 LINE MR 套件不包含橋接元件。"
+
+msgid "LINE MR"
+msgstr "LINE MR"
+
+msgid "Could not install the LINE MR bridge."
+msgstr "無法安裝 LINE MR 橋接元件。"
+
+msgid ""
+"{status}\n"
+"Install the LINE MR bridge now? LINE will be closed and started again."
+msgstr ""
+"{status}\n"
+"現在安裝 LINE MR 橋接元件嗎?LINE 將關閉並重新啟動。"
+
+msgid "LINE MR is not active for calls yet. Restart LINE after this call."
+msgstr "LINE MR 尚未在通話中生效。請在本次通話結束後重新啟動 LINE。"
+
+msgid "Alt+A answers, Alt+D declines."
+msgstr "Alt+A 接聽,Alt+D 拒絕。"
+
+msgid "Answering"
+msgstr "正在接聽"
+
+msgid "Call declined"
+msgstr "已拒絕來電"
+
+msgid "Answers an incoming LINE call (from any application)"
+msgstr "接聽 LINE 來電(在任何應用程式中)"
+
+msgid "Declines an incoming LINE call (from any application), or ends the current call"
+msgstr "拒絕 LINE 來電(在任何應用程式中),或結束目前的通話"
+
+msgid "Call ended"
+msgstr "已結束通話"
+
+msgid "No LINE call."
+msgstr "沒有 LINE 通話。"
+
+msgid "No incoming LINE call."
+msgstr "沒有 LINE 來電。"
+
+msgid "LINE MR update"
+msgstr "LINE MR 更新"
+
+msgid "&Update now"
+msgstr "立即更新(&U)"
+
+msgid "&Later"
+msgstr "稍後(&L)"
+
+msgid "&Skip this version"
+msgstr "略過此版本(&S)"
+
+msgid "Checking for LINE MR updates"
+msgstr "正在檢查 LINE MR 更新"
+
+msgid "Checks for a newer version of LINE MR"
+msgstr "檢查 LINE MR 的新版本"
+
+msgid ""
+"LINE MR {new} is available (installed: {old}).\n"
+"\n"
+"Update now? NVDA downloads and installs it, then asks to restart."
+msgstr ""
+"LINE MR {new} 已推出(已安裝:{old})。\n"
+"\n"
+"現在更新嗎?NVDA 會下載並安裝,然後要求重新啟動。"
+
+msgid "Could not download the LINE MR update."
+msgstr "無法下載 LINE MR 更新。"
+
+msgid "Check for LINE MR &updates when NVDA starts"
+msgstr "NVDA 啟動時檢查 LINE MR 更新(&U)"
+
+msgid "&Check for updates now"
+msgstr "立即檢查更新(&C)"
+
+msgid "Could not check for LINE MR updates."
+msgstr "無法檢查 LINE MR 更新。"
+
+msgid "Downloading LINE MR {version}"
+msgstr "正在下載 LINE MR {version}"
+
+msgid "LINE MR {version} is up to date."
+msgstr "LINE MR {version} 已是最新版本。"

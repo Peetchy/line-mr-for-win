@@ -100,7 +100,8 @@ def render_docs():
 			src = os.path.join(dirpath, name)
 			with open(src, encoding="utf-8") as f:
 				text = f.read()
-			lang = os.path.basename(dirpath)
+			# NVDA's folder names (zh_CN) as HTML language tags (zh-CN).
+			lang = os.path.basename(dirpath).replace("_", "-")
 			body = markdown.markdown(text, extensions=["tables"]) if markdown else f"<pre>{text}</pre>"
 			html = (
 				f'<!DOCTYPE html>\n<html lang="{lang}">\n<head>\n<meta charset="utf-8">\n'

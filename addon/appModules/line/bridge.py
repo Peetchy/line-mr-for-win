@@ -128,14 +128,105 @@ def status(pid=None):
 		return Status.NO_LINE
 	if not os.path.isfile(BUNDLED_DLL):
 		return Status.NOT_BUNDLED
-	targets = installedDllPaths()
-	if not all(os.path.isfile(t) for t in targets):
+	# LineCall's copies are repaired without restarting LINE (repairCallBridges()).
+	target = installedDllPath()
+	if not os.path.isfile(target):
 		return Status.MISSING
-	if not all(_sameFile(BUNDLED_DLL, t) for t in targets):
+	if not _sameFile(BUNDLED_DLL, target):
 		return Status.OUTDATED
 	if pid and DLL_NAME not in _processModules(pid):
 		return Status.NOT_LOADED
 	return Status.RUNNING
+
+
+class CallStatus(enum.Enum):
+	RUNNING = "running"  # LineCall.exe runs with the bridge
+	READY = "ready"  # installed and current; LineCall.exe is not running
+	NOT_LOADED = "notLoaded"  # LineCall.exe runs without the bridge (LINE must be restarted)
+	MISSING = "missing"  # could not be installed (see NVDA's log)
+	NO_CALL = "noCall"  # LINE has not downloaded its call process yet
+
+
+def _replaceFile(source, target):
+	"""Copies source over target, also when a running LineCall.exe has target loaded."""
+	os.makedirs(os.path.dirname(target), exist_ok=True)
+	temp = target + ".new"
+	shutil.copyfile(source, temp)
+	if os.path.exists(target):
+		try:
+			os.remove(target)
+		except OSError:
+			# Older Windows keeps a loaded DLL from being deleted, but lets it be renamed.
+			os.replace(target, "%s.old%d" % (target, int(time.time() * 1000)))
+	os.replace(temp, target)
+
+
+def _removeOldCopies(directory):
+	try:
+		names = os.listdir(directory)
+	except OSError:
+		return
+	for name in names:
+		if name.startswith(DLL_NAME + ".old"):
+			try:
+				os.remove(os.path.join(directory, name))
+			except OSError:
+				pass  # still loaded by a running LineCall.exe
+
+
+def repairCallBridges():
+	"""Installs the bundled bridge next to every LineCall.exe that lacks it or has another build.
+
+	LINE downloads its call process after it was installed and updates it into new version folders,
+	so it can be missing when the bridge was installed. No restart is needed: a running LineCall.exe
+	picks the new bridge up when it next starts. Returns the paths that were (re)installed.
+	"""
+	if not os.path.isfile(BUNDLED_DLL):
+		return []
+	done = []
+	for target in callDllPaths():
+		_removeOldCopies(os.path.dirname(target))
+		try:
+			if os.path.isfile(target) and _sameFile(BUNDLED_DLL, target):
+				continue
+			_replaceFile(BUNDLED_DLL, target)
+		except OSError:
+			log.error("LINE MR: could not install the bridge to %s", target, exc_info=True)
+			continue
+		log.info("LINE MR: installed bridge to %s", target)
+		done.append(target)
+	return done
+
+
+def _callPids():
+	return [pid for name, pid in _lineProcesses() if name == "linecall.exe"]
+
+
+def callStatus():
+	paths = callDllPaths()
+	if not paths:
+		return CallStatus.NO_CALL
+	pids = _callPids()
+	if pids:
+		return CallStatus.RUNNING if all(DLL_NAME in _processModules(pid) for pid in pids) else CallStatus.NOT_LOADED
+	if os.path.isfile(BUNDLED_DLL) and all(os.path.isfile(p) and _sameFile(BUNDLED_DLL, p) for p in paths):
+		return CallStatus.READY
+	return CallStatus.MISSING
+
+
+def describeCallStatus(st):
+	return {
+		# Translators: Reported when the bridge works in LINE's call process.
+		CallStatus.RUNNING: _("Calls: the bridge is running."),
+		# Translators: Reported when the bridge is ready for LINE's call process, which is not running.
+		CallStatus.READY: _("Calls: the bridge is installed."),
+		# Translators: Reported when LINE's call process runs without the bridge.
+		CallStatus.NOT_LOADED: _("Calls: the bridge is not loaded yet. Restart LINE to use LINE MR with calls."),
+		# Translators: Reported when the bridge could not be installed for LINE's call process.
+		CallStatus.MISSING: _("Calls: the bridge could not be installed."),
+		# Translators: Reported when LINE has not downloaded its call component yet.
+		CallStatus.NO_CALL: _("Calls: LINE has not set up calls yet."),
+	}[st]
 
 
 def describeStatus(st):
@@ -165,20 +256,25 @@ def _waitForExit(pid, timeout=10.0):
 		_kernel32.CloseHandle(handle)
 
 
-def _linePids():
-	"""LINE.exe and LineCall.exe (started by LINE; it locks its copy of the bridge)."""
+def _lineProcesses():
+	"""(lower-case image name, pid) of LINE.exe and LineCall.exe (started by LINE)."""
 	out = subprocess.run(
 		["tasklist", "/FO", "CSV", "/NH"],
 		capture_output=True,
 		text=True,
 		creationflags=subprocess.CREATE_NO_WINDOW,
 	).stdout
-	pids = []
+	found = []
 	for line in out.splitlines():
 		parts = [p.strip('"') for p in line.split('","')]
 		if len(parts) > 1 and parts[0].lower() in ("line.exe", "linecall.exe") and parts[1].isdigit():
-			pids.append(int(parts[1]))
-	return pids
+			found.append((parts[0].lower(), int(parts[1])))
+	return found
+
+
+def _linePids():
+	"""LINE.exe and LineCall.exe (it locks its copy of the bridge)."""
+	return [pid for _name, pid in _lineProcesses()]
 
 
 def installAndRestart():
@@ -248,6 +344,7 @@ def offerInstall(pid, st):
 
 def checkOnStart(pid):
 	try:
+		repairCallBridges()
 		st = status(pid)
 	except Exception:
 		log.error("LINE MR: bridge status check failed", exc_info=True)

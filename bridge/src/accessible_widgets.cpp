@@ -12,6 +12,7 @@
 #include <QtCore/QSet>
 #include <QtCore/QTimer>
 #include <QtGui/QFontMetrics>
+#include <QtGui/QEnterEvent>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QTextCursor>
 #include <QtGui/QTextDocument>
@@ -47,9 +48,17 @@ QString explicitAccessibleName(const QWidget *w)
 	return cleanText(w->accessibleName());
 }
 
+bool isClickableImage(const QWidget *w);
+
+// From the icon's resource name, or, for a clickable LcImage drawn from a pixmap without a
+// source (the call button in the chat header), from which known icon it paints.
 QString iconDerivedName(const QWidget *w)
 {
-	return humanizeIconName(iconSource(w));
+	if (const QString source = iconSource(w); !source.isEmpty())
+		return humanizeIconName(source);
+	if (isClickableImage(w))
+		return humanizeIconName(paintedIcon(const_cast<QWidget *>(w)));
+	return QString();
 }
 
 QString objectNameDerived(const QWidget *w)
@@ -295,12 +304,47 @@ bool isMessageInput(const QWidget *w)
 	    || ancestorInheriting(w, "ChatMessagePanel");
 }
 
+// Name of the chat `input` writes to: the first LcText in the ChatMessagePanel's header (the
+// strip with the chatroom-* buttons). The input may sit outside the panel.
+QString chatNameFor(const QWidget *input)
+{
+	QWidget *panel = ancestorInheriting(input, "ChatMessagePanel");
+	if (!panel) {
+		for (QWidget *candidate : input->window()->findChildren<QWidget *>()) {
+			if (inheritsClass(candidate, "ChatMessagePanel") && candidate->isVisible()) {
+				panel = candidate;
+				break;
+			}
+		}
+	}
+	if (!panel)
+		return QString();
+	for (QObject *child : panel->children()) {
+		if (!child->isWidgetType() || !static_cast<QWidget *>(child)->isVisible())
+			continue;
+		// The header is the first visible child.
+		for (QObject *item : child->children()) {
+			auto *text = qobject_cast<QWidget *>(item);
+			if (text && text->isVisible() && inheritsClass(text, "LcText")) {
+				if (const QString name = extractLcTextString(text); !name.isEmpty())
+					return name;
+			}
+		}
+		break;
+	}
+	return QString();
+}
+
 QString inputAccessibleName(QWidget *w)
 {
 	if (!w)
 		return QString();
 	if (const QString name = explicitAccessibleName(w); !name.isEmpty())
 		return name;
+	if (isMessageInput(w)) {
+		if (const QString chat = chatNameFor(w); !chat.isEmpty())
+			return label("Message to %1").arg(chat);
+	}
 	if (const QString placeholder = placeholderOf(w); !placeholder.isEmpty())
 		return placeholder;
 	if (const QString heuristic = heuristicInputLabel(w); !heuristic.isEmpty())
@@ -1263,12 +1307,62 @@ bool LineAccessibleMenu::isPressable() const
 	return role() == QAccessible::MenuItem && widget()->isEnabled();
 }
 
+namespace {
+
+// A left click in the middle of `w` the way the mouse makes one: enter, move, press, release.
+void sendMouseClick(QWidget *w)
+{
+	QPointer<QWidget> guard(w);
+	const QPointF local = QRectF(w->rect()).center();
+	const QPointF scene = w->mapTo(w->window(), local);
+	const QPointF global = w->mapToGlobal(local);
+	w->setAttribute(Qt::WA_UnderMouse, true);
+	QEnterEvent enter(local, scene, global);
+	QCoreApplication::sendEvent(w, &enter);
+	QMouseEvent move(QEvent::MouseMove, local, scene, global, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+	if (guard)
+		QCoreApplication::sendEvent(guard, &move);
+	QMouseEvent press(QEvent::MouseButtonPress, local, scene, global, Qt::LeftButton, Qt::LeftButton,
+	                  Qt::NoModifier);
+	if (guard)
+		QCoreApplication::sendEvent(guard, &press);
+	QMouseEvent release(QEvent::MouseButtonRelease, local, scene, global, Qt::LeftButton, Qt::NoButton,
+	                    Qt::NoModifier);
+	if (guard)
+		QCoreApplication::sendEvent(guard, &release);
+}
+
+} // namespace
+
 void LineAccessibleMenu::press()
 {
 	QPointer<QWidget> guard(widget());
 	QMetaObject::invokeMethod(widget(), [guard] {
 		if (!guard || !guard->isEnabled() || !guard->isVisible())
 			return;
+		// Context menu items are clicked like with the mouse: emitting clicked() runs only some
+		// commands (Reply did; Unsend, Delete, Translate did nothing). If the menu is still open
+		// afterwards the click did nothing either: fall back to the signal below.
+		if (QPointer<QWidget> menu(ancestorInheriting(guard, "LcContextMenu")); menu) {
+			noteMenuPress(guard, "mouse click");
+			sendMouseClick(guard);
+			QTimer::singleShot(150, menu, [guard, menu] {
+				if (!menu || !menu->isVisible())
+					return;
+				for (const char *signal : { "clicked()", "triggered()" }) {
+					if (guard && isSignalConnected(guard, signal)) {
+						noteMenuPress(guard, signal);
+						emitSignal(guard, signal);
+						break;
+					}
+				}
+				QTimer::singleShot(100, menu, [menu] {
+					if (menu && menu->isVisible())
+						menu->hide();
+				});
+			});
+			return;
+		}
 		// An item LINE connected a signal to is pressed through it; otherwise it is clicked.
 		for (const char *signal : { "clicked()", "triggered()" }) {
 			if (isSignalConnected(guard, signal)) {
@@ -1276,6 +1370,8 @@ void LineAccessibleMenu::press()
 				// input), but LINE closes the menu only on a real mouse click: close it here, or it
 				// stays the active window and swallows what the user types.
 				QPointer<QWidget> menu(ancestorInheriting(guard, "LcContextMenu"));
+				if (menu)
+					noteMenuPress(guard, signal);
 				emitSignal(guard, signal);
 				QTimer::singleShot(100, menu, [menu] {
 					if (menu && menu->isVisible())
@@ -1284,6 +1380,8 @@ void LineAccessibleMenu::press()
 				return;
 			}
 		}
+		if (ancestorInheriting(guard, "LcContextMenu"))
+			noteMenuPress(guard, "click");
 		const QPointF local = QRectF(guard->rect()).center();
 		const QPointF scene = guard->mapTo(guard->window(), local);
 		const QPointF global = guard->mapToGlobal(local);

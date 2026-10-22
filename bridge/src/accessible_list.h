@@ -73,6 +73,16 @@ public:
 	bool moveCursor(int key);
 	// Opens the chat under the cursor if it is not the open one; false if there is nothing to open.
 	bool openCursorRow();
+	// Space / Enter on a long message: clicks its "See more" (ดูเพิ่มเติม) link, which shows the
+	// whole text. False if the current row has none.
+	bool openSeeMore();
+	// Space / Enter in a picker list (Share with...): ticks or unticks the current row the way a
+	// click does (LINE ignores those keys there). False if the row is not a picker row.
+	bool toggleCursorRow();
+	// Applications key / Shift+F10 on a message: Qt asks for the menu at the centre of the row,
+	// which is often beside the bubble (LINE then shows the chat background's menu: Select all /
+	// Set wallpaper). Right-clicks the message's bubble instead; false if it cannot be placed.
+	bool openRowMenu();
 	// Back to following LINE's current row (the open chat).
 	void resetCursor();
 	// The row the user is on: the cursor while it is set, else LINE's current row (-1: none).

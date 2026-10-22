@@ -32,6 +32,7 @@ constexpr qint64 kPaintedTextTtlMs = 300;
 struct PaintedTextEntry {
 	QPointer<QWidget> widget;
 	QString text;
+	QString icon; // knownIcon() name of the first recognised image, e.g. "chatroom-call"
 	qint64 stamp = 0;
 };
 
@@ -54,150 +55,197 @@ bool isPasswordWidget(const QWidget *w)
 
 // ---- Labels ------------------------------------------------------------------------------------
 
-const QHash<QString, QString> &thaiLabels()
+// The bridge's own labels in LINE's UI languages (see label()): English, Thai, Japanese,
+// Simplified Chinese, Traditional Chinese.
+struct LabelTranslations {
+	const char *english;
+	const char *thai;
+	const char *japanese;
+	const char *simplifiedChinese;
+	const char *traditionalChinese;
+};
+
+const LabelTranslations kLabels[] = {
+	{ "Show password", "แสดงรหัสผ่าน", "パスワードを表示", "显示密码", "顯示密碼" },
+	{ "Hide password", "ซ่อนรหัสผ่าน", "パスワードを非表示", "隐藏密码", "隱藏密碼" },
+	{ "Refresh QR code", "รีเฟรชคิวอาร์โค้ด", "QRコードを更新", "刷新二维码", "重新整理 QR 碼" },
+	{ "QR code", "คิวอาร์โค้ด", "QRコード", "二维码", "QR 碼" },
+	{ "Friends", "เพื่อน", "友だち", "好友", "好友" },
+	{ "Home", "หน้าหลัก", "ホーム", "主页", "主頁" },
+	{ "Chats", "แชท", "トーク", "聊天", "聊天" },
+	{ "Add friends", "เพิ่มเพื่อน", "友だち追加", "添加好友", "加入好友" },
+	{ "Timeline", "ไทม์ไลน์", "タイムライン", "动态", "貼文串" },
+	{ "Story", "สตอรี่", "ストーリー", "限时动态", "限時動態" },
+	{ "News", "ข่าว", "ニュース", "新闻", "新聞" },
+	{ "Settings", "การตั้งค่า", "設定", "设置", "設定" },
+	{ "Calls", "การโทร", "通話", "通话", "通話" },
+	{ "Video call", "วิดีโอคอล", "ビデオ通話", "视频通话", "視訊通話" },
+	{ "Voice call", "โทรด้วยเสียง", "音声通話", "语音通话", "語音通話" },
+	{ "Notifications", "การแจ้งเตือน", "通知", "通知", "通知" },
+	{ "Close", "ปิด", "閉じる", "关闭", "關閉" },
+	{ "Minimize", "ย่อหน้าต่าง", "最小化", "最小化", "最小化" },
+	{ "Maximize", "ขยายหน้าต่าง", "最大化", "最大化", "最大化" },
+	{ "Restore", "คืนขนาดหน้าต่าง", "元のサイズに戻す", "还原", "還原" },
+	{ "Search", "ค้นหา", "検索", "搜索", "搜尋" },
+	{ "Clear search", "ล้างการค้นหา", "検索をクリア", "清除搜索", "清除搜尋" },
+	{ "Clear", "ล้าง", "クリア", "清除", "清除" },
+	{ "More options", "ตัวเลือกเพิ่มเติม", "その他のオプション", "更多选项", "更多選項" },
+	{ "Call", "โทร", "通話", "通话", "通話" },
+	{ "End call", "วางสาย", "通話を終了", "结束通话", "結束通話" },
+	{ "Answer", "รับสาย", "応答", "接听", "接聽" },
+	{ "Decline", "ปฏิเสธสาย", "拒否", "拒绝", "拒絕" },
+	{ "Microphone", "ไมโครโฟน", "マイク", "麦克风", "麥克風" },
+	{ "Speaker", "ลำโพง", "スピーカー", "扬声器", "喇叭" },
+	{ "Video", "วิดีโอ", "動画", "视频", "影片" },
+	{ "Camera", "กล้อง", "カメラ", "摄像头", "相機" },
+	{ "Answer with video", "รับสายแบบวิดีโอ", "ビデオで応答", "视频接听", "以視訊接聽" },
+	{ "Incoming call", "สายเรียกเข้า", "着信", "来电", "來電" },
+	{ "Microphone off", "ปิดไมโครโฟนอยู่", "マイクオフ", "麦克风已关闭", "麥克風已關閉" },
+	{ "Camera off", "ปิดกล้องอยู่", "カメラオフ", "摄像头已关闭", "相機已關閉" },
+	{ "Background blur", "เบลอพื้นหลัง", "背景ぼかし", "背景模糊", "背景模糊" },
+	{ "Notes", "โน้ต", "ノート", "记事本", "記事本" },
+	{ "Show or hide chat list", "แสดงหรือซ่อนรายการแชท", "トークリストの表示/非表示", "显示或隐藏聊天列表", "顯示或隱藏聊天列表" },
+	{ "Pause", "หยุดชั่วคราว", "一時停止", "暂停", "暫停" },
+	{ "Play", "เล่น", "再生", "播放", "播放" },
+	{ "Play sound", "เล่นเสียง", "音を再生", "播放声音", "播放聲音" },
+	{ "Test sound", "ทดสอบเสียง", "サウンドをテスト", "测试声音", "測試聲音" },
+	{ "Profile settings", "ตั้งค่าโปรไฟล์", "プロフィール設定", "个人资料设置", "個人檔案設定" },
+	{ "Sound", "เสียง", "サウンド", "声音", "聲音" },
+	{ "Mute", "ปิดเสียง", "ミュート", "静音", "靜音" },
+	{ "Full screen", "เต็มหน้าจอ", "全画面表示", "全屏", "全螢幕" },
+	{ "Menu", "เมนู", "メニュー", "菜单", "選單" },
+	{ "Back", "ย้อนกลับ", "戻る", "返回", "返回" },
+	{ "Previous", "ก่อนหน้า", "前へ", "上一个", "上一個" },
+	{ "Next", "ถัดไป", "次へ", "下一个", "下一個" },
+	{ "Forward", "ส่งต่อ", "転送", "转发", "轉傳" },
+	{ "Expand", "ขยาย", "展開", "展开", "展開" },
+	{ "Collapse", "ยุบ", "折りたたむ", "收起", "收合" },
+	{ "Add", "เพิ่ม", "追加", "添加", "新增" },
+	{ "Delete", "ลบ", "削除", "删除", "刪除" },
+	{ "Remove", "นำออก", "取り除く", "移除", "移除" },
+	{ "Edit", "แก้ไข", "編集", "编辑", "編輯" },
+	{ "Copy", "คัดลอก", "コピー", "复制", "複製" },
+	{ "Share", "แชร์", "共有", "分享", "分享" },
+	{ "Download", "ดาวน์โหลด", "ダウンロード", "下载", "下載" },
+	{ "Upload", "อัปโหลด", "アップロード", "上传", "上傳" },
+	{ "Save", "บันทึก", "保存", "保存", "儲存" },
+	{ "Pin", "ปักหมุด", "ピン留め", "置顶", "釘選" },
+	{ "Unpin", "เลิกปักหมุด", "ピン留めを解除", "取消置顶", "取消釘選" },
+	{ "Mute notifications", "ปิดการแจ้งเตือน", "通知をオフ", "关闭通知", "關閉通知" },
+	{ "Unmute notifications", "เปิดการแจ้งเตือน", "通知をオン", "开启通知", "開啟通知" },
+	{ "Selected", "เลือกอยู่", "選択中", "已选择", "已選取" },
+	{ "Information", "ข้อมูล", "情報", "信息", "資訊" },
+	{ "Help", "ความช่วยเหลือ", "ヘルプ", "帮助", "說明" },
+	{ "Profile", "โปรไฟล์", "プロフィール", "个人资料", "個人檔案" },
+	{ "Invite", "เชิญ", "招待", "邀请", "邀請" },
+	{ "Albums", "อัลบั้ม", "アルバム", "相册", "相簿" },
+	{ "Announcements", "ประกาศ", "アナウンス", "公告", "公告" },
+	{ "Translate", "แปล", "翻訳", "翻译", "翻譯" },
+	{ "Stickers and emoji", "สติกเกอร์และอีโมจิ", "スタンプと絵文字", "贴图和表情", "貼圖和表情貼" },
+	{ "Attach file", "แนบไฟล์", "ファイルを添付", "附加文件", "附加檔案" },
+	{ "Send image", "ส่งรูปภาพ", "画像を送信", "发送图片", "傳送圖片" },
+	{ "Take screenshot", "จับภาพหน้าจอ", "スクリーンショット", "截图", "截圖" },
+	{ "Voice message", "ข้อความเสียง", "ボイスメッセージ", "语音消息", "語音訊息" },
+	{ "Location", "ตำแหน่งที่ตั้ง", "位置情報", "位置", "位置資訊" },
+	{ "Send", "ส่ง", "送信", "发送", "傳送" },
+	{ "Keyboard", "แป้นพิมพ์", "キーボード", "键盘", "鍵盤" },
+	{ "Send a gift", "ส่งของขวัญ", "プレゼントを贈る", "赠送礼物", "送禮物" },
+	{ "Share location", "แชร์ตำแหน่ง", "位置情報を共有", "分享位置", "分享位置資訊" },
+	{ "Share contact", "แชร์รายชื่อติดต่อ", "連絡先を共有", "分享联系人", "分享聯絡人" },
+	{ "Advertisement", "โฆษณา", "広告", "广告", "廣告" },
+	{ "Ad options", "ตัวเลือกโฆษณา", "広告のオプション", "广告选项", "廣告選項" },
+	{ "Password", "รหัสผ่าน", "パスワード", "密码", "密碼" },
+	{ "Email address", "อีเมล", "メールアドレス", "电子邮件地址", "電子郵件地址" },
+	{ "Phone number", "หมายเลขโทรศัพท์", "電話番号", "电话号码", "電話號碼" },
+	{ "Message input", "ช่องพิมพ์ข้อความ", "メッセージ入力欄", "消息输入框", "訊息輸入框" },
+	{ "Message to %1", "พิมพ์ข้อความถึง %1", "%1 へのメッセージ", "发消息给 %1", "傳訊息給 %1" },
+	{ "Search chats", "ค้นหาแชท", "トークを検索", "搜索聊天", "搜尋聊天" },
+	{ "Search friends", "ค้นหาเพื่อน", "友だちを検索", "搜索好友", "搜尋好友" },
+	{ "Text field", "ช่องข้อความ", "テキスト入力欄", "文本框", "文字欄位" },
+	{ "Text area", "ช่องข้อความ", "テキスト入力欄", "文本框", "文字欄位" },
+	{ "Context menu", "เมนู", "メニュー", "菜单", "選單" },
+	{ "%1 options", "ตัวเลือก%1", "%1 のオプション", "%1 选项", "%1 選項" },
+	{ "%1 new", "ใหม่ %1", "新着 %1", "%1 条新消息", "%1 則新訊息" },
+	{ "Country code %1", "รหัสประเทศ %1", "国番号 %1", "国家代码 %1", "國碼 %1" },
+	{ "%1 members", "สมาชิก %1 คน", "メンバー %1 人", "%1 名成员", "%1 位成員" },
+	{ "%1 unread", "ยังไม่อ่าน %1", "未読 %1", "%1 条未读", "%1 則未讀" },
+	{ "Photo or sticker", "รูปภาพหรือสติกเกอร์", "写真またはスタンプ", "照片或贴图", "照片或貼圖" },
+	{ "Photos", "อัลบั้มรูปภาพ", "写真アルバム", "相册", "相簿" },
+	{ "Sticker", "สติกเกอร์", "スタンプ", "贴图", "貼圖" },
+	{ "LINE emoji", "อีโมจิ LINE", "LINE絵文字", "LINE 表情", "LINE 表情貼" },
+	{ "File", "ไฟล์", "ファイル", "文件", "檔案" },
+	{ "Call message", "การโทร", "通話", "通话", "通話" },
+	{ "Photo", "รูปภาพ", "写真", "照片", "照片" },
+	{ "You", "คุณ", "あなた", "你", "你" },
+	{ "Messages", "ข้อความ", "メッセージ", "消息", "訊息" },
+	{ "Message", "ข้อความ", "メッセージ", "消息", "訊息" },
+	{ "Message from %1", "ข้อความจาก %1", "%1 からのメッセージ", "来自 %1 的消息", "來自 %1 的訊息" },
+	{ "Services", "บริการ", "サービス", "服务", "服務" },
+	{ "Meeting", "ประชุม", "ミーティング", "会议", "會議" },
+	{ "More", "เพิ่มเติม", "その他", "更多", "更多" },
+	{ "Notifications off", "ปิดการแจ้งเตือนอยู่", "通知オフ", "通知已关闭", "通知已關閉" },
+	{ "Scroll to latest message", "เลื่อนไปข้อความล่าสุด", "最新のメッセージへ移動", "滚动到最新消息", "捲動到最新訊息" },
+	{ "Create chat", "สร้างแชท", "トークを作成", "创建聊天", "建立聊天" },
+	{ "Edit chat folders", "แก้ไขโฟลเดอร์แชท", "トークフォルダーを編集", "编辑聊天文件夹", "編輯聊天資料夾" },
+	{ "Accept", "ยอมรับ", "承認", "接受", "接受" },
+	{ "Sort", "เรียงลำดับ", "並べ替え", "排序", "排序" },
+	{ "Open in new window", "เปิดในหน้าต่างใหม่", "新しいウィンドウで開く", "在新窗口中打开", "在新視窗中開啟" },
+	{ "Close panel", "ปิดแผง", "パネルを閉じる", "关闭面板", "關閉面板" },
+	{ "Search in chat list", "ค้นหาในรายการแชท", "トークリスト内を検索", "在聊天列表中搜索", "在聊天列表中搜尋" },
+	{ "AI search", "ค้นหาด้วย AI", "AI検索", "AI 搜索", "AI 搜尋" },
+	{ "Cancel reply", "ยกเลิกการตอบกลับ", "リプライをキャンセル", "取消回复", "取消回覆" },
+	{ "Close ad", "ปิดโฆษณา", "広告を閉じる", "关闭广告", "關閉廣告" },
+	{ "Screenshot options", "ตัวเลือกการจับภาพหน้าจอ", "スクリーンショットのオプション", "截图选项", "截圖選項" },
+	{ "Translate text in image", "แปลข้อความในภาพ", "画像内のテキストを翻訳", "翻译图片中的文字", "翻譯圖片中的文字" },
+};
+
+QHash<QString, QString> labelsFor(UiLanguage language)
 {
-	static const QHash<QString, QString> map = {
-		{ QStringLiteral("Show password"), QStringLiteral("แสดงรหัสผ่าน") },
-		{ QStringLiteral("Hide password"), QStringLiteral("ซ่อนรหัสผ่าน") },
-		{ QStringLiteral("Refresh QR code"), QStringLiteral("รีเฟรชคิวอาร์โค้ด") },
-		{ QStringLiteral("QR code"), QStringLiteral("คิวอาร์โค้ด") },
-		{ QStringLiteral("Friends"), QStringLiteral("เพื่อน") },
-		{ QStringLiteral("Home"), QStringLiteral("หน้าหลัก") },
-		{ QStringLiteral("Chats"), QStringLiteral("แชท") },
-		{ QStringLiteral("Add friends"), QStringLiteral("เพิ่มเพื่อน") },
-		{ QStringLiteral("Timeline"), QStringLiteral("ไทม์ไลน์") },
-		{ QStringLiteral("Story"), QStringLiteral("สตอรี่") },
-		{ QStringLiteral("News"), QStringLiteral("ข่าว") },
-		{ QStringLiteral("Settings"), QStringLiteral("การตั้งค่า") },
-		{ QStringLiteral("Calls"), QStringLiteral("การโทร") },
-		{ QStringLiteral("Video call"), QStringLiteral("วิดีโอคอล") },
-		{ QStringLiteral("Voice call"), QStringLiteral("โทรด้วยเสียง") },
-		{ QStringLiteral("Notifications"), QStringLiteral("การแจ้งเตือน") },
-		{ QStringLiteral("Close"), QStringLiteral("ปิด") },
-		{ QStringLiteral("Minimize"), QStringLiteral("ย่อหน้าต่าง") },
-		{ QStringLiteral("Maximize"), QStringLiteral("ขยายหน้าต่าง") },
-		{ QStringLiteral("Restore"), QStringLiteral("คืนขนาดหน้าต่าง") },
-		{ QStringLiteral("Search"), QStringLiteral("ค้นหา") },
-		{ QStringLiteral("Clear search"), QStringLiteral("ล้างการค้นหา") },
-		{ QStringLiteral("Clear"), QStringLiteral("ล้าง") },
-		{ QStringLiteral("More options"), QStringLiteral("ตัวเลือกเพิ่มเติม") },
-		{ QStringLiteral("Call"), QStringLiteral("โทร") },
-		{ QStringLiteral("End call"), QStringLiteral("วางสาย") },
-		{ QStringLiteral("Answer"), QStringLiteral("รับสาย") },
-		{ QStringLiteral("Decline"), QStringLiteral("ปฏิเสธสาย") },
-		{ QStringLiteral("Microphone"), QStringLiteral("ไมโครโฟน") },
-		{ QStringLiteral("Speaker"), QStringLiteral("ลำโพง") },
-		{ QStringLiteral("Video"), QStringLiteral("วิดีโอ") },
-		{ QStringLiteral("Camera"), QStringLiteral("กล้อง") },
-		{ QStringLiteral("Answer with video"), QStringLiteral("รับสายแบบวิดีโอ") },
-		{ QStringLiteral("Incoming call"), QStringLiteral("สายเรียกเข้า") },
-		{ QStringLiteral("Microphone off"), QStringLiteral("ปิดไมโครโฟนอยู่") },
-		{ QStringLiteral("Camera off"), QStringLiteral("ปิดกล้องอยู่") },
-		{ QStringLiteral("Background blur"), QStringLiteral("เบลอพื้นหลัง") },
-		{ QStringLiteral("Notes"), QStringLiteral("โน้ต") },
-		{ QStringLiteral("Show or hide chat list"), QStringLiteral("แสดงหรือซ่อนรายการแชท") },
-		{ QStringLiteral("Pause"), QStringLiteral("หยุดชั่วคราว") },
-		{ QStringLiteral("Play"), QStringLiteral("เล่น") },
-		{ QStringLiteral("Play sound"), QStringLiteral("เล่นเสียง") },
-		{ QStringLiteral("Test sound"), QStringLiteral("ทดสอบเสียง") },
-		{ QStringLiteral("Profile settings"), QStringLiteral("ตั้งค่าโปรไฟล์") },
-		{ QStringLiteral("Sound"), QStringLiteral("เสียง") },
-		{ QStringLiteral("Mute"), QStringLiteral("ปิดเสียง") },
-		{ QStringLiteral("Full screen"), QStringLiteral("เต็มหน้าจอ") },
-		{ QStringLiteral("Menu"), QStringLiteral("เมนู") },
-		{ QStringLiteral("Back"), QStringLiteral("ย้อนกลับ") },
-		{ QStringLiteral("Previous"), QStringLiteral("ก่อนหน้า") },
-		{ QStringLiteral("Next"), QStringLiteral("ถัดไป") },
-		{ QStringLiteral("Forward"), QStringLiteral("ส่งต่อ") },
-		{ QStringLiteral("Expand"), QStringLiteral("ขยาย") },
-		{ QStringLiteral("Collapse"), QStringLiteral("ยุบ") },
-		{ QStringLiteral("Add"), QStringLiteral("เพิ่ม") },
-		{ QStringLiteral("Delete"), QStringLiteral("ลบ") },
-		{ QStringLiteral("Remove"), QStringLiteral("นำออก") },
-		{ QStringLiteral("Edit"), QStringLiteral("แก้ไข") },
-		{ QStringLiteral("Copy"), QStringLiteral("คัดลอก") },
-		{ QStringLiteral("Share"), QStringLiteral("แชร์") },
-		{ QStringLiteral("Download"), QStringLiteral("ดาวน์โหลด") },
-		{ QStringLiteral("Upload"), QStringLiteral("อัปโหลด") },
-		{ QStringLiteral("Save"), QStringLiteral("บันทึก") },
-		{ QStringLiteral("Pin"), QStringLiteral("ปักหมุด") },
-		{ QStringLiteral("Unpin"), QStringLiteral("เลิกปักหมุด") },
-		{ QStringLiteral("Mute notifications"), QStringLiteral("ปิดการแจ้งเตือน") },
-		{ QStringLiteral("Unmute notifications"), QStringLiteral("เปิดการแจ้งเตือน") },
-		{ QStringLiteral("Selected"), QStringLiteral("เลือกอยู่") },
-		{ QStringLiteral("Information"), QStringLiteral("ข้อมูล") },
-		{ QStringLiteral("Help"), QStringLiteral("ความช่วยเหลือ") },
-		{ QStringLiteral("Profile"), QStringLiteral("โปรไฟล์") },
-		{ QStringLiteral("Invite"), QStringLiteral("เชิญ") },
-		{ QStringLiteral("Albums"), QStringLiteral("อัลบั้ม") },
-		{ QStringLiteral("Announcements"), QStringLiteral("ประกาศ") },
-		{ QStringLiteral("Translate"), QStringLiteral("แปล") },
-		{ QStringLiteral("Stickers and emoji"), QStringLiteral("สติกเกอร์และอีโมจิ") },
-		{ QStringLiteral("Attach file"), QStringLiteral("แนบไฟล์") },
-		{ QStringLiteral("Send image"), QStringLiteral("ส่งรูปภาพ") },
-		{ QStringLiteral("Take screenshot"), QStringLiteral("จับภาพหน้าจอ") },
-		{ QStringLiteral("Voice message"), QStringLiteral("ข้อความเสียง") },
-		{ QStringLiteral("Location"), QStringLiteral("ตำแหน่งที่ตั้ง") },
-		{ QStringLiteral("Send"), QStringLiteral("ส่ง") },
-		{ QStringLiteral("Keyboard"), QStringLiteral("แป้นพิมพ์") },
-		{ QStringLiteral("Send a gift"), QStringLiteral("ส่งของขวัญ") },
-		{ QStringLiteral("Share location"), QStringLiteral("แชร์ตำแหน่ง") },
-		{ QStringLiteral("Share contact"), QStringLiteral("แชร์รายชื่อติดต่อ") },
-		{ QStringLiteral("Advertisement"), QStringLiteral("โฆษณา") },
-		{ QStringLiteral("Ad options"), QStringLiteral("ตัวเลือกโฆษณา") },
-		{ QStringLiteral("Password"), QStringLiteral("รหัสผ่าน") },
-		{ QStringLiteral("Email address"), QStringLiteral("อีเมล") },
-		{ QStringLiteral("Phone number"), QStringLiteral("หมายเลขโทรศัพท์") },
-		{ QStringLiteral("Message input"), QStringLiteral("ช่องพิมพ์ข้อความ") },
-		{ QStringLiteral("Search chats"), QStringLiteral("ค้นหาแชท") },
-		{ QStringLiteral("Search friends"), QStringLiteral("ค้นหาเพื่อน") },
-		{ QStringLiteral("Text field"), QStringLiteral("ช่องข้อความ") },
-		{ QStringLiteral("Text area"), QStringLiteral("ช่องข้อความ") },
-		{ QStringLiteral("Context menu"), QStringLiteral("เมนู") },
-		{ QStringLiteral("%1 options"), QStringLiteral("ตัวเลือก%1") },
-		{ QStringLiteral("%1 new"), QStringLiteral("ใหม่ %1") },
-		{ QStringLiteral("Country code %1"), QStringLiteral("รหัสประเทศ %1") },
-		{ QStringLiteral("%1 members"), QStringLiteral("สมาชิก %1 คน") },
-		{ QStringLiteral("%1 unread"), QStringLiteral("ยังไม่อ่าน %1") },
-		{ QStringLiteral("Photo or sticker"), QStringLiteral("รูปภาพหรือสติกเกอร์") },
-		{ QStringLiteral("Photos"), QStringLiteral("อัลบั้มรูปภาพ") },
-		{ QStringLiteral("Sticker"), QStringLiteral("สติกเกอร์") },
-		{ QStringLiteral("LINE emoji"), QStringLiteral("อีโมจิ LINE") },
-		{ QStringLiteral("File"), QStringLiteral("ไฟล์") },
-		{ QStringLiteral("Call message"), QStringLiteral("การโทร") },
-		{ QStringLiteral("Photo"), QStringLiteral("รูปภาพ") },
-		{ QStringLiteral("You"), QStringLiteral("คุณ") },
-		{ QStringLiteral("Messages"), QStringLiteral("ข้อความ") },
-		{ QStringLiteral("Services"), QStringLiteral("บริการ") },
-		{ QStringLiteral("Meeting"), QStringLiteral("ประชุม") },
-		{ QStringLiteral("More"), QStringLiteral("เพิ่มเติม") },
-		{ QStringLiteral("Notifications off"), QStringLiteral("ปิดการแจ้งเตือนอยู่") },
-		{ QStringLiteral("Scroll to latest message"), QStringLiteral("เลื่อนไปข้อความล่าสุด") },
-		{ QStringLiteral("Create chat"), QStringLiteral("สร้างแชท") },
-		{ QStringLiteral("Edit chat folders"), QStringLiteral("แก้ไขโฟลเดอร์แชท") },
-		{ QStringLiteral("Accept"), QStringLiteral("ยอมรับ") },
-		{ QStringLiteral("Sort"), QStringLiteral("เรียงลำดับ") },
-		{ QStringLiteral("Open in new window"), QStringLiteral("เปิดในหน้าต่างใหม่") },
-		{ QStringLiteral("Close panel"), QStringLiteral("ปิดแผง") },
-		{ QStringLiteral("Search in chat list"), QStringLiteral("ค้นหาในรายการแชท") },
-		{ QStringLiteral("AI search"), QStringLiteral("ค้นหาด้วย AI") },
-		{ QStringLiteral("Cancel reply"), QStringLiteral("ยกเลิกการตอบกลับ") },
-		{ QStringLiteral("Close ad"), QStringLiteral("ปิดโฆษณา") },
-		{ QStringLiteral("Screenshot options"), QStringLiteral("ตัวเลือกการจับภาพหน้าจอ") },
-		{ QStringLiteral("Translate text in image"), QStringLiteral("แปลข้อความในภาพ") },
-	};
+	QHash<QString, QString> map;
+	for (const LabelTranslations &t : kLabels) {
+		const char *text = t.english;
+		switch (language) {
+		case UiLanguage::Thai:
+			text = t.thai;
+			break;
+		case UiLanguage::Japanese:
+			text = t.japanese;
+			break;
+		case UiLanguage::SimplifiedChinese:
+			text = t.simplifiedChinese;
+			break;
+		case UiLanguage::TraditionalChinese:
+			text = t.traditionalChinese;
+			break;
+		case UiLanguage::English:
+			break;
+		}
+		map.insert(QString::fromUtf8(t.english), QString::fromUtf8(text));
+	}
 	return map;
 }
 
-bool computeUiIsThai()
+UiLanguage computeUiLanguage()
 {
 	// LINE sets its own UI language (independent of Windows); the installer records it.
 	const QString ini = QDir::fromNativeSeparators(qEnvironmentVariable("LOCALAPPDATA"))
 		+ QStringLiteral("/LINE/Data/installLang.ini");
-	const QString lang = QSettings(ini, QSettings::IniFormat).value(QStringLiteral("General/installLang")).toString();
-	if (!lang.isEmpty())
-		return lang.startsWith(QLatin1String("th"), Qt::CaseInsensitive);
-	return QLocale().language() == QLocale::Thai;
+	QString lang = QSettings(ini, QSettings::IniFormat).value(QStringLiteral("General/installLang")).toString();
+	if (lang.isEmpty())
+		lang = QLocale().name(); // "th_TH", "zh_TW"
+	lang = lang.toLower();
+	if (lang.startsWith(QLatin1String("th")))
+		return UiLanguage::Thai;
+	if (lang.startsWith(QLatin1String("ja")))
+		return UiLanguage::Japanese;
+	if (lang.startsWith(QLatin1String("zh"))) {
+		for (const char *traditional : { "tw", "hk", "mo", "hant" }) {
+			if (lang.contains(QLatin1String(traditional)))
+				return UiLanguage::TraditionalChinese;
+		}
+		return UiLanguage::SimplifiedChinese;
+	}
+	return UiLanguage::English;
 }
 
 // ---- Icon names --------------------------------------------------------------------------------
@@ -210,6 +258,10 @@ const QHash<QString, const char *> &iconLabels()
 		{ QStringLiteral("system-max"), "Maximize" },
 		{ QStringLiteral("system-restore"), "Restore" },
 		{ QStringLiteral("system-close"), "Close" },
+		// Older title bars (ChatDetailTextMessageWindow): image://common/frame_*_btn.png
+		{ QStringLiteral("frame-max-btn"), "Maximize" },
+		{ QStringLiteral("frame-min-btn"), "Minimize" },
+		{ QStringLiteral("frame-close-btn"), "Close" },
 		{ QStringLiteral("login-menu"), "Menu" },
 		{ QStringLiteral("login-help"), "Help" },
 		// Main window sidebar (image://main/gnb-*.svg) and chat window
@@ -306,6 +358,7 @@ const QHash<QString, const char *> &iconLabels()
 		{ QStringLiteral("more-icon"), "More options" },
 		// Chat room header
 		{ QStringLiteral("chatroom-call"), "Call" },
+		{ QStringLiteral("chatroom-video-call"), "Video call" },
 		{ QStringLiteral("chatroom-search"), "Search" },
 		{ QStringLiteral("chatroom-note"), "Notes" },
 		{ QStringLiteral("chatroom-more"), "More options" },
@@ -545,25 +598,42 @@ QString cleanText(const QString &text)
 	return plain.simplified();
 }
 
-QString paintedText(QWidget *w)
+// What `w` painted (text and the first known icon), rendered at most every kPaintedTextTtlMs.
+PaintedTextEntry paintedEntry(QWidget *w)
 {
 	if (!w || !w->isVisible() || w->width() <= 0 || w->height() <= 0 || w->paintingActive())
-		return QString();
+		return {};
 	static QHash<const QWidget *, PaintedTextEntry> cache;
 	const qint64 now = clock().elapsed();
 	auto it = cache.find(w);
 	if (it != cache.end() && it->widget == w && now - it->stamp < kPaintedTextTtlMs)
-		return it->text;
+		return *it;
 	if (cache.size() > 4096) {
 		for (auto i = cache.begin(); i != cache.end();)
 			i = (!i->widget || now - i->stamp > 10 * kPaintedTextTtlMs) ? cache.erase(i) : std::next(i);
 	}
 	const CaptureResult cap = captureWidgetText(w, false);
 	if (cap.skipped) // LINE is painting: keep the previous reading
-		return it != cache.end() && it->widget == w ? it->text : QString();
-	const QString text = cleanText(capturedTextInReadingOrder(cap));
-	cache.insert(w, { QPointer<QWidget>(w), text, now });
-	return text;
+		return it != cache.end() && it->widget == w ? *it : PaintedTextEntry();
+	PaintedTextEntry entry { QPointer<QWidget>(w), cleanText(capturedTextInReadingOrder(cap)), QString(), now };
+	for (const PaintedImage &pi : cap.images) {
+		if (!pi.icon.isEmpty()) {
+			entry.icon = pi.icon;
+			break;
+		}
+	}
+	cache.insert(w, entry);
+	return entry;
+}
+
+QString paintedText(QWidget *w)
+{
+	return paintedEntry(w).text;
+}
+
+QString paintedIcon(QWidget *w)
+{
+	return paintedEntry(w).icon;
 }
 
 QString extractLcTextString(QWidget *w)
@@ -840,24 +910,24 @@ QString nearbyLabelText(QWidget *w)
 
 // ---- Localisation ------------------------------------------------------------------------------
 
-bool uiIsThai()
+UiLanguage uiLanguage()
 {
-	static const bool thai = [] {
-		const bool t = computeUiIsThai();
-		a11yLog("[introspect] LINE UI language: %s", t ? "Thai" : "English");
-		return t;
+	static const UiLanguage language = [] {
+		const UiLanguage l = computeUiLanguage();
+		static const char *const names[] = { "English", "Thai", "Japanese", "Simplified Chinese", "Traditional Chinese" };
+		a11yLog("[introspect] LINE UI language: %s", names[int(l)]);
+		return l;
 	}();
-	return thai;
+	return language;
 }
 
 QString label(const char *english)
 {
 	const QString en = QString::fromUtf8(english);
-	if (uiIsThai()) {
-		if (auto it = thaiLabels().constFind(en); it != thaiLabels().constEnd())
-			return *it;
-	}
-	return en;
+	if (uiLanguage() == UiLanguage::English)
+		return en;
+	static const QHash<QString, QString> labels = labelsFor(uiLanguage());
+	return labels.value(en, en);
 }
 
 } // namespace line_a11y

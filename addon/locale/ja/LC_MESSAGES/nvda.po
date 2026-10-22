@@ -1,0 +1,177 @@
+# Japanese translation of LINE MR.
+msgid ""
+msgstr ""
+"Project-Id-Version: lineMR 0.5.0\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Reports whether the LINE MR accessibility bridge is installed and running in LINE and its call windows"
+msgstr "LINE MR アクセシビリティ ブリッジが LINE と通話ウィンドウにインストールされ、動作しているか報告します"
+
+msgid "Not available here. Switch to LINE's main window."
+msgstr "ここでは使用できません。LINE のメイン ウィンドウに切り替えてください。"
+
+msgid "Shows the friends list"
+msgstr "友だちリストを表示します"
+
+msgid "Shows the chat list"
+msgstr "トーク リストを表示します"
+
+msgid "Shows add friends"
+msgstr "友だち追加を表示します"
+
+msgid "No list is shown."
+msgstr "リストが表示されていません。"
+
+msgid "Moves to the chat list or friend list"
+msgstr "トーク リストまたは友だちリストに移動します"
+
+msgid "Moves to the chat list (switches to the chats tab first if needed)"
+msgstr "トーク リストに移動します(必要ならまずトーク タブに切り替えます)"
+
+msgid "No search field is shown."
+msgstr "検索欄が表示されていません。"
+
+msgid "Moves to the search field of the chat list or friend list"
+msgstr "トーク リストまたは友だちリストの検索欄に移動します"
+
+msgid "No chat is open."
+msgstr "トークが開いていません。"
+
+msgid "Moves to the messages of the open chat"
+msgstr "開いているトークのメッセージに移動します"
+
+msgid "Moves to the message input of the open chat"
+msgstr "開いているトークのメッセージ入力欄に移動します"
+
+msgid "Reads a recent message of the open chat: 1 is the newest, 9 the ninth newest"
+msgstr "開いているトークの最近のメッセージを読み上げます: 1 が最新、9 が 9 番目に新しいメッセージ"
+
+msgid "No message {number}."
+msgstr "メッセージ {number} はありません。"
+
+msgid "LINE MR bridge installed. LINE is restarting."
+msgstr "LINE MR ブリッジをインストールしました。LINE を再起動しています。"
+
+msgid "LINE has to be restarted to use LINE MR. Restart LINE now?"
+msgstr "LINE MR を使うには LINE を再起動する必要があります。今すぐ LINE を再起動しますか?"
+
+msgid "Calls: the bridge is running."
+msgstr "通話: ブリッジは動作しています。"
+
+msgid "Calls: the bridge is installed."
+msgstr "通話: ブリッジはインストール済みです。"
+
+msgid "Calls: the bridge is not loaded yet. Restart LINE to use LINE MR with calls."
+msgstr "通話: ブリッジはまだ読み込まれていません。通話で LINE MR を使うには LINE を再起動してください。"
+
+msgid "Calls: the bridge could not be installed."
+msgstr "通話: ブリッジをインストールできませんでした。"
+
+msgid "Calls: LINE has not set up calls yet."
+msgstr "通話: LINE はまだ通話の準備ができていません。"
+
+msgid "LINE MR bridge is running."
+msgstr "LINE MR ブリッジは動作しています。"
+
+msgid "LINE MR bridge is installed, but LINE must be restarted to use it."
+msgstr "LINE MR ブリッジはインストール済みですが、使うには LINE を再起動する必要があります。"
+
+msgid "An older LINE MR bridge is installed in LINE."
+msgstr "LINE には古い LINE MR ブリッジがインストールされています。"
+
+msgid "LINE MR bridge is not installed in LINE."
+msgstr "LINE MR ブリッジは LINE にインストールされていません。"
+
+msgid "LINE for Windows was not found."
+msgstr "LINE for Windows が見つかりません。"
+
+msgid "This LINE MR package does not contain the bridge."
+msgstr "この LINE MR パッケージにはブリッジが含まれていません。"
+
+msgid "LINE MR"
+msgstr "LINE MR"
+
+msgid "Could not install the LINE MR bridge."
+msgstr "LINE MR ブリッジをインストールできませんでした。"
+
+msgid ""
+"{status}\n"
+"Install the LINE MR bridge now? LINE will be closed and started again."
+msgstr ""
+"{status}\n"
+"今すぐ LINE MR ブリッジをインストールしますか? LINE はいったん終了して再び起動します。"
+
+msgid "LINE MR is not active for calls yet. Restart LINE after this call."
+msgstr "LINE MR はまだ通話で動作していません。この通話の後で LINE を再起動してください。"
+
+msgid "Alt+A answers, Alt+D declines."
+msgstr "Alt+A で応答、Alt+D で拒否。"
+
+msgid "Answering"
+msgstr "応答しています"
+
+msgid "Call declined"
+msgstr "着信を拒否しました"
+
+msgid "Answers an incoming LINE call (from any application)"
+msgstr "LINE の着信に応答します(どのアプリケーションからでも)"
+
+msgid "Declines an incoming LINE call (from any application), or ends the current call"
+msgstr "LINE の着信を拒否します(どのアプリケーションからでも)。通話中は通話を終了します"
+
+msgid "Call ended"
+msgstr "通話を終了しました"
+
+msgid "No LINE call."
+msgstr "LINE の通話はありません。"
+
+msgid "No incoming LINE call."
+msgstr "LINE の着信はありません。"
+
+msgid "LINE MR update"
+msgstr "LINE MR の更新"
+
+msgid "&Update now"
+msgstr "今すぐ更新(&U)"
+
+msgid "&Later"
+msgstr "後で(&L)"
+
+msgid "&Skip this version"
+msgstr "このバージョンをスキップ(&S)"
+
+msgid "Checking for LINE MR updates"
+msgstr "LINE MR の更新を確認しています"
+
+msgid "Checks for a newer version of LINE MR"
+msgstr "LINE MR の新しいバージョンを確認します"
+
+msgid ""
+"LINE MR {new} is available (installed: {old}).\n"
+"\n"
+"Update now? NVDA downloads and installs it, then asks to restart."
+msgstr ""
+"LINE MR {new} が利用できます(インストール済み: {old})。\n"
+"\n"
+"今すぐ更新しますか? NVDA がダウンロードしてインストールし、その後で再起動を求めます。"
+
+msgid "Could not download the LINE MR update."
+msgstr "LINE MR の更新をダウンロードできませんでした。"
+
+msgid "Check for LINE MR &updates when NVDA starts"
+msgstr "NVDA の起動時に LINE MR の更新を確認する(&U)"
+
+msgid "&Check for updates now"
+msgstr "今すぐ更新を確認(&C)"
+
+msgid "Could not check for LINE MR updates."
+msgstr "LINE MR の更新を確認できませんでした。"
+
+msgid "Downloading LINE MR {version}"
+msgstr "LINE MR {version} をダウンロードしています"
+
+msgid "LINE MR {version} is up to date."
+msgstr "LINE MR {version} は最新です。"

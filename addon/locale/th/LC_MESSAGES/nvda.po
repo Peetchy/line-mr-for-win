@@ -7,8 +7,8 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-msgid "Reports whether the LINE MR accessibility bridge is installed and running in LINE"
-msgstr "บอกว่าตัวเชื่อม LINE MR ติดตั้งและทำงานอยู่ใน LINE หรือไม่"
+msgid "Reports whether the LINE MR accessibility bridge is installed and running in LINE and its call windows"
+msgstr "บอกว่าตัวเชื่อม LINE MR ติดตั้งและทำงานอยู่ใน LINE และหน้าต่างการโทรหรือไม่"
 
 msgid "LINE MR bridge is running."
 msgstr "ตัวเชื่อม LINE MR ทำงานอยู่"
@@ -83,8 +83,8 @@ msgstr "อ่านข้อความล่าสุดของแชทท
 msgid "No message {number}."
 msgstr "ไม่มีข้อความที่ {number}"
 
-msgid "NVDA+Shift+Control+A answers, NVDA+Shift+Control+D declines."
-msgstr "กด NVDA+Shift+Control+A เพื่อรับสาย หรือ NVDA+Shift+Control+D เพื่อปฏิเสธสาย"
+msgid "Alt+A answers, Alt+D declines."
+msgstr "Alt+A รับสาย, Alt+D ปฏิเสธสาย"
 
 msgid "No incoming LINE call."
 msgstr "ไม่มีสายเรียกเข้าใน LINE"
@@ -95,8 +95,8 @@ msgstr "รับสายเรียกเข้าของ LINE (ใช้�
 msgid "Answering"
 msgstr "กำลังรับสาย"
 
-msgid "Declines an incoming LINE call (from any application)"
-msgstr "ปฏิเสธสายเรียกเข้าของ LINE (ใช้ได้จากทุกโปรแกรม)"
+msgid "Declines an incoming LINE call (from any application), or ends the current call"
+msgstr "ปฏิเสธสายเรียกเข้าของ LINE (จากทุกโปรแกรม) หรือวางสายที่กำลังคุยอยู่"
 
 msgid "Call declined"
 msgstr "ปฏิเสธสายแล้ว"
@@ -148,3 +148,33 @@ msgstr "ตรวจหา LINE MR รุ่นใหม่"
 
 msgid "Checking for LINE MR updates"
 msgstr "กำลังตรวจหาอัปเดต LINE MR"
+
+msgid "Calls: the bridge is running."
+msgstr "การโทร: ตัวเชื่อมทำงานอยู่"
+
+msgid "Calls: the bridge is installed."
+msgstr "การโทร: ติดตั้งตัวเชื่อมแล้ว"
+
+msgid "Calls: the bridge is not loaded yet. Restart LINE to use LINE MR with calls."
+msgstr "การโทร: ตัวเชื่อมยังไม่ทำงาน ปิดแล้วเปิด LINE ใหม่เพื่อใช้ LINE MR กับการโทร"
+
+msgid "Calls: the bridge could not be installed."
+msgstr "การโทร: ติดตั้งตัวเชื่อมไม่สำเร็จ"
+
+msgid "Calls: LINE has not set up calls yet."
+msgstr "การโทร: LINE ยังไม่ได้เตรียมระบบการโทร"
+
+msgid "LINE MR is not active for calls yet. Restart LINE after this call."
+msgstr "LINE MR ยังไม่ทำงานกับการโทร กรุณาปิดแล้วเปิด LINE ใหม่หลังวางสาย"
+
+msgid "Moves to the search field of the chat list or friend list"
+msgstr "ไปที่ช่องค้นหาของรายการแชทหรือรายชื่อเพื่อน"
+
+msgid "No search field is shown."
+msgstr "ไม่มีช่องค้นหาแสดงอยู่"
+
+msgid "Call ended"
+msgstr "วางสายแล้ว"
+
+msgid "No LINE call."
+msgstr "ไม่มีสาย LINE"

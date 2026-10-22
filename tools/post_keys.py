@@ -38,12 +38,29 @@ def main_window():
 	return max(best)[1] if best else None
 
 
+def foreground_line_window():
+	"""The foreground window if LINE.exe owns it (Qt sends keys to the focus widget of the window
+	that receives them, so a LINE dialog needs its own window handle)."""
+	user32.GetForegroundWindow.restype = wt.HWND
+	user32.GetWindowThreadProcessId.argtypes = (wt.HWND, ctypes.POINTER(wt.DWORD))
+	hwnd = user32.GetForegroundWindow()
+	pid = wt.DWORD()
+	user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+	out = subprocess.run(["tasklist", "/FI", f"PID eq {pid.value}", "/FO", "CSV", "/NH"],
+	                     capture_output=True, text=True).stdout
+	return hwnd if "line.exe" in out.lower() else None
+
+
 def main():
 	ap = argparse.ArgumentParser()
 	ap.add_argument("keys", nargs="+")
 	ap.add_argument("--delay", type=float, default=1.0)
+	ap.add_argument(
+		"--foreground", action="store_true",
+		help="post to the window in front (another LINE window, e.g. a dialog), if it is LINE's",
+	)
 	args = ap.parse_args()
-	hwnd = main_window()
+	hwnd = foreground_line_window() if args.foreground else main_window()
 	if not hwnd:
 		raise SystemExit("no visible LINE window")
 	for k in args.keys:

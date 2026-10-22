@@ -23,6 +23,10 @@ void endListBrowsing();
 // A control was pressed (keyboard or screen reader): a panel it opens gets focus (see the .cpp).
 void notePress(QWidget *pressed);
 
+// A context menu item was pressed by the bridge (`how`: the signal emitted, or "click"): a window
+// it opens (confirmation dialogs) gets activated instead of focus going back behind the menu.
+void noteMenuPress(QWidget *item, const char *how);
+
 // Is the user browsing `list` (focus there, or briefly pulled into the open chat by LINE)?
 bool isBrowsingList(const QWidget *list);
 

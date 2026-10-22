@@ -70,6 +70,11 @@ const KnownIcon kKnownIcons[] = {
 	{ ":/resource/img/basic/chat/chat_word_sticker_error_icon.svg", 1, "sticker" },
 	{ ":/resource/img/basic/chat/chat_word_send_sticker_error_icon.png", 1, "sticker" },
 	{ ":/resource/img/basic/chat/chat_word_receive_sticker_error_icon.png", 1, "sticker" },
+	// Chat header buttons LINE makes from an LcImage with a pixmap and no source (paintedIcon();
+	// the names are iconLabels() keys).
+	{ ":/resource/img/basic/chat/chatroom-call.png", 1, "chatroom-call" },
+	{ ":/resource/img/basic/chat/chatroom-call-solid.svg", 1, "chatroom-call" },
+	{ ":/resource/img/basic/chat/chatroom-video-call-solid.svg", 1, "chatroom-video-call" },
 };
 
 struct IconMask {

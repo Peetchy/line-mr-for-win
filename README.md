@@ -25,13 +25,14 @@ Later versions are offered automatically: when NVDA starts, LINE MR checks for a
 | Alt+1 / Alt+2 / Alt+3 | Friends / Chats / Add friends tab | แท็บเพื่อน / แชท / เพิ่มเพื่อน |
 | Alt+C | Move to the chat list (switches to the Chats tab first if needed) | ไปที่รายการแชท (สลับไปแท็บแชทก่อนถ้าจำเป็น) |
 | Alt+L | Move to the chat list or friend list | ไปที่รายการแชทหรือรายชื่อเพื่อน |
+| Alt+F | Move to the search field of the chat list or friend list | ไปที่ช่องค้นหาของรายการแชทหรือรายชื่อเพื่อน |
 | Alt+M | Move to the messages of the open chat (starts at the newest) | ไปที่ข้อความของแชทที่เปิดอยู่ (เริ่มที่ข้อความล่าสุด) |
 | Alt+I | Move to the message input | ไปที่ช่องพิมพ์ข้อความ |
 | NVDA+Alt+1 … 9 | Read a recent message (1 = newest) | อ่านข้อความล่าสุด (1 = ใหม่สุด) |
-| NVDA+Shift+Control+A / D | Answer / decline an incoming LINE call, from any application | รับสาย / ปฏิเสธสายเรียกเข้าของ LINE จากทุกโปรแกรม |
+| Alt+A / Alt+D (or NVDA+Shift+Control+A / D) | Answer / decline an incoming LINE call, from any application; Alt+D in LINE ends the current call (other applications keep these keys when no call is ringing) | รับสาย / ปฏิเสธสายเรียกเข้าของ LINE จากทุกโปรแกรม; Alt+D ใน LINE วางสายที่กำลังคุยอยู่ (ถ้าไม่มีสายเรียกเข้า ปุ่มเหล่านี้ทำงานตามปกติของโปรแกรมอื่น) |
 | NVDA+Shift+Control+L | Report whether the bridge is running | บอกว่าตัวเชื่อมทำงานอยู่หรือไม่ |
 
-In lists: chat list - arrows, Page Up/Down and Home/End browse without opening a chat, Enter opens it; messages - Up/Down one message, Page Up/Down about a screen, Home the oldest loaded message (again: load older ones), End the newest, Applications key or Shift+F10 the message's menu. Tab order in the chat list panel: buttons, search field, chat list. In a chat: header buttons, note, message list, message input, then the message bar buttons (stickers ... attach file). Full guide: [`addon/doc/en/readme.md`](addon/doc/en/readme.md), [ภาษาไทย](addon/doc/th/readme.md). Commands can be changed in NVDA's Input gestures, category "LINE MR".
+In lists: chat list - arrows, Page Up/Down and Home/End browse without opening a chat, Enter opens it; messages - Up/Down one message, Page Up/Down about a screen, Home the oldest loaded message (again: load older ones), End the newest, Applications key or Shift+F10 the message's menu. Tab order in the chat list panel: buttons, search field, chat list. In a chat: header buttons, note, message list, message input, then the message bar buttons (stickers ... attach file). Full guide: [`addon/doc/en/readme.md`](addon/doc/en/readme.md), [ภาษาไทย](addon/doc/th/readme.md), [日本語](addon/doc/ja/readme.md), [简体中文](addon/doc/zh_CN/readme.md), [繁體中文](addon/doc/zh_TW/readme.md). Commands can be changed in NVDA's Input gestures, category "LINE MR".
 
 ## LINE on macOS
 

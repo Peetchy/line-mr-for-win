@@ -45,6 +45,10 @@ QString cleanText(const QString &text);
 // What `w` itself paints as text (not its children), cached briefly. Empty for hidden widgets.
 QString paintedText(QWidget *w);
 
+// Which of LINE's known icons `w` itself paints (knownIcon() names, "chatroom-call"), from the
+// same cached rendering as paintedText(); "" if none.
+QString paintedIcon(QWidget *w);
+
 // Text of an LcText ("text" property if a subclass declares one, else painted text).
 QString extractLcTextString(QWidget *w);
 
@@ -90,8 +94,9 @@ QString nearbyLabelText(QWidget *w);
 
 // --- Localisation ---------------------------------------------------------------------------
 
-// True when LINE's UI language is Thai (bridge-generated labels follow LINE, not Windows).
-bool uiIsThai();
+// LINE's own UI language (its setting, not Windows'): bridge-generated labels follow it.
+enum class UiLanguage { English, Thai, Japanese, SimplifiedChinese, TraditionalChinese };
+UiLanguage uiLanguage();
 
 // Bridge-generated label in LINE's UI language.
 QString label(const char *english);

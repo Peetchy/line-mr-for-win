@@ -108,13 +108,16 @@ class AppModule(appModuleHandler.AppModule):
 
 	@script(
 		# Translators: Describes the command that reports whether the LINE accessibility bridge works.
-		description=_("Reports whether the LINE MR accessibility bridge is installed and running in LINE"),
+		description=_("Reports whether the LINE MR accessibility bridge is installed and running in LINE and its call windows"),
 		category=SCRIPT_CATEGORY,
 		gesture="kb:NVDA+shift+control+l",
 	)
 	def script_bridgeStatus(self, gesture):
 		status = bridge.status(self.processID)
 		ui.message(bridge.describeStatus(status))
+		if status == bridge.Status.RUNNING:
+			bridge.repairCallBridges()
+			ui.message(bridge.describeCallStatus(bridge.callStatus()))
 		if status != bridge.Status.RUNNING:
 			bridge.offerInstall(self.processID, status)
 
@@ -197,6 +200,16 @@ class AppModule(appModuleHandler.AppModule):
 				core.callLater(200, focusList, triesLeft - 1)
 
 		core.callLater(200, focusList)
+
+	@script(
+		# Translators: Describes the command that moves focus to the search field of LINE's chat or friend list.
+		description=_("Moves to the search field of the chat list or friend list"),
+		category=SCRIPT_CATEGORY,
+		gesture="kb:alt+f",
+	)
+	def script_focusSearch(self, gesture):
+		# Translators: Reported when no chat or friend list (with its search field) is shown.
+		self._focus(("search_chats", "search_friends"), _("No search field is shown."))
 
 	@script(
 		# Translators: Describes the command that moves focus to the messages of the open chat.

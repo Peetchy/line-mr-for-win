@@ -625,16 +625,22 @@ QQuickItem *incomingCallAnswerButton(const QuickModel &m)
 	return nullptr;
 }
 
-// Tags for the add-on's answer / decline commands (UIA AutomationId, see elements.py).
+// Tags for the add-on's answer / decline / hang-up commands (UIA AutomationId, see lineMR.py).
 void tagCallButtons(const QuickModel &m)
 {
 	for (const QPointer<QQuickItem> &item : m.order) {
-		if (!item || !item->objectName().isEmpty() || !sourceOf(item).contains(QLatin1StringView("voip/notification/")))
+		if (!item || !item->objectName().isEmpty())
 			continue;
-		if (sourceOf(item).contains(QLatin1StringView("accept_bt")))
+		const QString source = sourceOf(item);
+		if (source.contains(QLatin1StringView("voip/notification/accept_bt")))
 			item->setObjectName(QStringLiteral("lineMR_call-answer"));
-		else if (sourceOf(item).contains(QLatin1StringView("refuse_bt")))
+		else if (source.contains(QLatin1StringView("voip/notification/refuse_bt")))
 			item->setObjectName(QStringLiteral("lineMR_call-decline"));
+		// Group calls (CallEndButton.qml) and the call footer.
+		else if (source.contains(QLatin1StringView("voip/end_button_ic_leave"))
+		         || source.contains(QLatin1StringView("voip/footer/hangup"))
+		         || source.contains(QLatin1StringView("call_end_bt")))
+			item->setObjectName(QStringLiteral("lineMR_call-end"));
 	}
 }
 
@@ -770,11 +776,11 @@ void quickWindowShown(QQuickWindow *window)
 		// LINE shows the incoming-call notification without activating it: NVDA hears about it from
 		// the announcement even while another application is in front.
 		QQuickItem *answer = incomingCallAnswerButton(m);
+		tagCallButtons(m);
 		if (answer) {
 			const QString text = incomingCallText(m);
 			a11yLog("[call] incoming call notification %s (%d items)", guard->metaObject()->className(),
 			        int(m.order.size()));
-			tagCallButtons(m);
 			announceIncomingCall(text);
 			writeCallDump();
 		} else if (QLatin1StringView(guard->metaObject()->className()).startsWith(QLatin1StringView("CallMessageToastWindow"))) {

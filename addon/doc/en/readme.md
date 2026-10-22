@@ -20,7 +20,7 @@ When NVDA starts, LINE MR checks GitHub for a newer release. If there is one, a 
 ## What works now
 
 - Login window: email and password fields, the log-in button, the "log in automatically" checkboxes, the QR-code instructions and the title bar buttons are named.
-- Icon-only buttons are named from their icons, in LINE's own language (Thai or English).
+- Icon-only buttons are named from their icons, in LINE's own language (English, Thai, Japanese, Simplified or Traditional Chinese).
 - Keyboard: Tab and Shift+Tab reach every button, checkbox and link in reading order (window content first, title-bar buttons last); Space or Enter presses the focused control. LINE itself only lets Tab reach its text fields.
 - NVDA follows focus as you move (LINE normally suppresses these notifications; the bridge turns them back on).
 - Checkboxes report and change their state ("checked" / "not checked").
@@ -33,7 +33,7 @@ When NVDA starts, LINE MR checks GitHub for a newer release. If there is one, a 
 - Tab order in the chat list panel: Sort, Show or hide chat list, Create chat, the ad, the search field, then the chat list (Tab goes on to the open chat).
 - Tab order in an open chat: chat header buttons, the chat's note (if it has one), "Scroll to latest message", the message list, the message input, then the message bar buttons from the input outwards (Stickers and emoji, Screenshot options, Screenshot, Keep, Attach file).
 - Context menus: the Applications key (or Shift+F10) on a message opens LINE's menu with focus on its first item; Up/Down and Home/End move, Enter or Space chooses, Escape closes it and returns to the message.
-- Incoming calls: LINE MR says "Incoming call" with the caller's name, even while you work in another application. Press NVDA+Shift+Control+A to answer or NVDA+Shift+Control+D to decline, from any application. Focus moves to the call notification's Answer button (Tab reaches Decline; Enter or Space presses). During a call, the call window's buttons are named (End call, Mute microphone, Start video call, Mute speaker) and its texts (caller, call length) are read.
+- Incoming calls: LINE MR says "Incoming call" with the caller's name, even while you work in another application. Press Alt+A to answer or Alt+D to decline, from any application (when no LINE call is ringing, these keys do what they normally do in that application; NVDA+Shift+Control+A / D work too). During a call, Alt+D ends the call while a LINE window is in front (NVDA+Shift+Control+D from anywhere). Focus moves to the call notification's Answer button (Tab reaches Decline; Enter or Space presses). During a call, the call window's buttons are named (End call, Mute microphone, Start video call, Mute speaker) and its texts (caller, call length) are read.
 - Pages that open in their own window are read: clicking a group's name or its member count (for example "(5)") opens the member list; members open their profile; the chat menu's Photos & videos, Links and Files open a window named after the chat. Focus starts on the page's first control and its texts are read. Pages that open inside the main window get focus too.
 - Other windows: Settings (More > Settings; its sections and sub-sections are radio buttons, combo boxes carry their label), profile settings, Albums and Notes, Search friends, and Create group (friends are checkboxes: Space ticks one). Polls open as a web page, read in browse mode.
 - Picture messages (cards from official accounts such as banks) are pictures with the text drawn into them, so LINE gives no text to read: they are reported as "photo or sticker". Press NVDA+R on such a message to read its text with Windows OCR. When LINE could not download a card, it shows "Unable to load" with a "Try again" button, which is what you hear.
@@ -45,11 +45,12 @@ When NVDA starts, LINE MR checks GitHub for a newer release. If there is one, a 
 | Alt+1 / Alt+2 / Alt+3 | Friends / Chats / Add friends tab |
 | Alt+C | Move to the chat list (switches to the Chats tab first if needed) |
 | Alt+L | Move to the chat list or friend list (whichever is shown) |
+| Alt+F | Move to the search field of the chat list or friend list |
 | Alt+M | Move to the messages of the open chat |
 | Alt+I | Move to the message input of the open chat |
 | NVDA+Alt+1 … NVDA+Alt+9 | Read a recent message (1 = newest) |
-| NVDA+Shift+Control+A | Answer an incoming LINE call (works in any application) |
-| NVDA+Shift+Control+D | Decline an incoming LINE call (works in any application) |
+| Alt+A (or NVDA+Shift+Control+A) | Answer an incoming LINE call (works in any application) |
+| Alt+D (or NVDA+Shift+Control+D) | Decline an incoming LINE call (works in any application); during a call, end it (Alt+D while a LINE window is in front, NVDA+Shift+Control+D anywhere) |
 | NVDA+Shift+Control+L | Report whether the LINE MR bridge is running (and offer to install it) |
 
 Commands can be changed under NVDA menu, Preferences, Input gestures, category "LINE MR".
@@ -62,7 +63,7 @@ Commands can be changed under NVDA menu, Preferences, Input gestures, category "
 | Chat list | Up/Down, Page Up/Page Down, Home/End browse chats without opening them; Enter opens the chat and moves to its message input |
 | Messages | Up/Down: previous / next message; Page Up/Page Down: about a screen; Home: oldest loaded message (again: load older ones); End: newest message; Applications key or Shift+F10: the message's menu |
 | Message menu | Up/Down, Home/End move; Enter or Space chooses; Escape closes and returns to the message |
-| Incoming call | Enter or Space on Answer / Decline; NVDA+Shift+Control+A / D from any application |
+| Calls | Enter or Space on Answer / Decline; Alt+A answers and Alt+D declines from any application; Alt+D in LINE ends the current call |
 
 ## How the bridge works
 
