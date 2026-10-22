@@ -39,8 +39,9 @@ def main_window():
 
 
 def foreground_line_window():
-	"""The foreground window if LINE.exe owns it (Qt sends keys to the focus widget of the window
-	that receives them, so a LINE dialog needs its own window handle)."""
+	"""The foreground window if LINE.exe or one of its helpers (LineCall.exe, LineMediaPlayer.exe)
+	owns it (Qt sends keys to the focus widget of the window that receives them, so a LINE dialog
+	needs its own window handle)."""
 	user32.GetForegroundWindow.restype = wt.HWND
 	user32.GetWindowThreadProcessId.argtypes = (wt.HWND, ctypes.POINTER(wt.DWORD))
 	hwnd = user32.GetForegroundWindow()
@@ -48,7 +49,8 @@ def foreground_line_window():
 	user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
 	out = subprocess.run(["tasklist", "/FI", f"PID eq {pid.value}", "/FO", "CSV", "/NH"],
 	                     capture_output=True, text=True).stdout
-	return hwnd if "line.exe" in out.lower() else None
+	name = out.split(",")[0].strip('"').lower() if out.strip() else ""
+	return hwnd if name in ("line.exe", "linecall.exe", "linemediaplayer.exe") else None
 
 
 def main():

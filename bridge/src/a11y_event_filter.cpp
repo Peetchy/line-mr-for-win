@@ -33,10 +33,74 @@
 #include <QtWidgets/QSplitter>
 #include <QtWidgets/QWidget>
 
+#include <windows.h>
+
 namespace line_a11y {
 namespace {
 
 constexpr int kWatchdogIntervalMs = 1000;
+
+// LINE's photo / video viewer runs in another process (LineMediaPlayer.exe). When it closes, Windows
+// activates whatever window comes next, often another application, not the LINE window it was
+// opened from: the user lost their place in the chat. The viewer's bridge remembers LINE's window in
+// front when a viewer window appears and brings it back when that window hides.
+HWND g_returnWindow = nullptr;
+
+bool isLineWindow(HWND hwnd)
+{
+	DWORD pid = 0;
+	GetWindowThreadProcessId(hwnd, &pid);
+	if (!pid || pid == GetCurrentProcessId())
+		return false;
+	const HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+	if (!process)
+		return false;
+	wchar_t buf[MAX_PATH];
+	DWORD n = MAX_PATH;
+	const bool ok = QueryFullProcessImageNameW(process, 0, buf, &n);
+	CloseHandle(process);
+	return ok && QString::fromWCharArray(buf, int(n)).endsWith(QLatin1StringView("\\LINE.exe"), Qt::CaseInsensitive);
+}
+
+// The chat and friend lists, where the bridge keeps its own cursor (see LineAccessibleList::moveCursor).
+bool isCursorList(const QWidget *w)
+{
+	return isLineListView(w) && !ancestorInheriting(w, "LcListView")
+	    && (ancestorInheriting(w, "MainChatPanel") || ancestorInheriting(w, "MainFriendPanel"));
+}
+
+bool isViewerWindow(const QWidget *w)
+{
+	return helperProcessName() == QLatin1StringView("linemediaplayer") && w->isWindow()
+	    && (w->windowType() == Qt::Window || w->windowType() == Qt::Dialog);
+}
+
+void viewerShown(QWidget *w)
+{
+	const HWND front = GetForegroundWindow();
+	if (front && isLineWindow(front)) {
+		g_returnWindow = front;
+		a11yLog("[viewer] %s shown over LINE window %p", w->metaObject()->className(), static_cast<void *>(front));
+	}
+}
+
+void viewerHidden(QWidget *w)
+{
+	const HWND back = g_returnWindow;
+	g_returnWindow = nullptr;
+	if (!back || !IsWindow(back) || !IsWindowVisible(back))
+		return;
+	// Windows activates the next window once this one is hidden: give that a moment, then go back
+	// to LINE unless the user is already there.
+	QTimer::singleShot(100, [back, name = QByteArray(w->metaObject()->className())] {
+		const HWND front = GetForegroundWindow();
+		if (front == back || (front && isLineWindow(front)))
+			return;
+		const bool ok = SetForegroundWindow(back);
+		a11yLog("[viewer] %s hidden: back to LINE window %p (%s)", name.constData(), static_cast<void *>(back),
+		        ok ? "done" : "refused");
+	});
+}
 
 // Marks widgets whose focus policy the bridge changed (so it only ever touches those).
 constexpr const char *kMadeFocusableProperty = "_lineA11yFocusable";
@@ -154,6 +218,27 @@ void orderTabStops(QWidget *window)
 {
 	QList<QWidget *> content, titleBar;
 	collectTabStops(window, content, titleBar, false);
+	// The chat folder tabs (All / Friends / Groups / ...) sit in the title bar but filter the chat
+	// list: they go right before the chat list's search field (user request).
+	const auto search = std::find_if(content.begin(), content.end(), [](QWidget *stop) {
+		return inheritsClass(stop, "QLineEdit") && ancestorInheriting(stop, "MainChatPanel");
+	});
+	if (search != content.end()) {
+		QList<QWidget *> folders;
+		titleBar.removeIf([&folders](QWidget *stop) {
+			if (!ancestorInheriting(stop, "TabBar"))
+				return false;
+			// The scroll area holding the tabs would be a nameless stop before them.
+			if (inheritsClass(stop, "LcScrollArea"))
+				stop->setFocusPolicy(Qt::NoFocus);
+			else
+				folders << stop;
+			return true;
+		});
+		const qsizetype at = search - content.begin();
+		for (qsizetype i = 0; i < folders.size(); ++i)
+			content.insert(at + i, folders.at(i));
+	}
 	const QList<QWidget *> order = content + titleBar;
 	for (qsizetype i = 1; i < order.size(); ++i)
 		QWidget::setTabOrder(order[i - 1], order[i]);
@@ -613,6 +698,8 @@ public:
 				windowShown(w);
 			else if (pressIsRecent())
 				noteShownAfterPress(w);
+			if (isViewerWindow(w))
+				viewerShown(w);
 			if (isContextMenu(w))
 				menuShown(w);
 			break;
@@ -642,6 +729,8 @@ public:
 				breadcrumb("hide window %s", w->metaObject()->className());
 			if (isContextMenu(w) && w == m_menu.data())
 				menuHidden();
+			if (isViewerWindow(w))
+				viewerHidden(w);
 			break;
 		case QEvent::FocusIn:
 			// Entering the chat or friend list starts at LINE's current row (unless the bridge is
@@ -707,6 +796,16 @@ public:
 				    list && list->openRowMenu())
 					return true;
 			}
+			// In the chat and friend lists: the menu of the row NVDA read (the bridge's cursor), not
+			// of LINE's current row (the open chat). The Applications key already opened it on its
+			// key press (below); Shift+F10 arrives only here.
+			if (static_cast<QContextMenuEvent *>(event)->reason() == QContextMenuEvent::Keyboard && isCursorList(w)) {
+				if (m_cursorMenuKey.isValid() && m_cursorMenuKey.elapsed() < 1000)
+					return true;
+				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
+				    list && list->openCursorMenu())
+					return true;
+			}
 			break;
 		case QEvent::KeyPress: {
 			auto *key = static_cast<QKeyEvent *>(event);
@@ -761,8 +860,16 @@ public:
 			    && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier))) {
 				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
 				    list && !key->isAutoRepeat()
-				    && (ancestorInheriting(w, "ChatMessageView") ? list->openSeeMore() : list->toggleCursorRow()))
+				    && (ancestorInheriting(w, "ChatMessageView") ? list->openSeeMore() || list->openMessageContent()
+				                                                 : list->toggleCursorRow()))
 					return true;
+			}
+			if (isCursorList(w) && key->key() == Qt::Key_Menu && !key->isAutoRepeat()) {
+				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
+				    list && list->openCursorMenu()) {
+					m_cursorMenuKey.start();
+					return true;
+				}
 			}
 			// Applications key: LINE opens the menu where the current row is; make sure it is on screen.
 			if (isLineListView(w) && key->key() == Qt::Key_Menu) {
@@ -934,6 +1041,8 @@ private:
 	quint64 m_ticks = 0;
 	QPointer<QWidget> m_browsingList;
 	QElapsedTimer m_listKeyTimer;
+	// When the Applications key opened a chat / friend list row's menu (its context menu event follows).
+	QElapsedTimer m_cursorMenuKey;
 	QPointer<QWidget> m_menu;
 	QPointer<QWidget> m_menuReturnFocus;
 };

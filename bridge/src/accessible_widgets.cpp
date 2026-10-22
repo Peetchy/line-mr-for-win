@@ -243,6 +243,8 @@ QAccessibleInterface *lineAccessibleFactory(const QString &key, QObject *object)
 	if (key != QLatin1StringView(object->metaObject()->className()))
 		return nullptr;
 	auto *w = static_cast<QWidget *>(object);
+	if (helperProcessName() == QLatin1StringView("linemediaplayer") && inheritsClass(w, "QQuickWidget"))
+		return new LineAccessibleQuickWidget(w);
 	const WidgetKind kind = classifyWidget(w);
 	if (kind != WidgetKind::None) {
 		static QSet<QByteArray> loggedClasses;
@@ -448,6 +450,33 @@ QString LineAccessibleWidget::toolTipText() const
 {
 	return extractLcWidgetToolTip(widget());
 }
+
+namespace {
+
+// A left click in the middle of `w` the way the mouse makes one: enter, move, press, release.
+void sendMouseClick(QWidget *w)
+{
+	QPointer<QWidget> guard(w);
+	const QPointF local = QRectF(w->rect()).center();
+	const QPointF scene = w->mapTo(w->window(), local);
+	const QPointF global = w->mapToGlobal(local);
+	w->setAttribute(Qt::WA_UnderMouse, true);
+	QEnterEvent enter(local, scene, global);
+	QCoreApplication::sendEvent(w, &enter);
+	QMouseEvent move(QEvent::MouseMove, local, scene, global, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+	if (guard)
+		QCoreApplication::sendEvent(guard, &move);
+	QMouseEvent press(QEvent::MouseButtonPress, local, scene, global, Qt::LeftButton, Qt::LeftButton,
+	                  Qt::NoModifier);
+	if (guard)
+		QCoreApplication::sendEvent(guard, &press);
+	QMouseEvent release(QEvent::MouseButtonRelease, local, scene, global, Qt::LeftButton, Qt::NoButton,
+	                    Qt::NoModifier);
+	if (guard)
+		QCoreApplication::sendEvent(guard, &release);
+}
+
+} // namespace
 
 // ---- LineAccessibleButton ------------------------------------------------------------------------
 
@@ -722,6 +751,21 @@ void LineAccessibleButton::press()
 		QWidget *target = guard.data();
 		if (!target || !target->isEnabled() || !target->isVisible())
 			return;
+		// The chat list's folder tabs (All / Friends / Groups / Official accounts) filter the list
+		// only on a mouse click: setting `selected` and emitting clicked() ticked the tab but left the
+		// list unfiltered.
+		if (ancestorInheriting(target, "TabBar")) {
+			sendMouseClick(target);
+			QTimer::singleShot(150, target, [guard] {
+				if (!guard)
+					return;
+				QAccessible::State changed;
+				changed.checked = true;
+				QAccessibleStateChangeEvent ev(guard.data(), changed);
+				QAccessible::updateAccessibility(&ev);
+			});
+			return;
+		}
 		if (inheritsClass(target, "LcCheckBox") || inRadioGroup(target)) {
 			const bool selected = boolProp(target, "selected") == 1;
 			// A radio-group member stays selected when clicked again. The group deselects the
@@ -1249,6 +1293,30 @@ LineAccessibleScrollArea::LineAccessibleScrollArea(QWidget *w)
 {
 }
 
+// ---- LineAccessibleQuickWidget --------------------------------------------------------------------
+
+LineAccessibleQuickWidget::LineAccessibleQuickWidget(QWidget *w)
+	: QAccessibleWidget(w, QAccessible::Graphic)
+{
+}
+
+QString LineAccessibleQuickWidget::text(QAccessible::Text t) const
+{
+	if (t != QAccessible::Name)
+		return QAccessibleWidget::text(t);
+	if (QString name = cleanText(widget()->accessibleName()); !name.isEmpty())
+		return name;
+	// The viewer stacks an image panel and a video panel; the one shown says what this is.
+	const QWidget *window = widget()->window();
+	if (!inheritsClass(window, "MediaViewerWindow"))
+		return QString();
+	for (const QWidget *panel : window->findChildren<QWidget *>()) {
+		if (inheritsClass(panel, "ImageViewerPanel"))
+			return label(panel->isVisible() ? "Photo" : "Video");
+	}
+	return label("Video");
+}
+
 // ---- LineAccessibleMenu --------------------------------------------------------------------------
 
 LineAccessibleMenu::LineAccessibleMenu(QWidget *w)
@@ -1307,32 +1375,6 @@ bool LineAccessibleMenu::isPressable() const
 	return role() == QAccessible::MenuItem && widget()->isEnabled();
 }
 
-namespace {
-
-// A left click in the middle of `w` the way the mouse makes one: enter, move, press, release.
-void sendMouseClick(QWidget *w)
-{
-	QPointer<QWidget> guard(w);
-	const QPointF local = QRectF(w->rect()).center();
-	const QPointF scene = w->mapTo(w->window(), local);
-	const QPointF global = w->mapToGlobal(local);
-	w->setAttribute(Qt::WA_UnderMouse, true);
-	QEnterEvent enter(local, scene, global);
-	QCoreApplication::sendEvent(w, &enter);
-	QMouseEvent move(QEvent::MouseMove, local, scene, global, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
-	if (guard)
-		QCoreApplication::sendEvent(guard, &move);
-	QMouseEvent press(QEvent::MouseButtonPress, local, scene, global, Qt::LeftButton, Qt::LeftButton,
-	                  Qt::NoModifier);
-	if (guard)
-		QCoreApplication::sendEvent(guard, &press);
-	QMouseEvent release(QEvent::MouseButtonRelease, local, scene, global, Qt::LeftButton, Qt::NoButton,
-	                    Qt::NoModifier);
-	if (guard)
-		QCoreApplication::sendEvent(guard, &release);
-}
-
-} // namespace
 
 void LineAccessibleMenu::press()
 {

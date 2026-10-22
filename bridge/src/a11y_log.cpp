@@ -31,8 +31,8 @@ QString computeDirectory()
 FILE *logFile()
 {
 	if (!g_logFile) {
-		// LINE.exe and LineCall.exe run at the same time: one log each.
-		const QString name = inCallProcess() ? QStringLiteral("logs/linecall") : QStringLiteral("logs/bridge");
+		// LINE.exe and its helper processes run at the same time: one log each.
+		const QString name = QStringLiteral("logs/") + (inHelperProcess() ? helperProcessName() : QStringLiteral("bridge"));
 		const QString path = bridgeDirectory() + name + QStringLiteral(".log");
 		const QString old = bridgeDirectory() + name + QStringLiteral(".old.log");
 		QFile::remove(old);
@@ -50,14 +50,21 @@ const QString &bridgeDirectory()
 	return dir;
 }
 
-bool inCallProcess()
+const QString &helperProcessName()
 {
-	static const bool call = [] {
+	static const QString name = [] {
 		wchar_t buf[MAX_PATH];
 		const DWORD n = GetModuleFileNameW(nullptr, buf, MAX_PATH);
-		return QString::fromWCharArray(buf, int(n)).endsWith(QLatin1StringView("\\LineCall.exe"), Qt::CaseInsensitive);
+		const QString exe = QString::fromWCharArray(buf, int(n));
+		const QString base = exe.mid(exe.lastIndexOf(QLatin1Char('\\')) + 1).toLower();
+		return base == QLatin1StringView("line.exe") ? QString() : base.chopped(4); // without ".exe"
 	}();
-	return call;
+	return name;
+}
+
+bool inHelperProcess()
+{
+	return !helperProcessName().isEmpty();
 }
 
 void a11yLogString(const QString &line)

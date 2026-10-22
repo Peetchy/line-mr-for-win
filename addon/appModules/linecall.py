@@ -31,7 +31,7 @@ class AppModule(appModuleHandler.AppModule):
 		try:
 			if bridge.DLL_NAME in bridge._processModules(self.processID):
 				return
-			bridge.repairCallBridges()
+			bridge.repairHelperBridges()
 		except Exception:
 			log.error("LINE MR: checking LineCall's bridge failed", exc_info=True)
 			return

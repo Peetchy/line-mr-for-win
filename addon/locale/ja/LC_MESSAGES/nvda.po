@@ -7,8 +7,8 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-msgid "Reports whether the LINE MR accessibility bridge is installed and running in LINE and its call windows"
-msgstr "LINE MR アクセシビリティ ブリッジが LINE と通話ウィンドウにインストールされ、動作しているか報告します"
+msgid "Reports whether the LINE MR accessibility bridge is installed and running in LINE and its call windows; pressed twice, copies a report for the developer"
+msgstr "LINE MR アクセシビリティ ブリッジが LINE と通話ウィンドウにインストールされ、動作しているか報告します。2 回押すと開発者向けのレポートをコピーします"
 
 msgid "Not available here. Switch to LINE's main window."
 msgstr "ここでは使用できません。LINE のメイン ウィンドウに切り替えてください。"
@@ -49,14 +49,24 @@ msgstr "開いているトークのメッセージ入力欄に移動します"
 msgid "Reads a recent message of the open chat: 1 is the newest, 9 the ninth newest"
 msgstr "開いているトークの最近のメッセージを読み上げます: 1 が最新、9 が 9 番目に新しいメッセージ"
 
+msgid "LINE MR report copied to the clipboard."
+msgstr "LINE MR のレポートをクリップボードにコピーしました。"
+
 msgid "No message {number}."
 msgstr "メッセージ {number} はありません。"
+
+msgid "LINE closed unexpectedly twice in a row, so LINE MR does not read message contents for now. Quit LINE normally and start it again to turn message reading back on."
+msgstr "LINE が 2 回続けて予期せず終了したため、LINE MR はしばらくメッセージの内容を読み上げません。LINE を通常の方法で終了してから再び起動すると、読み上げが元に戻ります。"
 
 msgid "LINE MR bridge installed. LINE is restarting."
 msgstr "LINE MR ブリッジをインストールしました。LINE を再起動しています。"
 
-msgid "LINE has to be restarted to use LINE MR. Restart LINE now?"
-msgstr "LINE MR を使うには LINE を再起動する必要があります。今すぐ LINE を再起動しますか?"
+msgid ""
+"LINE has to be restarted to use LINE MR. Closing LINE's window does not quit LINE (it keeps running in the notification area).\n"
+"Restart LINE now?"
+msgstr ""
+"LINE MR を使うには LINE を再起動する必要があります。LINE のウィンドウを閉じても LINE は終了しません(通知領域で動作し続けます)。\n"
+"今すぐ LINE を再起動しますか?"
 
 msgid "Calls: the bridge is running."
 msgstr "通話: ブリッジは動作しています。"
@@ -79,11 +89,17 @@ msgstr "LINE MR ブリッジは動作しています。"
 msgid "LINE MR bridge is installed, but LINE must be restarted to use it."
 msgstr "LINE MR ブリッジはインストール済みですが、使うには LINE を再起動する必要があります。"
 
+msgid "LINE started without the LINE MR bridge. Windows or antivirus software is probably blocking it."
+msgstr "LINE は LINE MR ブリッジなしで起動しました。Windows またはウイルス対策ソフトがブロックしている可能性があります。"
+
 msgid "An older LINE MR bridge is installed in LINE."
 msgstr "LINE には古い LINE MR ブリッジがインストールされています。"
 
 msgid "LINE MR bridge is not installed in LINE."
 msgstr "LINE MR ブリッジは LINE にインストールされていません。"
+
+msgid "This version of LINE is not supported by LINE MR. Update LINE to the latest version."
+msgstr "この LINE のバージョンは LINE MR に対応していません。LINE を最新版に更新してください。"
 
 msgid "LINE for Windows was not found."
 msgstr "LINE for Windows が見つかりません。"
@@ -91,11 +107,48 @@ msgstr "LINE for Windows が見つかりません。"
 msgid "This LINE MR package does not contain the bridge."
 msgstr "この LINE MR パッケージにはブリッジが含まれていません。"
 
+msgid ""
+"LINE started without the LINE MR bridge ({path}). Antivirus software or a security policy may be blocking it: allow the file, then restart LINE.\n"
+"To send a report to the developer, press NVDA+Shift+Control+L twice in LINE: it copies the report to the clipboard."
+msgstr ""
+"LINE は LINE MR ブリッジ ({path}) なしで起動しました。ウイルス対策ソフトまたはセキュリティ ポリシーがブロックしている可能性があります。ファイルを許可してから LINE を再起動してください。\n"
+"開発者にレポートを送るには、LINE で NVDA+Shift+Control+L を 2 回押してください。レポートがクリップボードにコピーされます。"
+
 msgid "LINE MR"
 msgstr "LINE MR"
 
-msgid "Could not install the LINE MR bridge."
-msgstr "LINE MR ブリッジをインストールできませんでした。"
+msgid "LINE is installed for all users. Windows will ask for permission to install the bridge."
+msgstr "LINE はすべてのユーザー向けにインストールされています。ブリッジのインストールに Windows が許可を求めます。"
+
+msgid ""
+"The LINE MR bridge was removed from LINE's folder, probably by antivirus software.\n"
+"Allow {path} in your antivirus software, then press NVDA+Shift+Control+L in LINE to install it again."
+msgstr ""
+"LINE MR ブリッジが LINE のフォルダーから削除されました。ウイルス対策ソフトによるものと思われます。\n"
+"ウイルス対策ソフトで {path} を許可してから、LINE で NVDA+Shift+Control+L を押して再インストールしてください。"
+
+msgid ""
+"Windows Smart App Control is on. It blocks the LINE MR bridge ({path}), so LINE MR cannot work.\n"
+"Smart App Control can be turned off in Windows Security, App & browser control (Windows cannot turn it on again without a reinstall)."
+msgstr ""
+"Windows の Smart App Control がオンになっており、LINE MR ブリッジ ({path}) をブロックするため、LINE MR は動作できません。\n"
+"Smart App Control は Windows セキュリティの「アプリとブラウザーの制御」でオフにできます(Windows を再インストールしない限り再びオンにはできません)。"
+
+msgid ""
+"Could not install the LINE MR bridge to {path}.\n"
+"{error}"
+msgstr ""
+"LINE MR ブリッジを {path} にインストールできませんでした。\n"
+"{error}"
+
+msgid ""
+"{reason}\n"
+"\n"
+"Install the bridge again and restart LINE?"
+msgstr ""
+"{reason}\n"
+"\n"
+"ブリッジを再インストールして LINE を再起動しますか?"
 
 msgid ""
 "{status}\n"
@@ -106,6 +159,9 @@ msgstr ""
 
 msgid "LINE MR is not active for calls yet. Restart LINE after this call."
 msgstr "LINE MR はまだ通話で動作していません。この通話の後で LINE を再起動してください。"
+
+msgid "LINE MR is not active in LINE's photo and video viewer yet. Restart LINE to use it there."
+msgstr "LINE MR は LINE の写真・動画ビューアーではまだ動作していません。使うには LINE を再起動してください。"
 
 msgid "Alt+A answers, Alt+D declines."
 msgstr "Alt+A で応答、Alt+D で拒否。"

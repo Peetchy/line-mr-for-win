@@ -7,51 +7,14 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-msgid "Reports whether the LINE MR accessibility bridge is installed and running in LINE and its call windows"
-msgstr "บอกว่าตัวเชื่อม LINE MR ติดตั้งและทำงานอยู่ใน LINE และหน้าต่างการโทรหรือไม่"
-
-msgid "LINE MR bridge is running."
-msgstr "ตัวเชื่อม LINE MR ทำงานอยู่"
-
-msgid "LINE MR bridge is installed, but LINE must be restarted to use it."
-msgstr "ติดตั้งตัวเชื่อม LINE MR แล้ว แต่ต้องเปิด LINE ใหม่จึงจะใช้งานได้"
-
-msgid "An older LINE MR bridge is installed in LINE."
-msgstr "ตัวเชื่อม LINE MR ที่ติดตั้งใน LINE เป็นรุ่นเก่า"
-
-msgid "LINE MR bridge is not installed in LINE."
-msgstr "ยังไม่ได้ติดตั้งตัวเชื่อม LINE MR ใน LINE"
-
-msgid "LINE for Windows was not found."
-msgstr "ไม่พบ LINE สำหรับ Windows"
-
-msgid "This LINE MR package does not contain the bridge."
-msgstr "แพ็กเกจ LINE MR นี้ไม่มีตัวเชื่อม"
-
-msgid "Could not install the LINE MR bridge."
-msgstr "ติดตั้งตัวเชื่อม LINE MR ไม่สำเร็จ"
-
-msgid "LINE MR bridge installed. LINE is restarting."
-msgstr "ติดตั้งตัวเชื่อม LINE MR แล้ว กำลังเปิด LINE ใหม่"
-
-msgid "LINE has to be restarted to use LINE MR. Restart LINE now?"
-msgstr "ต้องเปิด LINE ใหม่จึงจะใช้ LINE MR ได้ ต้องการเปิด LINE ใหม่ตอนนี้หรือไม่"
-
-msgid ""
-"{status}\n"
-"Install the LINE MR bridge now? LINE will be closed and started again."
-msgstr ""
-"{status}\n"
-"ต้องการติดตั้งตัวเชื่อม LINE MR ตอนนี้หรือไม่ LINE จะถูกปิดแล้วเปิดใหม่"
-
-msgid "LINE MR"
-msgstr "LINE MR"
-
-msgid "Shows the friends list"
-msgstr "แสดงรายชื่อเพื่อน"
+msgid "Reports whether the LINE MR accessibility bridge is installed and running in LINE and its call windows; pressed twice, copies a report for the developer"
+msgstr "บอกว่าตัวเชื่อม LINE MR ติดตั้งและทำงานอยู่ใน LINE และหน้าต่างการโทรหรือไม่ กดสองครั้งเพื่อคัดลอกรายงานสำหรับผู้พัฒนา"
 
 msgid "Not available here. Switch to LINE's main window."
 msgstr "ใช้ที่นี่ไม่ได้ ให้สลับไปที่หน้าต่างหลักของ LINE"
+
+msgid "Shows the friends list"
+msgstr "แสดงรายชื่อเพื่อน"
 
 msgid "Shows the chat list"
 msgstr "แสดงรายการแชท"
@@ -59,20 +22,26 @@ msgstr "แสดงรายการแชท"
 msgid "Shows add friends"
 msgstr "แสดงหน้าเพิ่มเพื่อน"
 
-msgid "Moves to the chat list or friend list"
-msgstr "ไปที่รายการแชทหรือรายชื่อเพื่อน"
-
 msgid "No list is shown."
 msgstr "ไม่มีรายการแสดงอยู่"
+
+msgid "Moves to the chat list or friend list"
+msgstr "ไปที่รายการแชทหรือรายชื่อเพื่อน"
 
 msgid "Moves to the chat list (switches to the chats tab first if needed)"
 msgstr "ไปที่รายการแชท (สลับไปที่แท็บแชทก่อนถ้าจำเป็น)"
 
-msgid "Moves to the messages of the open chat"
-msgstr "ไปที่ข้อความของแชทที่เปิดอยู่"
+msgid "No search field is shown."
+msgstr "ไม่มีช่องค้นหาแสดงอยู่"
+
+msgid "Moves to the search field of the chat list or friend list"
+msgstr "ไปที่ช่องค้นหาของรายการแชทหรือรายชื่อเพื่อน"
 
 msgid "No chat is open."
 msgstr "ไม่มีแชทที่เปิดอยู่"
+
+msgid "Moves to the messages of the open chat"
+msgstr "ไปที่ข้อความของแชทที่เปิดอยู่"
 
 msgid "Moves to the message input of the open chat"
 msgstr "ไปที่ช่องพิมพ์ข้อความของแชทที่เปิดอยู่"
@@ -80,74 +49,24 @@ msgstr "ไปที่ช่องพิมพ์ข้อความของ
 msgid "Reads a recent message of the open chat: 1 is the newest, 9 the ninth newest"
 msgstr "อ่านข้อความล่าสุดของแชทที่เปิดอยู่ 1 คือข้อความใหม่สุด 9 คือข้อความที่ใหม่เป็นอันดับเก้า"
 
+msgid "LINE MR report copied to the clipboard."
+msgstr "คัดลอกรายงาน LINE MR ไปยังคลิปบอร์ดแล้ว"
+
 msgid "No message {number}."
 msgstr "ไม่มีข้อความที่ {number}"
 
-msgid "Alt+A answers, Alt+D declines."
-msgstr "Alt+A รับสาย, Alt+D ปฏิเสธสาย"
+msgid "LINE closed unexpectedly twice in a row, so LINE MR does not read message contents for now. Quit LINE normally and start it again to turn message reading back on."
+msgstr "LINE ปิดตัวเองโดยไม่คาดคิดสองครั้งติดกัน LINE MR จึงหยุดอ่านเนื้อหาข้อความไว้ก่อน ออกจาก LINE ตามปกติแล้วเปิดใหม่เพื่อให้กลับมาอ่านข้อความได้"
 
-msgid "No incoming LINE call."
-msgstr "ไม่มีสายเรียกเข้าใน LINE"
-
-msgid "Answers an incoming LINE call (from any application)"
-msgstr "รับสายเรียกเข้าของ LINE (ใช้ได้จากทุกโปรแกรม)"
-
-msgid "Answering"
-msgstr "กำลังรับสาย"
-
-msgid "Declines an incoming LINE call (from any application), or ends the current call"
-msgstr "ปฏิเสธสายเรียกเข้าของ LINE (จากทุกโปรแกรม) หรือวางสายที่กำลังคุยอยู่"
-
-msgid "Call declined"
-msgstr "ปฏิเสธสายแล้ว"
-
-msgid "Could not check for LINE MR updates."
-msgstr "ตรวจหาอัปเดต LINE MR ไม่ได้"
-
-msgid "LINE MR {version} is up to date."
-msgstr "LINE MR {version} เป็นรุ่นล่าสุดแล้ว"
+msgid "LINE MR bridge installed. LINE is restarting."
+msgstr "ติดตั้งตัวเชื่อม LINE MR แล้ว กำลังเปิด LINE ใหม่"
 
 msgid ""
-"LINE MR {new} is available (installed: {old}).\n"
-"\n"
-"Update now? NVDA downloads and installs it, then asks to restart."
+"LINE has to be restarted to use LINE MR. Closing LINE's window does not quit LINE (it keeps running in the notification area).\n"
+"Restart LINE now?"
 msgstr ""
-"มี LINE MR รุ่น {new} ให้อัปเดตแล้ว (รุ่นที่ติดตั้งอยู่: {old})\n"
-"\n"
-"ต้องการอัปเดตตอนนี้หรือไม่ NVDA จะดาวน์โหลดและติดตั้ง แล้วถามให้เริ่ม NVDA ใหม่"
-
-msgid "LINE MR update"
-msgstr "อัปเดต LINE MR"
-
-msgid "&Update now"
-msgstr "อัปเดตตอนนี้ (&U)"
-
-msgid "&Later"
-msgstr "ไว้ทีหลัง (&L)"
-
-msgid "&Skip this version"
-msgstr "ข้ามรุ่นนี้ (&S)"
-
-msgid "Downloading LINE MR {version}"
-msgstr "กำลังดาวน์โหลด LINE MR {version}"
-
-msgid "Could not download the LINE MR update."
-msgstr "ดาวน์โหลดอัปเดต LINE MR ไม่ได้"
-
-msgid "LINE MR"
-msgstr "LINE MR"
-
-msgid "Check for LINE MR &updates when NVDA starts"
-msgstr "ตรวจหาอัปเดต LINE MR เมื่อเปิด NVDA (&U)"
-
-msgid "&Check for updates now"
-msgstr "ตรวจหาอัปเดตตอนนี้ (&C)"
-
-msgid "Checks for a newer version of LINE MR"
-msgstr "ตรวจหา LINE MR รุ่นใหม่"
-
-msgid "Checking for LINE MR updates"
-msgstr "กำลังตรวจหาอัปเดต LINE MR"
+"ต้องเปิด LINE ใหม่จึงจะใช้ LINE MR ได้ การปิดหน้าต่าง LINE ไม่ได้ปิดโปรแกรม (LINE ยังทำงานอยู่ที่ถาดระบบ)\n"
+"เปิด LINE ใหม่ตอนนี้หรือไม่"
 
 msgid "Calls: the bridge is running."
 msgstr "การโทร: ตัวเชื่อมทำงานอยู่"
@@ -164,17 +83,151 @@ msgstr "การโทร: ติดตั้งตัวเชื่อมไ�
 msgid "Calls: LINE has not set up calls yet."
 msgstr "การโทร: LINE ยังไม่ได้เตรียมระบบการโทร"
 
+msgid "LINE MR bridge is running."
+msgstr "ตัวเชื่อม LINE MR ทำงานอยู่"
+
+msgid "LINE MR bridge is installed, but LINE must be restarted to use it."
+msgstr "ติดตั้งตัวเชื่อม LINE MR แล้ว แต่ต้องเปิด LINE ใหม่จึงจะใช้งานได้"
+
+msgid "LINE started without the LINE MR bridge. Windows or antivirus software is probably blocking it."
+msgstr "LINE เปิดขึ้นมาโดยไม่มีตัวเชื่อม LINE MR น่าจะถูก Windows หรือโปรแกรมป้องกันไวรัสบล็อกไว้"
+
+msgid "An older LINE MR bridge is installed in LINE."
+msgstr "ตัวเชื่อม LINE MR ที่ติดตั้งใน LINE เป็นรุ่นเก่า"
+
+msgid "LINE MR bridge is not installed in LINE."
+msgstr "ยังไม่ได้ติดตั้งตัวเชื่อม LINE MR ใน LINE"
+
+msgid "This version of LINE is not supported by LINE MR. Update LINE to the latest version."
+msgstr "LINE MR ไม่รองรับ LINE รุ่นนี้ กรุณาอัปเดต LINE เป็นรุ่นล่าสุด"
+
+msgid "LINE for Windows was not found."
+msgstr "ไม่พบ LINE สำหรับ Windows"
+
+msgid "This LINE MR package does not contain the bridge."
+msgstr "แพ็กเกจ LINE MR นี้ไม่มีตัวเชื่อม"
+
+msgid ""
+"LINE started without the LINE MR bridge ({path}). Antivirus software or a security policy may be blocking it: allow the file, then restart LINE.\n"
+"To send a report to the developer, press NVDA+Shift+Control+L twice in LINE: it copies the report to the clipboard."
+msgstr ""
+"LINE เปิดขึ้นมาโดยไม่มีตัวเชื่อม LINE MR ({path}) โปรแกรมป้องกันไวรัสหรือนโยบายความปลอดภัยอาจบล็อกไว้ ให้อนุญาตไฟล์นี้ แล้วเปิด LINE ใหม่\n"
+"หากต้องการส่งรายงานให้ผู้พัฒนา กด NVDA+Shift+Control+L สองครั้งใน LINE รายงานจะถูกคัดลอกไปยังคลิปบอร์ด"
+
+msgid "LINE MR"
+msgstr "LINE MR"
+
+msgid "LINE is installed for all users. Windows will ask for permission to install the bridge."
+msgstr "LINE ติดตั้งไว้สำหรับผู้ใช้ทุกคน Windows จะขออนุญาตก่อนติดตั้งตัวเชื่อม"
+
+msgid ""
+"The LINE MR bridge was removed from LINE's folder, probably by antivirus software.\n"
+"Allow {path} in your antivirus software, then press NVDA+Shift+Control+L in LINE to install it again."
+msgstr ""
+"ตัวเชื่อม LINE MR ถูกลบออกจากโฟลเดอร์ของ LINE น่าจะเป็นเพราะโปรแกรมป้องกันไวรัส\n"
+"อนุญาตไฟล์ {path} ในโปรแกรมป้องกันไวรัส แล้วกด NVDA+Shift+Control+L ใน LINE เพื่อติดตั้งอีกครั้ง"
+
+msgid ""
+"Windows Smart App Control is on. It blocks the LINE MR bridge ({path}), so LINE MR cannot work.\n"
+"Smart App Control can be turned off in Windows Security, App & browser control (Windows cannot turn it on again without a reinstall)."
+msgstr ""
+"Smart App Control ของ Windows เปิดอยู่ และบล็อกตัวเชื่อม LINE MR ({path}) ทำให้ LINE MR ใช้งานไม่ได้\n"
+"ปิด Smart App Control ได้ที่ Windows Security > App & browser control (เมื่อปิดแล้ว จะเปิดกลับไม่ได้หากไม่ติดตั้ง Windows ใหม่)"
+
+msgid ""
+"Could not install the LINE MR bridge to {path}.\n"
+"{error}"
+msgstr ""
+"ติดตั้งตัวเชื่อม LINE MR ไปที่ {path} ไม่ได้\n"
+"{error}"
+
+msgid ""
+"{reason}\n"
+"\n"
+"Install the bridge again and restart LINE?"
+msgstr ""
+"{reason}\n"
+"\n"
+"ติดตั้งตัวเชื่อมอีกครั้งและเปิด LINE ใหม่หรือไม่"
+
+msgid ""
+"{status}\n"
+"Install the LINE MR bridge now? LINE will be closed and started again."
+msgstr ""
+"{status}\n"
+"ต้องการติดตั้งตัวเชื่อม LINE MR ตอนนี้หรือไม่ LINE จะถูกปิดแล้วเปิดใหม่"
+
 msgid "LINE MR is not active for calls yet. Restart LINE after this call."
 msgstr "LINE MR ยังไม่ทำงานกับการโทร กรุณาปิดแล้วเปิด LINE ใหม่หลังวางสาย"
 
-msgid "Moves to the search field of the chat list or friend list"
-msgstr "ไปที่ช่องค้นหาของรายการแชทหรือรายชื่อเพื่อน"
+msgid "LINE MR is not active in LINE's photo and video viewer yet. Restart LINE to use it there."
+msgstr "LINE MR ยังไม่ทำงานในหน้าต่างดูรูปภาพและวิดีโอของ LINE เปิด LINE ใหม่เพื่อใช้งานในหน้าต่างนี้"
 
-msgid "No search field is shown."
-msgstr "ไม่มีช่องค้นหาแสดงอยู่"
+msgid "Alt+A answers, Alt+D declines."
+msgstr "Alt+A รับสาย, Alt+D ปฏิเสธสาย"
+
+msgid "Answering"
+msgstr "กำลังรับสาย"
+
+msgid "Call declined"
+msgstr "ปฏิเสธสายแล้ว"
+
+msgid "Answers an incoming LINE call (from any application)"
+msgstr "รับสายเรียกเข้าของ LINE (ใช้ได้จากทุกโปรแกรม)"
+
+msgid "Declines an incoming LINE call (from any application), or ends the current call"
+msgstr "ปฏิเสธสายเรียกเข้าของ LINE (จากทุกโปรแกรม) หรือวางสายที่กำลังคุยอยู่"
 
 msgid "Call ended"
 msgstr "วางสายแล้ว"
 
 msgid "No LINE call."
 msgstr "ไม่มีสาย LINE"
+
+msgid "No incoming LINE call."
+msgstr "ไม่มีสายเรียกเข้าใน LINE"
+
+msgid "LINE MR update"
+msgstr "อัปเดต LINE MR"
+
+msgid "&Update now"
+msgstr "อัปเดตตอนนี้ (&U)"
+
+msgid "&Later"
+msgstr "ไว้ทีหลัง (&L)"
+
+msgid "&Skip this version"
+msgstr "ข้ามรุ่นนี้ (&S)"
+
+msgid "Checking for LINE MR updates"
+msgstr "กำลังตรวจหาอัปเดต LINE MR"
+
+msgid "Checks for a newer version of LINE MR"
+msgstr "ตรวจหา LINE MR รุ่นใหม่"
+
+msgid ""
+"LINE MR {new} is available (installed: {old}).\n"
+"\n"
+"Update now? NVDA downloads and installs it, then asks to restart."
+msgstr ""
+"มี LINE MR รุ่น {new} ให้อัปเดตแล้ว (รุ่นที่ติดตั้งอยู่: {old})\n"
+"\n"
+"ต้องการอัปเดตตอนนี้หรือไม่ NVDA จะดาวน์โหลดและติดตั้ง แล้วถามให้เริ่ม NVDA ใหม่"
+
+msgid "Could not download the LINE MR update."
+msgstr "ดาวน์โหลดอัปเดต LINE MR ไม่ได้"
+
+msgid "Check for LINE MR &updates when NVDA starts"
+msgstr "ตรวจหาอัปเดต LINE MR เมื่อเปิด NVDA (&U)"
+
+msgid "&Check for updates now"
+msgstr "ตรวจหาอัปเดตตอนนี้ (&C)"
+
+msgid "Could not check for LINE MR updates."
+msgstr "ตรวจหาอัปเดต LINE MR ไม่ได้"
+
+msgid "Downloading LINE MR {version}"
+msgstr "กำลังดาวน์โหลด LINE MR {version}"
+
+msgid "LINE MR {version} is up to date."
+msgstr "LINE MR {version} เป็นรุ่นล่าสุดแล้ว"

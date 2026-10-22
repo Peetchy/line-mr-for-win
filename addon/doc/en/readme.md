@@ -51,7 +51,7 @@ When NVDA starts, LINE MR checks GitHub for a newer release. If there is one, a 
 | NVDA+Alt+1 … NVDA+Alt+9 | Read a recent message (1 = newest) |
 | Alt+A (or NVDA+Shift+Control+A) | Answer an incoming LINE call (works in any application) |
 | Alt+D (or NVDA+Shift+Control+D) | Decline an incoming LINE call (works in any application); during a call, end it (Alt+D while a LINE window is in front, NVDA+Shift+Control+D anywhere) |
-| NVDA+Shift+Control+L | Report whether the LINE MR bridge is running (and offer to install it) |
+| NVDA+Shift+Control+L | Report whether the LINE MR bridge is running (and offer to install it); press twice to copy a report for the developer to the clipboard |
 
 Commands can be changed under NVDA menu, Preferences, Input gestures, category "LINE MR".
 
@@ -61,13 +61,25 @@ Commands can be changed under NVDA menu, Preferences, Input gestures, category "
 |---|---|
 | Everywhere | Tab / Shift+Tab move between controls; Space or Enter presses buttons, checkboxes and links |
 | Chat list | Up/Down, Page Up/Page Down, Home/End browse chats without opening them; Enter opens the chat and moves to its message input |
-| Messages | Up/Down: previous / next message; Page Up/Page Down: about a screen; Home: oldest loaded message (again: load older ones); End: newest message; Applications key or Shift+F10: the message's menu |
+| Messages | Up/Down: previous / next message; Page Up/Page Down: about a screen; Home: oldest loaded message (again: load older ones); End: newest message; Applications key or Shift+F10: the message's menu; Enter or Space: show the whole text of a long message (read it line by line like in Notepad; Escape goes back), play or pause a voice message, open a photo or video in LINE's viewer (Tab moves through its buttons and thumbnails; Escape closes it and returns to the chat), open a file (PDF, Word, ...) in its program |
 | Message menu | Up/Down, Home/End move; Enter or Space chooses; Escape closes and returns to the message |
 | Calls | Enter or Space on Answer / Decline; Alt+A answers and Alt+D declines from any application; Alt+D in LINE ends the current call |
 
+## If LINE MR does not work
+
+Press NVDA+Shift+Control+L in LINE. LINE MR says what is wrong and, where it can, offers to fix it:
+
+- **The bridge is not installed / an older bridge is installed / LINE must be restarted:** choose Yes; LINE closes and starts again with the bridge. Closing LINE's window does not quit LINE (it keeps running in the notification area), so a LINE started before the bridge was installed keeps running without it until it is restarted; LINE MR asks again when you return to LINE (after No: 10 minutes later, or at once with NVDA+Shift+Control+L).
+- **LINE is installed for all users** (in Program Files): Windows asks for administrator permission to add the bridge to LINE's folder. Allow it.
+- **LINE started without the LINE MR bridge:** after installing, LINE MR checks that LINE really loaded the bridge. If it did not, Windows or antivirus software blocked it. When Windows 11 **Smart App Control** is on, it blocks the bridge (the file is not signed) and LINE MR cannot work; it can be turned off in Windows Security, App & browser control (Windows cannot turn it on again without a reinstall). Antivirus software may also delete or block `line_a11y.dll`: allow the file, then press NVDA+Shift+Control+L in LINE again.
+- **This version of LINE is not supported:** LINE is too old for the bridge. Update LINE.
+- **Messages are read as "Photo or sticker" or not at all, but buttons work:** LINE closed unexpectedly twice in a row, so the bridge stopped reading message contents to keep LINE stable. Quit LINE normally (from its menu or the notification area) and start it again.
+
+To report a problem, press NVDA+Shift+Control+L **twice** in LINE. LINE MR copies a short report to the clipboard (versions of NVDA, Windows, LINE and Qt, where LINE is installed, the bridge's state and its start-up log, without chat contents and with your user folder replaced by `%USERPROFILE%`). Paste it into your message or GitHub issue.
+
 ## How the bridge works
 
-The bridge is `line_a11y.dll`, a Qt platform-theme plugin placed in `%LOCALAPPDATA%\LINE\bin\current\platformthemes`, with a copy for LINE's call program (`LineCall.exe`, which shows incoming calls and the call window) in `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<version>\platformthemes`. LINE's Qt loads it at start-up; it returns no theme (so LINE looks exactly the same) and installs accessibility interfaces for LINE's custom widgets. It reads text by recording what each widget paints, so it does not depend on LINE's internal memory layout. No LINE files are modified; to remove it, delete those DLLs.
+The bridge is `line_a11y.dll`, a Qt platform-theme plugin placed in `%LOCALAPPDATA%\LINE\bin\current\platformthemes`, with a copy for LINE's call program (`LineCall.exe`, which shows incoming calls and the call window) in `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<version>\platformthemes`, and one for LINE's photo and video viewer (`LineMediaPlayer.exe`) in `%LOCALAPPDATA%\LINE\Data\plugin\LineMediaPlayer\<version>\platformthemes`. LINE's Qt loads it at start-up; it returns no theme (so LINE looks exactly the same) and installs accessibility interfaces for LINE's custom widgets. It reads text by recording what each widget paints, so it does not depend on LINE's internal memory layout. No LINE files are modified; to remove it, delete those DLLs.
 
 Logs: `%LOCALAPPDATA%\LineMR\logs\bridge.log`.
 

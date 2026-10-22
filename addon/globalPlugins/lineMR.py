@@ -172,13 +172,13 @@ def _findCallButton(tag):
 	return None
 
 
-def _repairCallBridges():
+def _repairHelperBridges():
 	try:
 		from appModules.line import bridge
 
-		bridge.repairCallBridges()
+		bridge.repairHelperBridges()
 	except Exception:
-		log.error("LINE MR: installing the bridge for LINE's call process failed", exc_info=True)
+		log.error("LINE MR: installing the bridge for LINE's helper processes failed", exc_info=True)
 
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
@@ -186,9 +186,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		super().__init__()
 		self._listener = _CallListener()
 		self._listener.start()
-		# LINE downloads and updates its call process (LineCall.exe) on its own; give every version
-		# the bridge before a call comes in.
-		threading.Thread(target=_repairCallBridges, name="lineMR.callBridgeRepair", daemon=True).start()
+		# LINE downloads and updates its helper processes (LineCall.exe, LineMediaPlayer.exe) on its
+		# own; give every version the bridge before a call comes in or a photo is opened.
+		threading.Thread(target=_repairHelperBridges, name="lineMR.helperBridgeRepair", daemon=True).start()
 
 	def terminate(self):
 		self._listener.stop()

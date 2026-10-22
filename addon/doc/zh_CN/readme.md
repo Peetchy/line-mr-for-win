@@ -51,7 +51,7 @@ NVDA 启动时,LINE MR 会在 GitHub 上检查是否有新版本。如果有,会
 | NVDA+Alt+1 … NVDA+Alt+9 | 朗读最近的消息(1 = 最新) |
 | Alt+A(或 NVDA+Shift+Control+A) | 接听 LINE 来电(在任何应用程序中都可用) |
 | Alt+D(或 NVDA+Shift+Control+D) | 拒绝 LINE 来电(在任何应用程序中都可用);通话期间结束通话(Alt+D 需 LINE 窗口在前台,NVDA+Shift+Control+D 在任何位置) |
-| NVDA+Shift+Control+L | 报告 LINE MR 桥接组件是否在运行(并提供安装) |
+| NVDA+Shift+Control+L | 报告 LINE MR 桥接组件是否在运行(并提供安装);按两次将给开发者的报告复制到剪贴板 |
 
 可以在 NVDA 菜单,选项,按键与手势,类别“LINE MR”中修改命令。
 
@@ -61,13 +61,25 @@ NVDA 启动时,LINE MR 会在 GitHub 上检查是否有新版本。如果有,会
 |---|---|
 | 任何位置 | Tab / Shift+Tab 在控件之间移动;空格或回车按下按钮、复选框和链接 |
 | 聊天列表 | 上下方向键、Page Up/Page Down、Home/End 浏览聊天而不打开;回车打开聊天并移到其消息输入框 |
-| 消息 | 上下方向键:上一条 / 下一条消息;Page Up/Page Down:约一屏;Home:已加载的最早消息(再按:加载更早的消息);End:最新消息;应用程序键或 Shift+F10:消息菜单 |
+| 消息 | 上下方向键:上一条 / 下一条消息;Page Up/Page Down:约一屏;Home:已加载的最早消息(再按:加载更早的消息);End:最新消息;应用程序键或 Shift+F10:消息菜单;回车或空格:显示长消息的全文(可以像在记事本中一样逐行阅读,按 Escape 返回),播放或暂停语音消息,在 LINE 的查看器中打开照片或视频(按 Tab 在按钮和缩略图之间移动,按 Escape 关闭并返回聊天),用对应的程序打开文件(PDF、Word 等) |
 | 消息菜单 | 上下方向键、Home/End 移动;回车或空格选择;Esc 关闭并返回消息 |
 | 通话 | 在“接听”/“拒绝”上按回车或空格;在任何应用程序中 Alt+A 接听、Alt+D 拒绝;在 LINE 中按 Alt+D 结束当前通话 |
 
+## 如果 LINE MR 不工作
+
+在 LINE 中按 NVDA+Shift+Control+L。LINE MR 会说明问题所在,并在可能时提供修复:
+
+- **桥接组件未安装 / 安装的是旧版桥接组件 / 需要重新启动 LINE:** 选择 **是**,LINE 会关闭并带着桥接组件重新启动。关闭 LINE 的窗口并不会退出 LINE(它会继续在通知区域中运行),因此在安装桥接组件之前启动的 LINE 会一直在没有桥接组件的情况下运行,直到重新启动;回到 LINE 时 LINE MR 会再次询问(选择“否”后 10 分钟再问,按 NVDA+Shift+Control+L 则立即询问)。
+- **LINE 是为所有用户安装的**(在 Program Files 中):Windows 会请求管理员权限,以便把桥接组件加入 LINE 的文件夹。请允许。
+- **LINE 启动时没有加载 LINE MR 桥接组件:** 安装后,LINE MR 会检查 LINE 是否真的加载了桥接组件。如果没有,说明被 Windows 或杀毒软件阻止了。Windows 11 的 **智能应用控制** 开启时会阻止桥接组件(文件没有签名),LINE MR 无法工作;可以在 Windows 安全中心的“应用和浏览器控制”中关闭(关闭后除非重新安装 Windows,否则无法再次开启)。杀毒软件也可能删除或阻止 `line_a11y.dll`:请允许该文件,然后在 LINE 中再次按 NVDA+Shift+Control+L。
+- **LINE MR 不支持此版本的 LINE:** LINE 版本太旧,无法加载桥接组件。请更新 LINE。
+- **按钮可以朗读,但消息被读成“照片或贴图”或无法朗读:** LINE 连续两次意外关闭,为了让 LINE 保持稳定,桥接组件暂停读取消息内容。请正常退出 LINE(从菜单或通知区域),然后再启动。
+
+要报告问题,请在 LINE 中按 **两次** NVDA+Shift+Control+L。LINE MR 会把一份简短的报告复制到剪贴板(NVDA、Windows、LINE 和 Qt 的版本,LINE 的安装位置,桥接组件的状态和启动日志;不含聊天内容,你的用户文件夹会替换为 `%USERPROFILE%`)。把它粘贴到你的消息或 GitHub issue 中。
+
 ## 桥接组件的工作原理
 
-桥接组件是 `line_a11y.dll`,一个放在 `%LOCALAPPDATA%\LINE\bin\current\platformthemes` 中的 Qt 平台主题插件;LINE 的通话程序(显示来电和通话窗口的 `LineCall.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<版本>\platformthemes` 中。LINE 的 Qt 在启动时加载它;它不返回任何主题(因此 LINE 的外观完全不变),只为 LINE 的自定义控件添加无障碍接口。它通过记录每个控件绘制的内容来读取文字,因此不依赖 LINE 的内部内存布局。不会修改任何 LINE 文件;要移除它,删除这些 DLL 即可。
+桥接组件是 `line_a11y.dll`,一个放在 `%LOCALAPPDATA%\LINE\bin\current\platformthemes` 中的 Qt 平台主题插件;LINE 的通话程序(显示来电和通话窗口的 `LineCall.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<版本>\platformthemes` 中,LINE 的照片和视频查看器(`LineMediaPlayer.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineMediaPlayer\<版本>\platformthemes` 中。LINE 的 Qt 在启动时加载它;它不返回任何主题(因此 LINE 的外观完全不变),只为 LINE 的自定义控件添加无障碍接口。它通过记录每个控件绘制的内容来读取文字,因此不依赖 LINE 的内部内存布局。不会修改任何 LINE 文件;要移除它,删除这些 DLL 即可。
 
 日志:`%LOCALAPPDATA%\LineMR\logs\bridge.log`。
 

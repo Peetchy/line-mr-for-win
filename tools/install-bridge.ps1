@@ -5,10 +5,10 @@
 .DESCRIPTION
   LINE's Qt only searches its own directory for plugins (QT_PLUGIN_PATH is ignored), so the
   bridge goes to %LOCALAPPDATA%\LINE\bin\current\platformthemes\line_a11y.dll, where Qt loads
-  it as the "windows" platform theme however LINE is started. LINE's call process (incoming-call
-  notification, call windows) gets a copy in
-  %LOCALAPPDATA%\LINE\Data\plugin\LineCall\<version>\platformthemes. LINE updates may replace
-  these folders; run this script again (the NVDA add-on also re-installs it).
+  it as the "windows" platform theme however LINE is started. LINE's helper processes get a copy
+  in %LOCALAPPDATA%\LINE\Data\plugin\<name>\<version>\platformthemes: LineCall (incoming-call
+  notification, call windows) and LineMediaPlayer (photo and video viewer). LINE updates may
+  replace these folders; run this script again (the NVDA add-on also re-installs it).
 
 .PARAMETER Restart
   Quit LINE first (the DLL is locked while LINE runs) and start it again afterwards.
@@ -27,22 +27,24 @@ $root = Split-Path -Parent $PSScriptRoot
 $lineBin = Join-Path $env:LOCALAPPDATA "LINE\bin"
 if (-not (Test-Path (Join-Path $lineBin "current\LINE.exe"))) { throw "LINE for Windows is not installed under $lineBin" }
 $targets = @(Join-Path $lineBin "current\platformthemes\line_a11y.dll")
-$callRoot = Join-Path $env:LOCALAPPDATA "LINE\Data\plugin\LineCall"
-if (Test-Path $callRoot) {
-	foreach ($dir in Get-ChildItem $callRoot -Directory) {
-		if (Test-Path (Join-Path $dir.FullName "LineCall.exe")) {
+$helpers = @("LineCall", "LineMediaPlayer")
+foreach ($helper in $helpers) {
+	$helperRoot = Join-Path $env:LOCALAPPDATA "LINE\Data\plugin\$helper"
+	if (-not (Test-Path $helperRoot)) { continue }
+	foreach ($dir in Get-ChildItem $helperRoot -Directory) {
+		if (Test-Path (Join-Path $dir.FullName "$helper.exe")) {
 			$targets += Join-Path $dir.FullName "platformthemes\line_a11y.dll"
 		}
 	}
 }
 
-# LINE starts LineCall.exe, which locks its copy of the bridge too.
-function Test-LineRunning { [bool](Get-Process LINE, LineCall -ErrorAction SilentlyContinue) }
+# LINE starts its helper processes, which lock their copies of the bridge too.
+function Test-LineRunning { [bool](Get-Process (@("LINE") + $helpers) -ErrorAction SilentlyContinue) }
 
 $wasRunning = Test-LineRunning
 if ($wasRunning) {
 	if (-not $Restart) { throw "LINE is running and locks the bridge DLL; quit LINE or pass -Restart" }
-	Get-Process LINE, LineCall -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+	Get-Process (@("LINE") + $helpers) -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 	for ($i = 0; $i -lt 50 -and (Test-LineRunning); $i++) { Start-Sleep -Milliseconds 200 }
 	if (Test-LineRunning) { throw "LINE did not quit" }
 	# Not a crash: keep the bridge's crash guard from counting it.

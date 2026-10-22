@@ -7,8 +7,8 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-msgid "Reports whether the LINE MR accessibility bridge is installed and running in LINE and its call windows"
-msgstr "報告 LINE MR 無障礙橋接元件是否已安裝並在 LINE 及其通話視窗中執行"
+msgid "Reports whether the LINE MR accessibility bridge is installed and running in LINE and its call windows; pressed twice, copies a report for the developer"
+msgstr "報告 LINE MR 無障礙橋接元件是否已安裝並在 LINE 及其通話視窗中執行;按兩次複製給開發者的報告"
 
 msgid "Not available here. Switch to LINE's main window."
 msgstr "此處無法使用。請切換到 LINE 的主視窗。"
@@ -49,14 +49,24 @@ msgstr "移到已開啟聊天的訊息輸入框"
 msgid "Reads a recent message of the open chat: 1 is the newest, 9 the ninth newest"
 msgstr "朗讀已開啟聊天的最近訊息:1 為最新,9 為倒數第九則"
 
+msgid "LINE MR report copied to the clipboard."
+msgstr "已將 LINE MR 報告複製到剪貼簿。"
+
 msgid "No message {number}."
 msgstr "沒有第 {number} 則訊息。"
+
+msgid "LINE closed unexpectedly twice in a row, so LINE MR does not read message contents for now. Quit LINE normally and start it again to turn message reading back on."
+msgstr "LINE 連續兩次意外關閉,因此 LINE MR 暫時不朗讀訊息內容。正常結束 LINE 後再啟動即可恢復朗讀訊息。"
 
 msgid "LINE MR bridge installed. LINE is restarting."
 msgstr "已安裝 LINE MR 橋接元件。LINE 正在重新啟動。"
 
-msgid "LINE has to be restarted to use LINE MR. Restart LINE now?"
-msgstr "需要重新啟動 LINE 才能使用 LINE MR。現在重新啟動 LINE 嗎?"
+msgid ""
+"LINE has to be restarted to use LINE MR. Closing LINE's window does not quit LINE (it keeps running in the notification area).\n"
+"Restart LINE now?"
+msgstr ""
+"需要重新啟動 LINE 才能使用 LINE MR。關閉 LINE 的視窗並不會結束 LINE(它會繼續在通知區域中執行)。\n"
+"現在重新啟動 LINE 嗎?"
 
 msgid "Calls: the bridge is running."
 msgstr "通話:橋接元件正在執行。"
@@ -79,11 +89,17 @@ msgstr "LINE MR 橋接元件正在執行。"
 msgid "LINE MR bridge is installed, but LINE must be restarted to use it."
 msgstr "LINE MR 橋接元件已安裝,但需要重新啟動 LINE 才能使用。"
 
+msgid "LINE started without the LINE MR bridge. Windows or antivirus software is probably blocking it."
+msgstr "LINE 啟動時沒有載入 LINE MR 橋接元件。可能被 Windows 或防毒軟體封鎖了。"
+
 msgid "An older LINE MR bridge is installed in LINE."
 msgstr "LINE 中安裝的是舊版 LINE MR 橋接元件。"
 
 msgid "LINE MR bridge is not installed in LINE."
 msgstr "LINE 中未安裝 LINE MR 橋接元件。"
+
+msgid "This version of LINE is not supported by LINE MR. Update LINE to the latest version."
+msgstr "LINE MR 不支援此版本的 LINE。請將 LINE 更新到最新版本。"
 
 msgid "LINE for Windows was not found."
 msgstr "找不到 LINE for Windows。"
@@ -91,11 +107,48 @@ msgstr "找不到 LINE for Windows。"
 msgid "This LINE MR package does not contain the bridge."
 msgstr "此 LINE MR 套件不包含橋接元件。"
 
+msgid ""
+"LINE started without the LINE MR bridge ({path}). Antivirus software or a security policy may be blocking it: allow the file, then restart LINE.\n"
+"To send a report to the developer, press NVDA+Shift+Control+L twice in LINE: it copies the report to the clipboard."
+msgstr ""
+"LINE 啟動時沒有載入 LINE MR 橋接元件 ({path})。可能被防毒軟體或安全性原則封鎖了:請允許該檔案,然後重新啟動 LINE。\n"
+"如需向開發者傳送報告,請在 LINE 中按兩次 NVDA+Shift+Control+L,報告會複製到剪貼簿。"
+
 msgid "LINE MR"
 msgstr "LINE MR"
 
-msgid "Could not install the LINE MR bridge."
-msgstr "無法安裝 LINE MR 橋接元件。"
+msgid "LINE is installed for all users. Windows will ask for permission to install the bridge."
+msgstr "LINE 是為所有使用者安裝的。Windows 會要求安裝橋接元件的權限。"
+
+msgid ""
+"The LINE MR bridge was removed from LINE's folder, probably by antivirus software.\n"
+"Allow {path} in your antivirus software, then press NVDA+Shift+Control+L in LINE to install it again."
+msgstr ""
+"LINE MR 橋接元件已從 LINE 的資料夾中被刪除,可能是防毒軟體所為。\n"
+"請在防毒軟體中允許 {path},然後在 LINE 中按 NVDA+Shift+Control+L 重新安裝。"
+
+msgid ""
+"Windows Smart App Control is on. It blocks the LINE MR bridge ({path}), so LINE MR cannot work.\n"
+"Smart App Control can be turned off in Windows Security, App & browser control (Windows cannot turn it on again without a reinstall)."
+msgstr ""
+"Windows 的智慧型應用程式控制已開啟,它會封鎖 LINE MR 橋接元件 ({path}),因此 LINE MR 無法運作。\n"
+"可以在 Windows 安全性的「應用程式與瀏覽器控制」中關閉智慧型應用程式控制(關閉後除非重新安裝 Windows,否則無法再次開啟)。"
+
+msgid ""
+"Could not install the LINE MR bridge to {path}.\n"
+"{error}"
+msgstr ""
+"無法將 LINE MR 橋接元件安裝到 {path}。\n"
+"{error}"
+
+msgid ""
+"{reason}\n"
+"\n"
+"Install the bridge again and restart LINE?"
+msgstr ""
+"{reason}\n"
+"\n"
+"重新安裝橋接元件並重新啟動 LINE 嗎?"
 
 msgid ""
 "{status}\n"
@@ -106,6 +159,9 @@ msgstr ""
 
 msgid "LINE MR is not active for calls yet. Restart LINE after this call."
 msgstr "LINE MR 尚未在通話中生效。請在本次通話結束後重新啟動 LINE。"
+
+msgid "LINE MR is not active in LINE's photo and video viewer yet. Restart LINE to use it there."
+msgstr "LINE MR 尚未在 LINE 的相片和影片檢視器中執行。請重新啟動 LINE 以在其中使用。"
 
 msgid "Alt+A answers, Alt+D declines."
 msgstr "Alt+A 接聽,Alt+D 拒絕。"

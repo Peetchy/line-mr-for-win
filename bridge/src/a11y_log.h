@@ -1,5 +1,5 @@
-// Bridge log: %LOCALAPPDATA%\LineMR\logs\bridge.log, or linecall.log in LineCall.exe (rotated at
-// start-up).
+// Bridge log: %LOCALAPPDATA%\LineMR\logs\bridge.log, or linecall.log / linemediaplayer.log in
+// LINE's helper processes (rotated at start-up).
 
 #pragma once
 
@@ -11,9 +11,11 @@ namespace line_a11y {
 // separator.
 const QString &bridgeDirectory();
 
-// Is the bridge running in LineCall.exe (LINE's call process: incoming-call notification, call
-// windows) rather than in LINE.exe?
-bool inCallProcess();
+// Is the bridge running in one of LINE's helper processes rather than in LINE.exe: LineCall.exe
+// (incoming-call notification, call windows) or LineMediaPlayer.exe (photo and video viewer)?
+bool inHelperProcess();
+// The helper process's name in lower case ("linecall", "linemediaplayer"), empty in LINE.exe.
+const QString &helperProcessName();
 
 void a11yLog(const char *fmt, ...);
 void a11yLogString(const QString &line);

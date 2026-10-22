@@ -76,6 +76,10 @@ public:
 	// Space / Enter on a long message: clicks its "See more" (ดูเพิ่มเติม) link, which shows the
 	// whole text. False if the current row has none.
 	bool openSeeMore();
+	// Space / Enter on a voice message, video, file, photo or location: clicks where a mouse user
+	// would (play / pause button, video play button, the file's bubble, the picture), so LINE plays
+	// or opens it. False for other rows (text, stickers, calls).
+	bool openMessageContent();
 	// Space / Enter in a picker list (Share with...): ticks or unticks the current row the way a
 	// click does (LINE ignores those keys there). False if the row is not a picker row.
 	bool toggleCursorRow();
@@ -83,6 +87,11 @@ public:
 	// which is often beside the bubble (LINE then shows the chat background's menu: Select all /
 	// Set wallpaper). Right-clicks the message's bubble instead; false if it cannot be placed.
 	bool openRowMenu();
+	// Applications key / Shift+F10 in the chat or friend list: Qt would open the menu of LINE's
+	// current row (the open chat), not of the row the bridge's cursor is on (the one NVDA read), so
+	// "Delete" could hit another chat. Right-clicks the cursor row instead and keeps the cursor
+	// there once the menu closes. False if there is no row.
+	bool openCursorMenu();
 	// Back to following LINE's current row (the open chat).
 	void resetCursor();
 	// The row the user is on: the cursor while it is set, else LINE's current row (-1: none).

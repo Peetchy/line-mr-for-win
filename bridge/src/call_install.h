@@ -1,10 +1,11 @@
-// Keeps LINE's call process supplied with the bridge.
+// Keeps LINE's helper processes supplied with the bridge: the call process
+// (Data\plugin\LineCall\<version>\LineCall.exe) and the photo / video viewer
+// (Data\plugin\LineMediaPlayer\<version>\LineMediaPlayer.exe).
 //
-// LINE downloads its call process (Data\plugin\LineCall\<version>\LineCall.exe) some time after it
-// was installed and puts updates into new version folders while it runs, so the add-on, which
-// installs the bridge when LINE starts, can miss it: the incoming-call window then has no bridge.
-// The bridge in LINE.exe copies itself next to every LineCall.exe that lacks it or has another
-// build: at start-up (LINE starts LineCall about 10 s later) and every 30 s.
+// LINE downloads them some time after it was installed and puts updates into new version folders
+// while it runs, so the add-on, which installs the bridge when LINE starts, can miss them: their
+// windows then have no bridge. The bridge in LINE.exe copies itself next to every helper that lacks
+// it or has another build: at start-up (LINE starts its helpers about 10 s later) and every 30 s.
 
 #pragma once
 

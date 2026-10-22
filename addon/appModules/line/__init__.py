@@ -6,9 +6,11 @@
 # keeps the bridge installed and refines what NVDA presents.
 
 import addonHandler
+import api
 import appModuleHandler
 import controlTypes
 import core
+import scriptHandler
 import ui
 from logHandler import log
 from NVDAObjects.behaviors import Dialog
@@ -103,23 +105,48 @@ class AppModule(appModuleHandler.AppModule):
 		super().__init__(*args, **kwargs)
 		bridge.checkOnStart(self.processID)
 
+	def event_appModule_gainFocus(self):
+		# A LINE started before the bridge was installed keeps running (closing its window only hides
+		# it): ask again when the user comes back to it.
+		bridge.checkOnFocus(self.processID)
+
 	def chooseNVDAObjectOverlayClasses(self, obj, clsList):
 		chooseOverlayClasses(obj, clsList)
 
 	@script(
 		# Translators: Describes the command that reports whether the LINE accessibility bridge works.
-		description=_("Reports whether the LINE MR accessibility bridge is installed and running in LINE and its call windows"),
+		description=_(
+			"Reports whether the LINE MR accessibility bridge is installed and running in LINE and its call windows; "
+			"pressed twice, copies a report for the developer"
+		),
 		category=SCRIPT_CATEGORY,
 		gesture="kb:NVDA+shift+control+l",
 	)
 	def script_bridgeStatus(self, gesture):
+		if scriptHandler.getLastScriptRepeatCount() == 1:
+			if self._pendingOffer is not None:
+				self._pendingOffer.Stop()  # the report is wanted, not the install dialog
+				self._pendingOffer = None
+			api.copyToClip(bridge.diagnostics(self.processID))
+			# Translators: Reported after the diagnostic report was copied to the clipboard.
+			ui.message(_("LINE MR report copied to the clipboard."))
+			return
 		status = bridge.status(self.processID)
 		ui.message(bridge.describeStatus(status))
 		if status == bridge.Status.RUNNING:
-			bridge.repairCallBridges()
+			if bridge.inSafeMode():
+				ui.message(bridge.describeSafeMode())
+			bridge.repairHelperBridges()
 			ui.message(bridge.describeCallStatus(bridge.callStatus()))
 		if status != bridge.Status.RUNNING:
-			bridge.offerInstall(self.processID, status)
+			# After the double-press time, so that a second press can copy the report instead.
+			self._pendingOffer = core.callLater(800, self._offerInstall, status)
+
+	_pendingOffer = None
+
+	def _offerInstall(self, status):
+		self._pendingOffer = None
+		bridge.offerInstall(self.processID, status, force=True)
 
 	# ---- Main window commands ------------------------------------------------------------------
 

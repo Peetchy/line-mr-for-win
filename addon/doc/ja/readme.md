@@ -51,7 +51,7 @@ NVDA の起動時に、LINE MR は GitHub で新しいリリースがあるか�
 | NVDA+Alt+1 … NVDA+Alt+9 | 最近のメッセージを読み上げ(1 = 最新) |
 | Alt+A(または NVDA+Shift+Control+A) | LINE の着信に応答(どのアプリケーションからでも) |
 | Alt+D(または NVDA+Shift+Control+D) | LINE の着信を拒否(どのアプリケーションからでも)。通話中は通話を終了(Alt+D は LINE のウィンドウが前面にあるとき、NVDA+Shift+Control+D はどこからでも) |
-| NVDA+Shift+Control+L | LINE MR ブリッジが動作しているか報告(必要ならインストールを提案) |
+| NVDA+Shift+Control+L | LINE MR ブリッジが動作しているか報告(必要ならインストールを提案)。2 回押すと開発者向けのレポートをクリップボードにコピー |
 
 コマンドは NVDA メニュー、設定、入力ジェスチャー、カテゴリ「LINE MR」で変更できます。
 
@@ -61,13 +61,25 @@ NVDA の起動時に、LINE MR は GitHub で新しいリリースがあるか�
 |---|---|
 | どこでも | Tab / Shift+Tab でコントロール間を移動。Space または Enter でボタン、チェックボックス、リンクを押す |
 | トーク リスト | 上下矢印、Page Up/Page Down、Home/End でトークを開かずに移動。Enter でトークを開き、メッセージ入力欄へ移動 |
-| メッセージ | 上下矢印: 前 / 次のメッセージ。Page Up/Page Down: およそ 1 画面分。Home: 読み込み済みの最も古いメッセージ(もう一度: さらに古いメッセージを読み込む)。End: 最新のメッセージ。アプリケーション キーまたは Shift+F10: メッセージのメニュー |
+| メッセージ | 上下矢印: 前 / 次のメッセージ。Page Up/Page Down: およそ 1 画面分。Home: 読み込み済みの最も古いメッセージ(もう一度: さらに古いメッセージを読み込む)。End: 最新のメッセージ。アプリケーション キーまたは Shift+F10: メッセージのメニュー。Enter または Space: 長いメッセージの全文を表示(メモ帳のように 1 行ずつ読めます。Escape で戻ります)、ボイスメッセージを再生または一時停止、写真や動画を LINE のビューアーで開く(Tab でボタンとサムネイルを移動、Escape で閉じてトークに戻る)、ファイル(PDF、Word など)をそのアプリで開く |
 | メッセージ メニュー | 上下矢印、Home/End で移動。Enter または Space で選択。Escape で閉じてメッセージに戻る |
 | 通話 | 「応答」/「拒否」で Enter または Space。どのアプリケーションからでも Alt+A で応答、Alt+D で拒否。LINE 内で Alt+D を押すと通話を終了 |
 
+## LINE MR が動作しない場合
+
+LINE で NVDA+Shift+Control+L を押してください。LINE MR が問題を報告し、可能であれば修正を提案します。
+
+- **ブリッジがインストールされていない / 古いブリッジがインストールされている / LINE の再起動が必要:** **はい** を選ぶと、LINE がいったん終了し、ブリッジを読み込んだ状態で再び起動します。LINE のウィンドウを閉じても LINE は終了しません(通知領域で動作し続けます)。そのため、ブリッジのインストール前に起動した LINE は、再起動するまでブリッジなしで動作します。LINE に戻ると LINE MR がもう一度尋ねます(「いいえ」の後は 10 分後、NVDA+Shift+Control+L ならすぐに)。
+- **LINE がすべてのユーザー向けにインストールされている**(Program Files): LINE のフォルダーにブリッジを追加するため、Windows が管理者の許可を求めます。許可してください。
+- **LINE が LINE MR ブリッジなしで起動した:** インストール後、LINE MR は LINE が実際にブリッジを読み込んだか確認します。読み込まれていない場合は、Windows またはウイルス対策ソフトがブロックしています。Windows 11 の **Smart App Control** がオンだと、ブリッジ(署名のないファイル)がブロックされ、LINE MR は動作できません。Windows セキュリティの「アプリとブラウザーの制御」でオフにできます(Windows を再インストールしない限り再びオンにはできません)。ウイルス対策ソフトが `line_a11y.dll` を削除またはブロックすることもあります。ファイルを許可してから、LINE で NVDA+Shift+Control+L をもう一度押してください。
+- **この LINE のバージョンには対応していない:** LINE が古すぎてブリッジを読み込めません。LINE を更新してください。
+- **ボタンは読めるが、メッセージが「写真またはスタンプ」と読まれる、または読まれない:** LINE が 2 回続けて予期せず終了したため、LINE を安定させるためにブリッジがメッセージ内容の読み取りを止めています。LINE を通常の方法で終了し(メニューまたは通知領域から)、再び起動してください。
+
+問題を報告するには、LINE で NVDA+Shift+Control+L を **2 回** 押してください。LINE MR が短いレポートをクリップボードにコピーします(NVDA、Windows、LINE、Qt のバージョン、LINE のインストール場所、ブリッジの状態と起動時のログ。トークの内容は含まれず、ユーザー フォルダーは `%USERPROFILE%` に置き換えられます)。メッセージや GitHub の issue に貼り付けてください。
+
 ## ブリッジの仕組み
 
-ブリッジは `line_a11y.dll` という Qt のプラットフォーム テーマ プラグインで、`%LOCALAPPDATA%\LINE\bin\current\platformthemes` に置かれます。LINE の通話プログラム(着信と通話ウィンドウを表示する `LineCall.exe`)用のコピーは `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<バージョン>\platformthemes` に置かれます。LINE の Qt が起動時にこれを読み込みます。ブリッジはテーマを返さないので(LINE の見た目はまったく変わりません)、LINE 独自のウィジェットにアクセシビリティ インターフェイスを追加するだけです。文字は各ウィジェットが描画する内容を記録して読み取るため、LINE の内部メモリ配置には依存しません。LINE のファイルは一切変更しません。削除するには、これらの DLL を削除してください。
+ブリッジは `line_a11y.dll` という Qt のプラットフォーム テーマ プラグインで、`%LOCALAPPDATA%\LINE\bin\current\platformthemes` に置かれます。LINE の通話プログラム(着信と通話ウィンドウを表示する `LineCall.exe`)用のコピーは `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<バージョン>\platformthemes` に、LINE の写真・動画ビューアー(`LineMediaPlayer.exe`)用のコピーは `%LOCALAPPDATA%\LINE\Data\plugin\LineMediaPlayer\<バージョン>\platformthemes` に置かれます。LINE の Qt が起動時にこれを読み込みます。ブリッジはテーマを返さないので(LINE の見た目はまったく変わりません)、LINE 独自のウィジェットにアクセシビリティ インターフェイスを追加するだけです。文字は各ウィジェットが描画する内容を記録して読み取るため、LINE の内部メモリ配置には依存しません。LINE のファイルは一切変更しません。削除するには、これらの DLL を削除してください。
 
 ログ: `%LOCALAPPDATA%\LineMR\logs\bridge.log`
 

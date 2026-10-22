@@ -181,6 +181,21 @@ public:
 	explicit LineAccessibleScrollArea(QWidget *w);
 };
 
+// A QQuickWidget (the photo / video viewer's VideoRenderPanelWidget): Qt 6.6's own interface for the
+// Qt Quick scene inside lets UI Automation run from its items into the host window and the desktop
+// (other applications' windows appeared under the video slider). In LineMediaPlayer.exe it is
+// presented as one leaf, named after what the viewer shows (Photo / Video).
+class LineAccessibleQuickWidget : public QAccessibleWidget {
+public:
+	explicit LineAccessibleQuickWidget(QWidget *w);
+	int childCount() const override { return 0; }
+	QAccessibleInterface *child(int) const override { return nullptr; }
+	int indexOfChild(const QAccessibleInterface *) const override { return -1; }
+	QAccessibleInterface *childAt(int, int) const override { return nullptr; }
+	QAccessibleInterface *focusChild() const override { return nullptr; }
+	QString text(QAccessible::Text t) const override;
+};
+
 class LineAccessibleMenu : public LineAccessibleWidget {
 public:
 	explicit LineAccessibleMenu(QWidget *w);

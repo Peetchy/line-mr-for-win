@@ -51,7 +51,7 @@ NVDA 啟動時,LINE MR 會在 GitHub 上檢查是否有新版本。如果有,會
 | NVDA+Alt+1 … NVDA+Alt+9 | 朗讀最近的訊息(1 = 最新) |
 | Alt+A(或 NVDA+Shift+Control+A) | 接聽 LINE 來電(在任何應用程式中都可用) |
 | Alt+D(或 NVDA+Shift+Control+D) | 拒絕 LINE 來電(在任何應用程式中都可用);通話期間結束通話(Alt+D 需 LINE 視窗在前景,NVDA+Shift+Control+D 在任何位置) |
-| NVDA+Shift+Control+L | 報告 LINE MR 橋接元件是否在執行(並提供安裝) |
+| NVDA+Shift+Control+L | 報告 LINE MR 橋接元件是否在執行(並提供安裝);按兩次將給開發者的報告複製到剪貼簿 |
 
 可以在 NVDA 功能表,偏好,輸入手勢,類別「LINE MR」中修改命令。
 
@@ -61,13 +61,25 @@ NVDA 啟動時,LINE MR 會在 GitHub 上檢查是否有新版本。如果有,會
 |---|---|
 | 任何位置 | Tab / Shift+Tab 在控制項之間移動;空白鍵或 Enter 按下按鈕、核取方塊和連結 |
 | 聊天列表 | 上下方向鍵、Page Up/Page Down、Home/End 瀏覽聊天而不開啟;Enter 開啟聊天並移到其訊息輸入框 |
-| 訊息 | 上下方向鍵:上一則 / 下一則訊息;Page Up/Page Down:約一頁;Home:已載入的最早訊息(再按:載入更早的訊息);End:最新訊息;應用程式鍵或 Shift+F10:訊息選單 |
+| 訊息 | 上下方向鍵:上一則 / 下一則訊息;Page Up/Page Down:約一頁;Home:已載入的最早訊息(再按:載入更早的訊息);End:最新訊息;應用程式鍵或 Shift+F10:訊息選單;Enter 或空白鍵:顯示長訊息的全文(可以像在記事本中一樣逐行閱讀,按 Escape 返回),播放或暫停語音訊息,在 LINE 的檢視器中開啟相片或影片(按 Tab 在按鈕和縮圖之間移動,按 Escape 關閉並返回聊天),用對應的程式開啟檔案(PDF、Word 等) |
 | 訊息選單 | 上下方向鍵、Home/End 移動;Enter 或空白鍵選擇;Esc 關閉並返回訊息 |
 | 通話 | 在「接聽」/「拒絕」上按 Enter 或空白鍵;在任何應用程式中 Alt+A 接聽、Alt+D 拒絕;在 LINE 中按 Alt+D 結束目前的通話 |
 
+## 如果 LINE MR 無法運作
+
+在 LINE 中按 NVDA+Shift+Control+L。LINE MR 會說明問題所在,並在可能時提供修復:
+
+- **橋接元件未安裝 / 安裝的是舊版橋接元件 / 需要重新啟動 LINE:** 選擇 **是**,LINE 會關閉並帶著橋接元件重新啟動。關閉 LINE 的視窗並不會結束 LINE(它會繼續在通知區域中執行),因此在安裝橋接元件之前啟動的 LINE 會一直在沒有橋接元件的情況下執行,直到重新啟動;回到 LINE 時 LINE MR 會再次詢問(選擇「否」後 10 分鐘再問,按 NVDA+Shift+Control+L 則立即詢問)。
+- **LINE 是為所有使用者安裝的**(在 Program Files 中):Windows 會要求系統管理員權限,以便把橋接元件加入 LINE 的資料夾。請允許。
+- **LINE 啟動時沒有載入 LINE MR 橋接元件:** 安裝後,LINE MR 會檢查 LINE 是否真的載入了橋接元件。如果沒有,表示被 Windows 或防毒軟體封鎖了。Windows 11 的 **智慧型應用程式控制** 開啟時會封鎖橋接元件(檔案沒有簽章),LINE MR 無法運作;可以在 Windows 安全性的「應用程式與瀏覽器控制」中關閉(關閉後除非重新安裝 Windows,否則無法再次開啟)。防毒軟體也可能刪除或封鎖 `line_a11y.dll`:請允許該檔案,然後在 LINE 中再按一次 NVDA+Shift+Control+L。
+- **LINE MR 不支援此版本的 LINE:** LINE 版本太舊,無法載入橋接元件。請更新 LINE。
+- **按鈕可以朗讀,但訊息被讀成「照片或貼圖」或無法朗讀:** LINE 連續兩次意外關閉,為了讓 LINE 保持穩定,橋接元件暫停讀取訊息內容。請正常結束 LINE(從選單或通知區域),然後再啟動。
+
+要回報問題,請在 LINE 中按 **兩次** NVDA+Shift+Control+L。LINE MR 會把一份簡短的報告複製到剪貼簿(NVDA、Windows、LINE 和 Qt 的版本,LINE 的安裝位置,橋接元件的狀態和啟動記錄;不含聊天內容,你的使用者資料夾會替換為 `%USERPROFILE%`)。把它貼到你的訊息或 GitHub issue 中。
+
 ## 橋接元件的運作方式
 
-橋接元件是 `line_a11y.dll`,一個放在 `%LOCALAPPDATA%\LINE\bin\current\platformthemes` 中的 Qt 平台佈景主題外掛;LINE 的通話程式(顯示來電和通話視窗的 `LineCall.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<版本>\platformthemes` 中。LINE 的 Qt 在啟動時載入它;它不回傳任何佈景主題(因此 LINE 的外觀完全不變),只為 LINE 的自訂控制項加入無障礙介面。它透過記錄每個控制項繪製的內容來讀取文字,因此不依賴 LINE 的內部記憶體配置。不會修改任何 LINE 檔案;要移除它,刪除這些 DLL 即可。
+橋接元件是 `line_a11y.dll`,一個放在 `%LOCALAPPDATA%\LINE\bin\current\platformthemes` 中的 Qt 平台佈景主題外掛;LINE 的通話程式(顯示來電和通話視窗的 `LineCall.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<版本>\platformthemes` 中,LINE 的相片和影片檢視器(`LineMediaPlayer.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineMediaPlayer\<版本>\platformthemes` 中。LINE 的 Qt 在啟動時載入它;它不回傳任何佈景主題(因此 LINE 的外觀完全不變),只為 LINE 的自訂控制項加入無障礙介面。它透過記錄每個控制項繪製的內容來讀取文字,因此不依賴 LINE 的內部記憶體配置。不會修改任何 LINE 檔案;要移除它,刪除這些 DLL 即可。
 
 記錄檔:`%LOCALAPPDATA%\LineMR\logs\bridge.log`。
 

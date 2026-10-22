@@ -1007,6 +1007,19 @@ QString LineAccessibleList::paintedRowText(int row, QObject *data) const
 		});
 		return cached != m_painted.cend() ? cached->text : QString();
 	}
+	// The photo / video viewer's thumbnail strip (MediaViewerWindow) draws pictures only: say what each
+	// one is (a video's thumbnail has a play icon, perhaps its length).
+	if (inheritsClass(v->window(), "MediaViewerWindow")) {
+		const CaptureResult cap = captureRegionText(v->viewport(), r);
+		if (!cap.skipped) {
+			static const QRegularExpression length(QStringLiteral("^\\d{1,2}:\\d{2}(:\\d{2})?$"));
+			bool video = length.match(text.trimmed()).hasMatch();
+			for (const PaintedImage &pi : cap.images)
+				video = video || pi.icon == QLatin1StringView("video") || pi.icon == QLatin1StringView("voice");
+			text = text.isEmpty() ? label(video ? "Video" : "Photo")
+			                      : label(video ? "Video" : "Photo") + QStringLiteral(", ") + text;
+		}
+	}
 	if (text.isEmpty() && cached != m_painted.cend())
 		return cached->text; // row momentarily blank
 	// A row partly scrolled out yields part of its text; keep the longer reading.
@@ -1265,6 +1278,73 @@ bool LineAccessibleList::openSeeMore()
 	return false;
 }
 
+bool LineAccessibleList::openMessageContent()
+{
+	QAbstractItemView *v = view();
+	const int row = cursorRow();
+	if (!v || !v->model() || row < 0)
+		return false;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	v->scrollTo(idx);
+	const QRect r = v->visualRect(idx);
+	const CaptureResult cap = captureRegionText(v->viewport(), r);
+	if (cap.skipped)
+		return false;
+	bool fileSize = false;
+	for (const CapturedText &it : cap.items)
+		fileSize = fileSize || isFileSize(cleanText(it.text));
+	QRectF bubble;
+	const char *kind = messageKind(cap, r, fileSize, &bubble);
+	if (!kind)
+		return false;
+	auto isPlayIcon = [](const PaintedImage &icon) {
+		return icon.icon == QLatin1StringView("voice") || icon.icon == QLatin1StringView("video");
+	};
+	// Where a mouse user clicks (row coordinates): the play / pause button of a voice message, the
+	// play button of a video, else the bubble or picture (a file's bubble opens the file, a photo's
+	// picture the viewer).
+	QPointF point;
+	if (qstrcmp(kind, "Voice message") == 0) {
+		for (const PaintedImage &icon : cap.images) {
+			if (isPlayIcon(icon) && bubble.contains(icon.rect)) {
+				point = icon.rect.center();
+				break;
+			}
+		}
+	} else if (qstrcmp(kind, "Video") == 0) {
+		for (const PaintedImage &icon : cap.images) {
+			if (isPlayIcon(icon) && icon.rect.width() >= 20 && icon.rect.top() >= -4) {
+				point = icon.rect.center();
+				break;
+			}
+		}
+		if (point.isNull())
+			point = messageContentPoint(cap, r);
+	} else if (qstrcmp(kind, "File") == 0 || qstrcmp(kind, "Photo") == 0 || qstrcmp(kind, "Photos") == 0
+	           || qstrcmp(kind, "Location") == 0) {
+		point = messageContentPoint(cap, r);
+	} else {
+		return false; // stickers, emoji, calls: nothing to open
+	}
+	if (point.isNull())
+		return false;
+	// A tall picture may reach past the viewport: click inside the part that is shown.
+	const QRectF shown = QRectF(r.intersected(v->viewport()->rect())).adjusted(1, 1, -1, -1);
+	if (shown.isEmpty())
+		return false;
+	const QPointF local(qBound(shown.left(), r.left() + point.x(), shown.right()),
+	                    qBound(shown.top(), r.top() + point.y(), shown.bottom()));
+	a11yLog("[keyboard] %s in message row %d: click at %.0f,%.0f", kind, row, local.x(), local.y());
+	// LINE's row widgets track the mouse: move there first, as a real click does.
+	QPointer<QWidget> viewport = v->viewport();
+	QMouseEvent move(QEvent::MouseMove, local, viewport->mapTo(viewport->window(), local),
+	                 viewport->mapToGlobal(local), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+	QCoreApplication::sendEvent(viewport, &move);
+	if (viewport)
+		sendClick(viewport, local);
+	return true;
+}
+
 bool LineAccessibleList::toggleCursorRow()
 {
 	QAbstractItemView *v = view();
@@ -1306,6 +1386,50 @@ bool LineAccessibleList::openRowMenu()
 		a11yLog("[menu] keyboard menu on message row %d: right click at %.0f,%.0f (row %d,%d %dx%d)", row,
 		        local.x(), local.y(), r.x(), r.y(), r.width(), r.height());
 	sendContextClick(v->viewport(), local);
+	return true;
+}
+
+bool LineAccessibleList::openCursorMenu()
+{
+	QAbstractItemView *v = view();
+	const int row = cursorRow();
+	if (!v || !v->model() || row < 0)
+		return false;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	v->scrollTo(idx);
+	const QRect r = v->visualRect(idx);
+	const QRectF shown = QRectF(r.intersected(v->viewport()->rect())).adjusted(1, 1, -1, -1);
+	if (shown.isEmpty())
+		return false;
+	const QPersistentModelIndex keep(idx);
+	a11yLog("[menu] keyboard menu on list row %d: right click at %.0f,%.0f", row, shown.center().x(),
+	        shown.center().y());
+	sendContextClick(v->viewport(), shown.center());
+	// The click made the cursor follow LINE's current row again (see the event filter); once the
+	// menu has closed, go back to the row the menu was for (unless it is gone: deleted, hidden).
+	m_cursor = keep;
+	QPointer<QAbstractItemView> guard(v);
+	auto *timer = new QTimer(v);
+	timer->setInterval(200);
+	QObject::connect(timer, &QTimer::timeout, timer, [guard, keep, timer] {
+		if (!guard || !keep.isValid()) {
+			timer->deleteLater();
+			return;
+		}
+		if (contextMenuVisible())
+			return;
+		timer->deleteLater();
+		LineAccessibleList *list = listFor(guard);
+		if (!list || !guard->hasFocus())
+			return;
+		list->m_cursor = keep;
+		guard->scrollTo(keep);
+		if (QAccessibleInterface *item = list->itemAt(keep.row())) {
+			QAccessibleEvent event(item, QAccessible::Focus);
+			QAccessible::updateAccessibility(&event);
+		}
+	});
+	timer->start();
 	return true;
 }
 

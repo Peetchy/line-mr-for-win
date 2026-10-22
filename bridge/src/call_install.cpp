@@ -41,11 +41,25 @@ QByteArray fileHash(const QString &path)
 	return hash.result();
 }
 
-// LINE.exe is bin\current\LINE.exe; the call process lives in Data\plugin\LineCall\<version>.
-QString lineCallRoot()
+// LINE's helper processes: Data\plugin\<name>\<version>\<name>.exe.
+const QLatin1StringView kHelpers[] = { QLatin1StringView("LineCall"), QLatin1StringView("LineMediaPlayer") };
+
+// LINE.exe is bin\current\LINE.exe; its helpers live in Data\plugin\<name>\<version>. A LINE
+// installed elsewhere (Program Files) keeps its data in %LOCALAPPDATA%\LINE\Data.
+QStringList helperRoots(QLatin1StringView helper)
 {
+	const QString plugin = QStringLiteral("/Data/plugin/") + helper;
+	QStringList roots;
 	QDir dir(QCoreApplication::applicationDirPath());
-	return dir.cdUp() && dir.cdUp() ? dir.filePath(QStringLiteral("Data/plugin/LineCall")) : QString();
+	if (dir.cdUp() && dir.cdUp())
+		roots << QDir::cleanPath(dir.absolutePath() + plugin);
+	const QString local = qEnvironmentVariable("LOCALAPPDATA");
+	if (!local.isEmpty()) {
+		const QString root = QDir::cleanPath(QDir::fromNativeSeparators(local) + QStringLiteral("/LINE") + plugin);
+		if (!roots.contains(root, Qt::CaseInsensitive))
+			roots << root;
+	}
+	return roots;
 }
 
 // Earlier builds moved aside because LineCall had them loaded; gone once LineCall has quit.
@@ -88,26 +102,28 @@ void syncCallBridges()
 	static const QByteArray selfHash = fileHash(self);
 	if (self.isEmpty() || selfHash.isEmpty())
 		return;
-	const QString root = lineCallRoot();
-	if (root.isEmpty())
-		return;
-	const QDir rootDir(root);
-	const QStringList versions = rootDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-	for (const QString &version : versions) {
-		QDir dir(rootDir.filePath(version));
-		if (!dir.exists(QStringLiteral("LineCall.exe")))
-			continue;
-		const QString themes = dir.filePath(QStringLiteral("platformthemes"));
-		QDir().mkpath(themes);
-		const QDir themesDir(themes);
-		removeOldCopies(themesDir);
-		const QString target = themesDir.filePath(kDllName);
-		if (QFileInfo(target).size() == QFileInfo(self).size() && fileHash(target) == selfHash)
-			continue;
-		const bool existed = QFile::exists(target);
-		if (installCopy(self, target))
-			a11yLog("[call] %s the bridge for LineCall %s (takes effect when LineCall next starts)",
-			        existed ? "updated" : "installed", qUtf8Printable(version));
+	for (const QLatin1StringView helper : kHelpers) {
+		const QString exe = helper + QStringLiteral(".exe");
+		for (const QString &root : helperRoots(helper)) {
+			const QDir rootDir(root);
+			const QStringList versions = rootDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+			for (const QString &version : versions) {
+				QDir dir(rootDir.filePath(version));
+				if (!dir.exists(exe))
+					continue;
+				const QString themes = dir.filePath(QStringLiteral("platformthemes"));
+				QDir().mkpath(themes);
+				const QDir themesDir(themes);
+				removeOldCopies(themesDir);
+				const QString target = themesDir.filePath(kDllName);
+				if (QFileInfo(target).size() == QFileInfo(self).size() && fileHash(target) == selfHash)
+					continue;
+				const bool existed = QFile::exists(target);
+				if (installCopy(self, target))
+					a11yLog("[call] %s the bridge for %s %s (takes effect when it next starts)",
+					        existed ? "updated" : "installed", qUtf8Printable(QString(helper)), qUtf8Printable(version));
+			}
+		}
 	}
 }
 
