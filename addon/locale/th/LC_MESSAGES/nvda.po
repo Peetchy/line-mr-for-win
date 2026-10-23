@@ -166,6 +166,15 @@ msgstr "LINE MR ยังไม่ทำงานในหน้าต่าง�
 msgid "Alt+A answers, Alt+D declines."
 msgstr "Alt+A รับสาย, Alt+D ปฏิเสธสาย"
 
+msgid "NVDA+Shift+Control+A answers, NVDA+Shift+Control+D declines."
+msgstr "NVDA+Shift+Control+A รับสาย, NVDA+Shift+Control+D ปฏิเสธสาย"
+
+msgid "Answers an incoming LINE call"
+msgstr "รับสายเรียกเข้าของ LINE"
+
+msgid "Declines an incoming LINE call, or ends the current call"
+msgstr "ปฏิเสธสายเรียกเข้าของ LINE หรือวางสายที่กำลังคุยอยู่"
+
 msgid "Answering"
 msgstr "กำลังรับสาย"
 

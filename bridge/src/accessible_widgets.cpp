@@ -1,4 +1,5 @@
 #include "accessible_widgets.h"
+#include "full_text_view.h"
 
 #include "a11y_event_filter.h"
 #include "a11y_log.h"
@@ -243,6 +244,8 @@ QAccessibleInterface *lineAccessibleFactory(const QString &key, QObject *object)
 	if (key != QLatin1StringView(object->metaObject()->className()))
 		return nullptr;
 	auto *w = static_cast<QWidget *>(object);
+	if (QAccessibleInterface *iface = fullTextAccessible(w))
+		return iface;
 	if (helperProcessName() == QLatin1StringView("linemediaplayer") && inheritsClass(w, "QQuickWidget"))
 		return new LineAccessibleQuickWidget(w);
 	const WidgetKind kind = classifyWidget(w);

@@ -61,6 +61,10 @@ public:
 	// Makes the first (or last) row that has text current, scrolling it into view.
 	void focusEdgeRow(bool last);
 
+	// Coming back to the messages with Tab / Shift+Tab: makes the row the user last read current
+	// again. False (nothing changed) if there is none in this chat (LINE gives each chat a new model).
+	bool focusRememberedRow();
+
 	// Up / Down / PageUp / PageDown in the message list: the previous / next row with text (a page:
 	// about a screen further). LINE moves from a row of its own that setCurrentIndex() does not
 	// change, so after Home / End or entering the list its arrows continued from an old position.
@@ -76,6 +80,10 @@ public:
 	// Space / Enter on a long message: clicks its "See more" (ดูเพิ่มเติม) link, which shows the
 	// whole text. False if the current row has none.
 	bool openSeeMore();
+	// Space / Enter on a message with a web address (a link preview, a text with a link): opens the
+	// first one in the user's default browser (clicking LINE's preview card did nothing). False if
+	// the row shows no web address.
+	bool openLink();
 	// Space / Enter on a voice message, video, file, photo or location: clicks where a mouse user
 	// would (play / pause button, video play button, the file's bubble, the picture), so LINE plays
 	// or opens it. False for other rows (text, stickers, calls).
@@ -85,7 +93,9 @@ public:
 	bool toggleCursorRow();
 	// Applications key / Shift+F10 on a message: Qt asks for the menu at the centre of the row,
 	// which is often beside the bubble (LINE then shows the chat background's menu: Select all /
-	// Set wallpaper). Right-clicks the message's bubble instead; false if it cannot be placed.
+	// Set wallpaper). Right-clicks the message's bubble instead; if LINE still shows the background's
+	// menu (voice messages, files: the first point was not on the part LINE reacts to), closes it
+	// and tries the message's other parts. False if no point can be placed.
 	bool openRowMenu();
 	// Applications key / Shift+F10 in the chat or friend list: Qt would open the menu of LINE's
 	// current row (the open chat), not of the row the bridge's cursor is on (the one NVDA read), so
@@ -121,6 +131,8 @@ private:
 	QPointer<QAbstractItemModel> m_model;
 	// Follows its chat when LINE re-sorts the list (new messages move chats to the top).
 	QPersistentModelIndex m_cursor;
+	// The message row last read while the list had focus (focusRememberedRow()).
+	QPersistentModelIndex m_lastRead;
 };
 
 } // namespace line_a11y

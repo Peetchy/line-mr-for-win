@@ -166,6 +166,15 @@ msgstr "LINE MR は LINE の写真・動画ビューアーではまだ動作し�
 msgid "Alt+A answers, Alt+D declines."
 msgstr "Alt+A で応答、Alt+D で拒否。"
 
+msgid "NVDA+Shift+Control+A answers, NVDA+Shift+Control+D declines."
+msgstr "NVDA+Shift+Control+A で応答、NVDA+Shift+Control+D で拒否。"
+
+msgid "Answers an incoming LINE call"
+msgstr "LINE の着信に応答します"
+
+msgid "Declines an incoming LINE call, or ends the current call"
+msgstr "LINE の着信を拒否します。通話中は通話を終了します"
+
 msgid "Answering"
 msgstr "応答しています"
 

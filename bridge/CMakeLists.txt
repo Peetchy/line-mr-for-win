@@ -26,7 +26,7 @@ add_library(line_a11y MODULE
     src/full_text_view.cpp
 )
 target_include_directories(line_a11y PRIVATE src)
-target_link_libraries(line_a11y PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Qml Qt6::Quick Qt6::GuiPrivate Qt6::CorePrivate uiautomationcore oleaut32)
+target_link_libraries(line_a11y PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Qml Qt6::Quick Qt6::GuiPrivate Qt6::CorePrivate uiautomationcore oleaut32 shell32)
 target_compile_definitions(line_a11y PRIVATE QT_NO_KEYWORDS UNICODE _UNICODE _CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN
     $<$<CONFIG:Release,RelWithDebInfo>:QT_NO_DEBUG>)
 target_compile_options(line_a11y PRIVATE /W4 /utf-8 /permissive- /wd4100)

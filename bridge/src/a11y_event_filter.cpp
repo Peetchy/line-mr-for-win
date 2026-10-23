@@ -21,8 +21,10 @@
 #include <QtCore/QPointer>
 #include <QtCore/QSet>
 #include <QtCore/QTimer>
+#include <QtCore/QUrl>
 #include <QtGui/QAccessible>
 #include <QtGui/QKeyEvent>
+#include <QtGui/QTextBlock>
 #include <QtGui/private/qguiapplication_p.h>
 #include <QtGui/qpa/qplatformaccessibility.h>
 #include <QtGui/qpa/qplatformintegration.h>
@@ -30,6 +32,7 @@
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QSplitter>
 #include <QtWidgets/QWidget>
 
@@ -39,6 +42,11 @@ namespace line_a11y {
 namespace {
 
 constexpr int kWatchdogIntervalMs = 1000;
+
+// See setMenuRetry(): another try for the menu of a message, for a short while.
+std::function<void()> g_menuRetry;
+QElapsedTimer g_menuRetrySet;
+int g_menusShown = 0;
 
 // LINE's photo / video viewer runs in another process (LineMediaPlayer.exe). When it closes, Windows
 // activates whatever window comes next, often another application, not the LINE window it was
@@ -553,6 +561,29 @@ void pressMenuItem(QWidget *item)
 		actions->doAction(QAccessibleActionInterface::pressAction()); // also closes the menu
 }
 
+// Is `menu` the chat background's menu (Select all / Set wallpaper), not a message's? LINE shows it
+// when a right click misses the part of a message it reacts to.
+bool isChatBackgroundMenu(QWidget *menu)
+{
+	// "Set wallpaper" in the languages LINE offers.
+	static const QStringList kWallpaper = { QStringLiteral("วอลล์เปเปอร์"), QStringLiteral("wallpaper"),
+		                                    QStringLiteral("壁紙"), QStringLiteral("壁纸"), QStringLiteral("桌布"),
+		                                    QStringLiteral("背景") };
+	// Select all / Set wallpaper. A photo's menu has "Use as wallpaper" too, among many other items.
+	const QList<QWidget *> items = menu ? menuItems(menu) : QList<QWidget *>();
+	if (items.isEmpty() || items.size() > 2)
+		return false;
+	for (QWidget *item : items) {
+		QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(item);
+		const QString name = iface ? iface->text(QAccessible::Name) : QString();
+		for (const QString &word : kWallpaper) {
+			if (name.contains(word, Qt::CaseInsensitive))
+				return true;
+		}
+	}
+	return false;
+}
+
 // ---- Call windows --------------------------------------------------------------------------------
 
 bool isCallWindow(const QWidget *w)
@@ -749,9 +780,11 @@ public:
 				    || reason == Qt::PopupFocusReason || reason == Qt::ActiveWindowFocusReason
 				    || reason == Qt::MouseFocusReason;
 				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w))) {
+					// Tab / Shift+Tab back into the same chat: the message last read.
+					const bool tab = reason == Qt::TabFocusReason || reason == Qt::BacktabFocusReason;
 					if (returning)
 						list->focusLastVisibleRow();
-					else
+					else if (!tab || !list->focusRememberedRow())
 						list->focusEdgeRow(true);
 				}
 				// LINE hands focus on from the message list to the message input; reading
@@ -792,6 +825,8 @@ public:
 			// background's (see LineAccessibleList::openRowMenu).
 			if (static_cast<QContextMenuEvent *>(event)->reason() == QContextMenuEvent::Keyboard
 			    && isLineListView(w) && ancestorInheriting(w, "ChatMessageView")) {
+				if (m_cursorMenuKey.isValid() && m_cursorMenuKey.elapsed() < 1000)
+					return true; // the Applications key already opened it
 				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
 				    list && list->openRowMenu())
 					return true;
@@ -825,6 +860,23 @@ public:
 			}
 			// The full-text view (full_text_view.h): LINE's filters eat the arrows too. Tab and Escape
 			// go the usual way (next control, LINE closes the window).
+			// Enter there opens a web address on the caret's line (or one wrapped onto it).
+			if (w->hasFocus() && w->objectName() == QLatin1StringView("lineMR_fulltext")
+			    && (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter) && !key->isAutoRepeat()) {
+				if (auto *edit = qobject_cast<QPlainTextEdit *>(w)) {
+					const QTextBlock line = edit->textCursor().block();
+					QStringList lines;
+					for (QTextBlock b = line; b.isValid() && lines.size() < 4; b = b.next())
+						lines << b.text();
+					QString url = firstWebAddress(lines);
+					if (url.isEmpty() && line.previous().isValid())
+						url = firstWebAddress({ line.previous().text(), line.text() });
+					if (!url.isEmpty() && openInBrowser(url)) {
+						a11yLog("[fulltext] link (%s) opened in the browser", qUtf8Printable(QUrl(url).host()));
+						return true;
+					}
+				}
+			}
 			if (w->hasFocus() && w->objectName() == QLatin1StringView("lineMR_fulltext")
 			    && key->key() != Qt::Key_Tab && key->key() != Qt::Key_Backtab && key->key() != Qt::Key_Escape) {
 				static_cast<QObject *>(w)->event(event);
@@ -860,9 +912,19 @@ public:
 			    && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier))) {
 				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
 				    list && !key->isAutoRepeat()
-				    && (ancestorInheriting(w, "ChatMessageView") ? list->openSeeMore() || list->openMessageContent()
+				    && (ancestorInheriting(w, "ChatMessageView") ? list->openSeeMore() || list->openLink() || list->openMessageContent()
 				                                                 : list->toggleCursorRow()))
 					return true;
+			}
+			// The Applications key on a message: its menu (see the context menu event above). Handled on
+			// the key press, which also arrives for posted keys.
+			if (isLineListView(w) && ancestorInheriting(w, "ChatMessageView") && key->key() == Qt::Key_Menu
+			    && !key->isAutoRepeat()) {
+				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
+				    list && list->openRowMenu()) {
+					m_cursorMenuKey.start();
+					return true;
+				}
 			}
 			if (isCursorList(w) && key->key() == Qt::Key_Menu && !key->isAutoRepeat()) {
 				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
@@ -935,6 +997,7 @@ private:
 	void menuShown(QWidget *menu)
 	{
 		breadcrumb("menu shown %s", menu->metaObject()->className());
+		++g_menusShown;
 		logMenu(menu);
 		QWidget *focus = QApplication::focusWidget();
 		if (!contextMenuOf(focus))
@@ -945,6 +1008,18 @@ private:
 		QTimer::singleShot(50, menu, [guard] {
 			if (!guard || !guard->isVisible())
 				return;
+			// The bridge's right click on a message missed: close the background's menu (which also ends
+			// LINE's menu loop) and click the message's next part.
+			std::function<void()> retry;
+			if (g_menuRetrySet.isValid() && g_menuRetrySet.elapsed() < 1500)
+				retry = std::move(g_menuRetry);
+			g_menuRetry = nullptr;
+			if (retry && isChatBackgroundMenu(guard)) {
+				a11yLog("[menu] the chat background's menu: trying another point");
+				guard->hide();
+				QTimer::singleShot(50, qApp, retry);
+				return;
+			}
 			const QList<QWidget *> items = menuItems(guard);
 			if (!items.isEmpty())
 				focusMenuItem(items.first());
@@ -1102,6 +1177,17 @@ void noteMenuPress(QWidget *item, const char *how)
 	g_windowAfterMenu = nullptr;
 	QAccessibleInterface *iface = item ? QAccessible::queryAccessibleInterface(item) : nullptr;
 	a11yLog("[menu] pressed \"%s\" (%s)", iface ? qUtf8Printable(iface->text(QAccessible::Name)) : "", how);
+}
+
+void setMenuRetry(std::function<void()> retry)
+{
+	g_menuRetry = std::move(retry);
+	g_menuRetrySet.start();
+}
+
+int contextMenusShown()
+{
+	return g_menusShown;
 }
 
 bool isBrowsingList(const QWidget *list)

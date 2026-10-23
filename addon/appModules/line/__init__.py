@@ -18,6 +18,7 @@ from NVDAObjects.UIA import UIA
 from scriptHandler import script
 
 from . import bridge, elements
+from .calls import CallCommandsAppModule
 
 addonHandler.initTranslation()
 
@@ -100,7 +101,7 @@ def chooseOverlayClasses(obj, clsList):
 		clsList.insert(0, LayoutGroup)
 
 
-class AppModule(appModuleHandler.AppModule):
+class AppModule(CallCommandsAppModule):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		bridge.checkOnStart(self.processID)

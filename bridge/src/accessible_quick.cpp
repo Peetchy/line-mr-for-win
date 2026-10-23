@@ -12,6 +12,7 @@
 #include <QtCore/QPointer>
 #include <QtCore/QSet>
 #include <QtCore/QTextStream>
+#include <QtCore/QRegularExpression>
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
 #include <QtGui/QAccessibleObject>
@@ -377,19 +378,26 @@ const QuickModel &modelFor(QQuickWindow *window)
 	return m;
 }
 
-// Text fields are Qt Quick's own; LINE leaves their Accessible.name empty. Name them from their
-// hint (placeholderText), through the QML Accessible attached property.
+// Text fields are Qt Quick's own. Qt exposes one only once its QML Accessible attached object
+// exists, which LINE's plain TextInputs (the friend's display name in a profile) never get: NVDA
+// found no field. Give it the role of an editable text (which creates that object), a name from
+// its hint (placeholderText) if it has one, and a place in the Tab order (TextInput has none).
 void nameInput(QQuickItem *item)
 {
 	if (item->property("_lineA11yNamed").toBool())
 		return;
 	item->setProperty("_lineA11yNamed", true);
-	const QString hint = cleanText(item->property("placeholderText").toString());
+	if (!item->activeFocusOnTab())
+		item->setActiveFocusOnTab(true);
 	QQmlContext *context = qmlContext(item);
-	if (hint.isEmpty() || !context)
+	if (!context)
 		return;
+	QQmlProperty role(item, QStringLiteral("Accessible.role"), context);
+	if (role.isValid() && role.read().toInt() == int(QAccessible::NoRole))
+		role.write(int(QAccessible::EditableText));
+	const QString hint = cleanText(item->property("placeholderText").toString());
 	QQmlProperty name(item, QStringLiteral("Accessible.name"), context);
-	if (name.isValid() && name.read().toString().isEmpty())
+	if (!hint.isEmpty() && name.isValid() && name.read().toString().isEmpty())
 		name.write(hint);
 }
 
@@ -583,9 +591,11 @@ public:
 		const QString title = cleanText(quickWindow()->title());
 		if (!title.isEmpty() && title != QLatin1String("LINE"))
 			return title;
-		// The first real text: a Text, or a button labelled with text (a profile's name), not an icon.
+		// The first real text: a Text, or a button labelled with text (a profile's name), not an icon
+		// and not a character counter ("1 / 20" under a name field).
+		static const QRegularExpression counter(QStringLiteral("^\\d+\\s*/\\s*\\d+$"));
 		for (const QPointer<QQuickItem> &item : items()) {
-			if (item && isTextItem(item))
+			if (item && isTextItem(item) && !counter.match(itemText(item)).hasMatch())
 				return itemText(item);
 			if (item && isLineQuickControl(item))
 				if (const QString text = cleanText(item->property("text").toString()); !text.isEmpty())
@@ -759,6 +769,9 @@ void quickWindowShown(QQuickWindow *window)
 			QQuickItem *focus = window->activeFocusItem();
 			if (!focus || focus == window->contentItem())
 				return;
+			// LINE focuses a page's text field itself (profile -> edit name): expose it first.
+			if (isInputItem(focus))
+				nameInput(focus);
 			if (QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(focus)) {
 				QAccessibleEvent event(iface, QAccessible::Focus);
 				QAccessible::updateAccessibility(&event);

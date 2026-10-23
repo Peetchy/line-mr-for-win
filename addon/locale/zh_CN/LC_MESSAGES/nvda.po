@@ -166,6 +166,15 @@ msgstr "LINE MR 尚未在 LINE 的照片和视频查看器中运行。请重新�
 msgid "Alt+A answers, Alt+D declines."
 msgstr "Alt+A 接听,Alt+D 拒绝。"
 
+msgid "NVDA+Shift+Control+A answers, NVDA+Shift+Control+D declines."
+msgstr "NVDA+Shift+Control+A 接听,NVDA+Shift+Control+D 拒绝。"
+
+msgid "Answers an incoming LINE call"
+msgstr "接听 LINE 来电"
+
+msgid "Declines an incoming LINE call, or ends the current call"
+msgstr "拒绝 LINE 来电,或结束当前通话"
+
 msgid "Answering"
 msgstr "正在接听"
 

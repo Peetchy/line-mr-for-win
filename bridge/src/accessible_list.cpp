@@ -15,6 +15,7 @@
 #include <QtCore/QPointer>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QTimer>
+#include <QtCore/QUrl>
 #include <QtGui/QEnterEvent>
 #include <QtGui/QMouseEvent>
 #include <QtWidgets/QAbstractItemView>
@@ -625,6 +626,86 @@ QPointF messageContentPoint(const CaptureResult &cap, const QRect &rowRect)
 	return QPointF();
 }
 
+// Where to right-click a message (row coordinates), best first: messageContentPoint(), then the other
+// pictures, bubbles and icons drawn for it (largest first), then its lines of text. LINE shows the
+// message's menu only over the part its row reacts to (for voice messages and files that was not
+// always the point messageContentPoint() chose), the chat background's menu elsewhere.
+QList<QPointF> messageMenuPoints(const CaptureResult &cap, const QRect &rowRect)
+{
+	QList<QPointF> points;
+	auto add = [&points](const QPointF &p) {
+		if (p.isNull() || points.size() >= 6)
+			return;
+		for (const QPointF &q : std::as_const(points)) {
+			if ((q - p).manhattanLength() < 8)
+				return;
+		}
+		points << p;
+	};
+	add(messageContentPoint(cap, rowRect));
+	QList<QRectF> parts;
+	auto consider = [&parts, &rowRect](const QRectF &r) {
+		const bool avatar = r.width() >= 30 && r.width() <= 45 && r.height() <= 45 && r.left() < 20;
+		if (r.top() >= -4 && r.width() >= 8 && r.height() >= 8 && r.width() < rowRect.width() - 20 && !avatar)
+			parts << r;
+	};
+	for (const PaintedImage &pi : cap.images)
+		consider(pi.rect);
+	for (const PaintedShape &sh : cap.shapes)
+		consider(sh.rect);
+	std::stable_sort(parts.begin(), parts.end(), [](const QRectF &a, const QRectF &b) {
+		return a.width() * a.height() > b.width() * b.height();
+	});
+	for (const QRectF &r : std::as_const(parts))
+		add(r.center());
+	for (const CapturedText &it : cap.items) {
+		if (!cleanText(it.text).isEmpty())
+			add(it.pos + QPointF(qMin<qreal>(it.width / 2, 12), -4));
+	}
+	return points;
+}
+
+// Right-clicks `points[i]` of the message at `index` (row coordinates). If LINE shows the chat
+// background's menu, the event filter closes it and the next point is tried (setMenuRetry()); if it
+// shows no menu at all, the next point too.
+void tryRowMenu(QPointer<QAbstractItemView> view, QPersistentModelIndex index, QList<QPointF> points, int i)
+{
+	if (!view || !index.isValid() || i >= points.size()) {
+		setMenuRetry(nullptr);
+		return;
+	}
+	view->scrollTo(index);
+	const QRect r = view->visualRect(index);
+	// A tall message may reach past the viewport: click inside the part that is shown.
+	const QRectF shown = QRectF(r.intersected(view->viewport()->rect())).adjusted(1, 1, -1, -1);
+	if (shown.isEmpty()) {
+		setMenuRetry(nullptr);
+		return;
+	}
+	const QPointF local(qBound(shown.left(), r.left() + points[i].x(), shown.right()),
+	                    qBound(shown.top(), r.top() + points[i].y(), shown.bottom()));
+	static int logged = 0;
+	if (logged++ < 30)
+		a11yLog("[menu] keyboard menu on message row %d: right click %d/%d at %.0f,%.0f (row %d,%d %dx%d)",
+		        index.row(), i + 1, int(points.size()), local.x(), local.y(), r.x(), r.y(), r.width(), r.height());
+	auto next = [view, index, points, i] { tryRowMenu(view, index, points, i + 1); };
+	setMenuRetry(i + 1 < points.size() ? std::function<void()>(next) : std::function<void()>());
+	const int menusBefore = contextMenusShown();
+	// LINE may run its menu in a loop of its own: then this returns once the menu has closed.
+	sendContextClick(view->viewport(), local);
+	if (!view || contextMenusShown() != menusBefore)
+		return;
+	QTimer::singleShot(150, view, [next, menusBefore, more = i + 1 < points.size()] {
+		if (contextMenusShown() != menusBefore)
+			return;
+		a11yLog("[menu] no menu at that point%s", more ? "; trying another one" : "");
+		if (more)
+			next();
+		else
+			setMenuRetry(nullptr);
+	});
+}
+
 // Pickers (ShareWindow "Share with...") tick rows: their data (ChatData, ProfileData) has `checked`.
 // The main window's lists carry the same property, always false; section headers have it too.
 bool isPickerRow(const QAbstractItemView *view, const QObject *data, bool *checked = nullptr)
@@ -873,6 +954,7 @@ void LineAccessibleList::connectModel()
 	m_modelConnections.clear();
 	m_painted.clear();
 	m_cursor = QPersistentModelIndex();
+	m_lastRead = QPersistentModelIndex();
 	QAbstractItemView *v = view();
 	m_model = v ? v->model() : nullptr;
 	if (!v)
@@ -962,6 +1044,7 @@ void LineAccessibleList::notifyCurrentRow()
 	const QModelIndex current = v->currentIndex();
 	if (!current.isValid())
 		return;
+	m_lastRead = current;
 	v->scrollTo(current);
 	if (QAccessibleInterface *item = itemAt(current.row())) {
 		QAccessibleEvent event(item, QAccessible::Focus);
@@ -1080,6 +1163,21 @@ void LineAccessibleList::focusEdgeRow(bool last)
 	makeCurrent(target);
 }
 
+bool LineAccessibleList::focusRememberedRow()
+{
+	QAbstractItemView *v = view();
+	checkModel();
+	if (!v || !m_lastRead.isValid() || m_lastRead.model() != m_model.data())
+		return false;
+	const int row = m_lastRead.row();
+	v->scrollTo(m_lastRead);
+	QAccessibleInterface *item = itemAt(row);
+	if (!item || item->text(QAccessible::Name).isEmpty())
+		return false;
+	makeCurrent(row);
+	return true;
+}
+
 bool LineAccessibleList::stepRow(int key)
 {
 	QAbstractItemView *v = view();
@@ -1131,6 +1229,8 @@ void LineAccessibleList::makeCurrent(int row)
 		return;
 	}
 	v->scrollTo(idx);
+	if (v->hasFocus())
+		m_lastRead = idx;
 	if (QAccessibleInterface *item = itemAt(row)) {
 		QAccessibleEvent event(item, QAccessible::NameChanged);
 		QAccessible::updateAccessibility(&event);
@@ -1278,6 +1378,45 @@ bool LineAccessibleList::openSeeMore()
 	return false;
 }
 
+bool LineAccessibleList::openLink()
+{
+	QAbstractItemView *v = view();
+	const int row = cursorRow();
+	if (!v || !v->model() || row < 0)
+		return false;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	v->scrollTo(idx);
+	const QRect r = v->visualRect(idx);
+	const CaptureResult cap = captureRegionText(v->viewport(), r);
+	if (cap.skipped)
+		return false;
+	// The row's lines top to bottom (fragments on one baseline joined), without times and receipts.
+	QList<CapturedText> items = cap.items;
+	std::stable_sort(items.begin(), items.end(), [](const CapturedText &a, const CapturedText &b) {
+		return qAbs(a.pos.y() - b.pos.y()) >= 1 ? a.pos.y() < b.pos.y() : a.pos.x() < b.pos.x();
+	});
+	QStringList lines;
+	qreal lastY = -1e9;
+	for (const CapturedText &it : std::as_const(items)) {
+		if (it.text.trimmed().isEmpty())
+			continue;
+		if (!lines.isEmpty() && qAbs(it.pos.y() - lastY) < 1)
+			lines.last() += it.text;
+		else
+			lines << it.text;
+		lastY = it.pos.y();
+	}
+	lines.removeIf([](const QString &l) { return isTimeOrReceipt(cleanText(l)); });
+	const QString url = firstWebAddress(lines);
+	if (url.isEmpty())
+		return false;
+	const bool opened = openInBrowser(url);
+	// The address may be private: the log names only its host.
+	a11yLog("[keyboard] link in message row %d (%s): %s", row, qUtf8Printable(QUrl(url).host()),
+	        opened ? "opened in the browser" : "Windows refused to open it");
+	return opened;
+}
+
 bool LineAccessibleList::openMessageContent()
 {
 	QAbstractItemView *v = view();
@@ -1372,20 +1511,10 @@ bool LineAccessibleList::openRowMenu()
 	const CaptureResult cap = captureRegionText(v->viewport(), r);
 	if (cap.skipped)
 		return false;
-	const QPointF point = messageContentPoint(cap, r);
-	if (point.isNull())
+	const QList<QPointF> points = messageMenuPoints(cap, r);
+	if (points.isEmpty())
 		return false;
-	// A tall message may reach past the viewport: click inside the part that is shown.
-	const QRectF shown = QRectF(r.intersected(v->viewport()->rect())).adjusted(1, 1, -1, -1);
-	if (shown.isEmpty())
-		return false;
-	const QPointF local(qBound(shown.left(), r.left() + point.x(), shown.right()),
-	                    qBound(shown.top(), r.top() + point.y(), shown.bottom()));
-	static int logged = 0;
-	if (logged++ < 10)
-		a11yLog("[menu] keyboard menu on message row %d: right click at %.0f,%.0f (row %d,%d %dx%d)", row,
-		        local.x(), local.y(), r.x(), r.y(), r.width(), r.height());
-	sendContextClick(v->viewport(), local);
+	tryRowMenu(v, idx, points, 0);
 	return true;
 }
 

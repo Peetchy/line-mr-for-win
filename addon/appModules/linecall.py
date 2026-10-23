@@ -11,6 +11,7 @@ import ui
 from logHandler import log
 
 from .line import bridge, chooseOverlayClasses
+from .line.calls import CallCommandsAppModule
 
 addonHandler.initTranslation()
 
@@ -20,7 +21,7 @@ def _warnNoBridge():
 	ui.message(_("LINE MR is not active for calls yet. Restart LINE after this call."))
 
 
-class AppModule(appModuleHandler.AppModule):
+class AppModule(CallCommandsAppModule):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		# LINE may have downloaded or updated its call process after the bridge was installed: then

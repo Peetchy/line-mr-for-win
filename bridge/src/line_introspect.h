@@ -92,6 +92,17 @@ bool isBadgeText(const QString &text);
 QString labelAboveText(QWidget *w);
 QString nearbyLabelText(QWidget *w);
 
+// --- Links --------------------------------------------------------------------------------
+
+// The first web address ("https://...", "www....") in `lines` (text lines as LINE draws them, top to
+// bottom; an address that ends its line and goes on in the next ones without spaces was wrapped
+// by LINE and is joined). "" if there is none; "www." addresses get "http://".
+QString firstWebAddress(const QStringList &lines);
+
+// Opens an http(s) address in the user's default browser through Windows (not through Qt, where
+// LINE may have registered handlers of its own). False if it is not http(s) or Windows refused.
+bool openInBrowser(const QString &url);
+
 // --- Localisation ---------------------------------------------------------------------------
 
 // LINE's own UI language (its setting, not Windows'): bridge-generated labels follow it.

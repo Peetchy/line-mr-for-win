@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <functional>
+
 class QCoreApplication;
 class QWidget;
 
@@ -26,6 +28,15 @@ void notePress(QWidget *pressed);
 // A context menu item was pressed by the bridge (`how`: the signal emitted, or "click"): a window
 // it opens (confirmation dialogs) gets activated instead of focus going back behind the menu.
 void noteMenuPress(QWidget *item, const char *how);
+
+// The bridge right-clicks a message (LineAccessibleList::openRowMenu): if the next context menu
+// LINE shows within 1.5 s is the chat background's (Select all / Set wallpaper), it is closed and
+// `retry` runs (a click on another part of the message); otherwise it is kept and focused as usual.
+// A null `retry` keeps any menu.
+void setMenuRetry(std::function<void()> retry);
+
+// How many context menus LINE has shown so far.
+int contextMenusShown();
 
 // Is the user browsing `list` (focus there, or briefly pulled into the open chat by LINE)?
 bool isBrowsingList(const QWidget *list);

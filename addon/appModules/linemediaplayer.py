@@ -11,6 +11,7 @@ import ui
 from logHandler import log
 
 from .line import bridge, chooseOverlayClasses
+from .line.calls import CallCommandsAppModule
 
 addonHandler.initTranslation()
 
@@ -20,7 +21,7 @@ def _warnNoBridge():
 	ui.message(_("LINE MR is not active in LINE's photo and video viewer yet. Restart LINE to use it there."))
 
 
-class AppModule(appModuleHandler.AppModule):
+class AppModule(CallCommandsAppModule):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		# LINE may have downloaded or updated its viewer after the bridge was installed: then this

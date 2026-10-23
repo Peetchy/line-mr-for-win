@@ -7,7 +7,10 @@
 #include <QtCore/QEvent>
 #include <QtCore/QPointer>
 #include <QtCore/QTimer>
+#include <QtGui/QAccessible>
 #include <QtGui/QTextBlock>
+#include <QtGui/QTextDocument>
+#include <QtWidgets/QAccessibleWidget>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QScrollBar>
@@ -80,8 +83,9 @@ QList<TextLine> paintedLines(QAbstractItemView *view, bool *skipped)
 	return out;
 }
 
-// Keeps the overlay over the list's viewport, refills it when LINE re-wraps the text (window
-// resized), and scrolls LINE's list to the caret's line.
+// Keeps the overlay over the list's viewport and refills it when LINE re-wraps the text (window
+// resized). LINE's list does not follow the caret: scrolling it made LINE redraw the long row,
+// which froze LINE for 2-15 s while the user read on.
 class FullTextView : public QPlainTextEdit {
 public:
 	explicit FullTextView(QAbstractItemView *view)
@@ -96,6 +100,10 @@ public:
 		setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 		// Invisible and click-through: LINE's own drawing stays what the user sees.
 		setAttribute(Qt::WA_TransparentForMouseEvents);
+		// Never repaint: each repaint of this transparent view (every caret move and blink) made LINE
+		// redraw the message row under it, a whole long text (2-5 s per step for 10,000 characters),
+		// and screen readers waiting for the caret gave up and read the old line again.
+		setUpdatesEnabled(false);
 		viewport()->setAutoFillBackground(false);
 		setStyleSheet(QStringLiteral("QPlainTextEdit { background: transparent; color: transparent; border: none;"
 		                             " selection-background-color: transparent; selection-color: transparent; }"));
@@ -103,7 +111,6 @@ public:
 		m_refill.setSingleShot(true);
 		m_refill.setInterval(400);
 		QObject::connect(&m_refill, &QTimer::timeout, this, [this] { fill(); });
-		QObject::connect(this, &QPlainTextEdit::cursorPositionChanged, this, [this] { followCaret(); });
 	}
 
 	// Reads LINE's lines into the view; false if LINE was painting.
@@ -117,16 +124,11 @@ public:
 			return false;
 		const int caretLine = textCursor().blockNumber();
 		QStringList texts;
-		m_lineY.clear();
-		for (const TextLine &l : lines) {
+		for (const TextLine &l : lines)
 			texts.append(l.text);
-			m_lineY.append(l.y);
-		}
-		m_filling = true;
 		setPlainText(texts.join(QLatin1Char('\n')));
 		QTextCursor cursor(document()->findBlockByNumber(qMin(caretLine, document()->blockCount() - 1)));
 		setTextCursor(cursor);
-		m_filling = false;
 		setGeometry(m_view->viewport()->geometry());
 		return true;
 	}
@@ -142,28 +144,131 @@ protected:
 	}
 
 private:
-	void followCaret()
+	QPointer<QAbstractItemView> m_view;
+	QTimer m_refill;
+};
+
+// The text view for screen readers: lines, words and characters of the cached plain text (Qt's own
+// interface rebuilds the whole text from the document for every request), and as its value only
+// the caret's line, not the whole text.
+class LineAccessibleFullText : public QAccessibleWidget, public QAccessibleTextInterface {
+public:
+	explicit LineAccessibleFullText(QPlainTextEdit *edit)
+		: QAccessibleWidget(edit, QAccessible::EditableText)
 	{
-		const int line = textCursor().blockNumber();
-		if (m_filling || !m_view || line < 0 || line >= m_lineY.size())
-			return;
-		QScrollBar *bar = m_view->verticalScrollBar();
-		if (!bar)
-			return;
-		const int height = m_view->viewport()->height();
-		const int y = int(m_lineY[line]);
-		// Keep the caret's line inside the middle part of the list.
-		if (y < bar->value() + height / 5 || y > bar->value() + height * 4 / 5)
-			bar->setValue(y - height / 3);
 	}
 
-	QPointer<QAbstractItemView> m_view;
-	QList<qreal> m_lineY;
-	QTimer m_refill;
-	bool m_filling = false;
+	void *interface_cast(QAccessible::InterfaceType t) override
+	{
+		if (t == QAccessible::TextInterface)
+			return static_cast<QAccessibleTextInterface *>(this);
+		return QAccessibleWidget::interface_cast(t);
+	}
+
+	QAccessible::State state() const override
+	{
+		QAccessible::State st = QAccessibleWidget::state();
+		st.readOnly = true;
+		st.multiLine = true;
+		st.focusable = true;
+		return st;
+	}
+
+	QString text(QAccessible::Text t) const override
+	{
+		if (t == QAccessible::Value)
+			return edit()->textCursor().block().text();
+		return QAccessibleWidget::text(t);
+	}
+
+	// QAccessibleTextInterface (offsets are document positions: the plain text, one line break between lines)
+	void selection(int selectionIndex, int *startOffset, int *endOffset) const override
+	{
+		const QTextCursor c = edit()->textCursor();
+		*startOffset = *endOffset = 0;
+		if (selectionIndex == 0 && c.hasSelection()) {
+			*startOffset = c.selectionStart();
+			*endOffset = c.selectionEnd();
+		}
+	}
+	int selectionCount() const override { return edit()->textCursor().hasSelection() ? 1 : 0; }
+	void addSelection(int startOffset, int endOffset) override { setSelection(0, startOffset, endOffset); }
+	void removeSelection(int) override
+	{
+		QTextCursor c = edit()->textCursor();
+		c.clearSelection();
+		edit()->setTextCursor(c);
+	}
+	void setSelection(int, int startOffset, int endOffset) override
+	{
+		QTextCursor c(edit()->document());
+		c.setPosition(clampOffset(startOffset));
+		c.setPosition(clampOffset(endOffset), QTextCursor::KeepAnchor);
+		edit()->setTextCursor(c);
+	}
+	int cursorPosition() const override { return edit()->textCursor().position(); }
+	void setCursorPosition(int position) override
+	{
+		QTextCursor c = edit()->textCursor();
+		c.setPosition(clampOffset(position));
+		edit()->setTextCursor(c);
+	}
+	QString text(int startOffset, int endOffset) const override
+	{
+		const QString &all = plainText();
+		const int start = qBound(0, startOffset, int(all.size()));
+		const int end = qBound(start, endOffset, int(all.size()));
+		return all.mid(start, end - start);
+	}
+	int characterCount() const override { return int(plainText().size()); }
+	QRect characterRect(int offset) const override
+	{
+		QTextCursor c(edit()->document());
+		c.setPosition(clampOffset(offset));
+		QRect r = edit()->cursorRect(c);
+		r.setWidth(qMax(r.width(), edit()->fontMetrics().averageCharWidth()));
+		return QRect(edit()->viewport()->mapToGlobal(r.topLeft()), r.size());
+	}
+	int offsetAtPoint(const QPoint &point) const override
+	{
+		return edit()->cursorForPosition(edit()->viewport()->mapFromGlobal(point)).position();
+	}
+	void scrollToSubstring(int, int) override {}
+	QString attributes(int, int *startOffset, int *endOffset) const override
+	{
+		*startOffset = 0;
+		*endOffset = characterCount();
+		return QString();
+	}
+
+private:
+	QPlainTextEdit *edit() const { return static_cast<QPlainTextEdit *>(widget()); }
+
+	int clampOffset(int offset) const { return qBound(0, offset, characterCount()); }
+
+	const QString &plainText() const
+	{
+		const QTextDocument *doc = edit()->document();
+		if (m_text.isNull() || doc->revision() != m_revision) {
+			m_text = doc->toPlainText();
+			m_revision = doc->revision();
+		}
+		return m_text;
+	}
+
+	mutable QString m_text;
+	mutable int m_revision = -1;
 };
 
 } // namespace
+
+QAccessibleInterface *fullTextAccessible(QWidget *w)
+{
+	auto *edit = qobject_cast<QPlainTextEdit *>(w);
+	if (!edit || edit->objectName() != QLatin1StringView(kViewName))
+		return nullptr;
+	return new LineAccessibleFullText(edit);
+}
 
 bool attachFullTextView(QWidget *window)
 {
@@ -179,6 +284,10 @@ bool attachFullTextView(QWidget *window)
 	if (!view)
 		return false;
 	auto *text = new FullTextView(view);
+	// An interface Qt made before the view had its name is Qt's own: replace it.
+	if (QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(text);
+	    iface && !dynamic_cast<LineAccessibleFullText *>(iface))
+		QAccessible::deleteAccessibleInterface(QAccessible::uniqueId(iface));
 	if (!text->fill()) {
 		delete text;
 		return false;

@@ -19,6 +19,9 @@
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QWidget>
 
+#include <windows.h>
+#include <shellapi.h>
+
 #include <algorithm>
 #include <climits>
 #include <cstring>
@@ -287,6 +290,7 @@ const QHash<QString, const char *> &iconLabels()
 		{ QStringLiteral("add-chat-floating"), "Create chat" },
 		{ QStringLiteral("search-cancel"), "Clear search" },
 		{ QStringLiteral("search-keyword-delete"), "Clear search" },
+		{ QStringLiteral("friend-edit-cancel"), "Clear" },
 		{ QStringLiteral("chatfolder-edit-icon"), "Edit chat folders" },
 		{ QStringLiteral("accept-bt"), "Answer" },
 		{ QStringLiteral("refuse-bt"), "Decline" },
@@ -583,6 +587,58 @@ int boolProp(const QObject *o, const char *name)
 	if (!v.isValid() || v.metaType().id() != QMetaType::Bool)
 		return -1;
 	return v.toBool() ? 1 : 0;
+}
+
+// ---- Links ---------------------------------------------------------------------------------------
+
+QString firstWebAddress(const QStringList &lines)
+{
+	// (Thai text may follow an address without a space.)
+	static const QRegularExpression address(QStringLiteral("(?:https?://|www\\.)[^\\s<>\"\\x{0E00}-\\x{0E7F}]+"),
+	                                        QRegularExpression::CaseInsensitiveOption);
+	static const QRegularExpression continuation(QStringLiteral("^[^\\s<>\"\\x{0E00}-\\x{0E7F}]+$"));
+	static const QRegularExpression urlPart(QStringLiteral("[/?=&%#_.\\-\\d]"));
+	for (qsizetype i = 0; i < lines.size(); ++i) {
+		const QString line = lines[i].trimmed();
+		const QRegularExpressionMatch m = address.match(line);
+		if (!m.hasMatch())
+			continue;
+		QString url = m.captured(0);
+		// LINE wraps a long address after "/" or anywhere ("https://drive.google.com/drive/",
+		// "mobile/folders/", "1IafGq...STD", "Gj?usp=sharing"): the rest is the next lines without
+		// spaces that look like part of an address (a lone word after a short address is not).
+		if (m.capturedEnd(0) == line.size()) {
+			for (qsizetype j = i + 1; j < lines.size(); ++j) {
+				const QString next = lines[j].trimmed();
+				if (!continuation.match(next).hasMatch() || !urlPart.match(next).hasMatch())
+					break;
+				url += next;
+			}
+		}
+		// Punctuation after an address belongs to the sentence.
+		while (!url.isEmpty()) {
+			const QChar last = url.back();
+			if (QStringLiteral(".,;:!?'”’").contains(last)
+			    || (last == u')' && url.count(u'(') < url.count(u')')))
+				url.chop(1);
+			else
+				break;
+		}
+		if (url.startsWith(QLatin1StringView("www."), Qt::CaseInsensitive))
+			url.prepend(QLatin1StringView("http://"));
+		return url;
+	}
+	return QString();
+}
+
+bool openInBrowser(const QString &url)
+{
+	if (!url.startsWith(QLatin1StringView("http://"), Qt::CaseInsensitive)
+	    && !url.startsWith(QLatin1StringView("https://"), Qt::CaseInsensitive))
+		return false;
+	const HINSTANCE result = ShellExecuteW(nullptr, L"open", reinterpret_cast<const wchar_t *>(url.utf16()), nullptr,
+	                                       nullptr, SW_SHOWNORMAL);
+	return reinterpret_cast<INT_PTR>(result) > 32;
 }
 
 // ---- Text extraction ---------------------------------------------------------------------------
