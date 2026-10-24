@@ -24,6 +24,7 @@ add_library(line_a11y MODULE
     src/a11y_announce.cpp
     src/call_install.cpp
     src/full_text_view.cpp
+    src/video_controls.cpp
 )
 target_include_directories(line_a11y PRIVATE src)
 target_link_libraries(line_a11y PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Qml Qt6::Quick Qt6::GuiPrivate Qt6::CorePrivate uiautomationcore oleaut32 shell32)

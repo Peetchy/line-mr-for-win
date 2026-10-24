@@ -39,6 +39,18 @@ _user32.IsWindowVisible.argtypes = (wintypes.HWND,)
 _user32.IsWindowVisible.restype = wintypes.BOOL
 _user32.GetWindowThreadProcessId.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.DWORD))
 _user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+_kernel32 = ctypes.WinDLL("kernel32")
+_kernel32.OpenEventW.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR)
+_kernel32.OpenEventW.restype = wintypes.HANDLE
+_kernel32.SetEvent.argtypes = (wintypes.HANDLE,)
+_kernel32.SetEvent.restype = wintypes.BOOL
+_kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+_kernel32.CloseHandle.restype = wintypes.BOOL
+_EVENT_MODIFY_STATE = 0x0002
+
+#: Signalled to make the bridge in LineCall.exe end the call shown (also the video call window, whose
+#: buttons are hidden while the mouse is elsewhere).
+END_CALL_EVENT_NAME = r"Local\lineMR.endCall"
 
 
 def _visibleWindows(appNames, first=False):
@@ -127,13 +139,33 @@ def answer():
 	return _pressButton("lineMR_call-answer", _("Answering"))
 
 
+def _signalEndCall():
+	"""Asks the bridge in LineCall.exe to end the call shown; False if that bridge does not run."""
+	event = _kernel32.OpenEventW(_EVENT_MODIFY_STATE, False, END_CALL_EVENT_NAME)
+	if not event:
+		return False
+	try:
+		return bool(_kernel32.SetEvent(event))
+	finally:
+		_kernel32.CloseHandle(event)
+
+
 def declineOrEnd(endCall):
 	"""Declines a ringing LINE call or, if `endCall`, ends the current one; False if there is none."""
 	# Translators: Reported after declining a LINE call.
 	if _pressButton("lineMR_call-decline", _("Call declined")):
 		return True
+	if not endCall:
+		return False
 	# Translators: Reported after ending (hanging up) a LINE call.
-	return endCall and _pressButton("lineMR_call-end", _("Call ended"))
+	done = _("Call ended")
+	if _pressButton("lineMR_call-end", done):
+		return True
+	# LineCall.exe shows no window while idle.
+	if callWindowShown() and _signalEndCall():
+		ui.message(done)
+		return True
+	return False
 
 
 class CallCommandsAppModule(appModuleHandler.AppModule):

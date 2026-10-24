@@ -18,4 +18,9 @@ void announce(QWidget *w, const QString &text, bool evenIfInactive = false);
 // (NVDA does not speak UI Automation notifications from background windows).
 void announceIncomingCall(const QString &text);
 
+// LineCall.exe: the add-on's End call command (Alt+D) signals the event "Local\lineMR.endCall";
+// the call shown is then ended like its End call button does (the voice call window's, or the video
+// call window's, whose controls are hidden while the mouse is elsewhere).
+void startEndCallListener(QObject *context);
+
 } // namespace line_a11y

@@ -61,6 +61,9 @@ QString iconSource(const QWidget *w);
 // Converts icon resource names ("image://login/login-help.svg", "eye-show", ...) to a
 // human-readable name in LINE's UI language. Returns "" if nothing useful remains.
 QString humanizeIconName(const QString &iconName);
+// The arrows of a chat's search bar (both draw down-arrow.svg, the one pointing up rotated by 180
+// degrees): -1 previous (older) result, 1 next (newer) result, 0 any other widget.
+int chatSearchArrow(const QWidget *w);
 
 // Converts identifiers like "accessUrlTextField" / "btn_close" to "Access url" / "Close".
 QString humanizeIdentifier(const QString &identifier);

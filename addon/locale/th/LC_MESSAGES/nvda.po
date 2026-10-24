@@ -240,3 +240,9 @@ msgstr "กำลังดาวน์โหลด LINE MR {version}"
 
 msgid "LINE MR {version} is up to date."
 msgstr "LINE MR {version} เป็นรุ่นล่าสุดแล้ว"
+
+msgid "No results"
+msgstr "ไม่พบผลการค้นหา"
+
+msgid "Result {current} of {total}"
+msgstr "ผลการค้นหา {current} จาก {total}"

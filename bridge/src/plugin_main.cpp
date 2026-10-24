@@ -6,6 +6,7 @@
 // create() bootstraps the accessibility bridge and returns nullptr, so Qt falls back to its
 // built-in QWindowsTheme (QWindowsIntegration::createPlatformTheme("windows")).
 
+#include "a11y_announce.h"
 #include "a11y_diagnostics.h"
 #include "a11y_event_filter.h"
 #include "a11y_log.h"
@@ -138,6 +139,9 @@ void startHelperBridge(QCoreApplication *app)
 	enforceAccessibilityHandler("startBridge");
 	installCrashDumpWriter();
 	installEventFilter(app);
+	if (helperProcessName() == QLatin1StringView("linecall"))
+		startEndCallListener(app);
+	startHelperDiagnostics(app);
 	a11yLog("[bridge] started on %s in %s (accessibility %s)", app->metaObject()->className(),
 	        qUtf8Printable(helperProcessName()), QAccessible::isActive() ? "active" : "inactive");
 }

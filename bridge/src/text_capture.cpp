@@ -10,6 +10,7 @@
 #include <QtGui/QTextItem>
 #include <QtGui/QFontMetricsF>
 #include <QtGui/QImage>
+#include <QtGui/QPainter>
 #include <QtGui/QPainterPath>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
@@ -36,6 +37,8 @@ struct KnownIcon {
 	const char *path;
 	int slices;
 	const char *name;
+	// Compared by colour (over black) instead of shape: LINE's reaction faces are all round.
+	bool color = false;
 };
 
 const KnownIcon kKnownIcons[] = {
@@ -66,7 +69,11 @@ const KnownIcon kKnownIcons[] = {
 	// The red flag in a location's bubble (14x16).
 	{ ":/resource/img/basic/chat/chat_word_flag.png", 1, "location" },
 	// Sound stickers and stickers that could not be loaded.
-	{ ":/resource/img/basic/chat/sticker_icon_sound.png", 1, "sticker" },
+	{ ":/resource/img/basic/chat/sticker_icon_sound.png", 1, "sticker-sound" },
+	// The speaker button beside a sound sticker in a chat (27x30, sprites of 4 states): plays it again.
+	{ ":/resource/img/basic/chat/sound_02.png", 4, "sticker-sound" },
+	{ ":/resource/img/basic/chat/chat_popup_sound.png", 4, "sticker-sound" },
+	{ ":/resource/img/basic/chat/chat_effect_sound.png", 4, "sticker-sound" },
 	{ ":/resource/img/basic/chat/chat_word_sticker_error_icon.svg", 1, "sticker" },
 	{ ":/resource/img/basic/chat/chat_word_send_sticker_error_icon.png", 1, "sticker" },
 	{ ":/resource/img/basic/chat/chat_word_receive_sticker_error_icon.png", 1, "sticker" },
@@ -75,12 +82,61 @@ const KnownIcon kKnownIcons[] = {
 	{ ":/resource/img/basic/chat/chatroom-call.png", 1, "chatroom-call" },
 	{ ":/resource/img/basic/chat/chatroom-call-solid.svg", 1, "chatroom-call" },
 	{ ":/resource/img/basic/chat/chatroom-video-call-solid.svg", 1, "chatroom-video-call" },
+	// The reaction button LINE draws beside a message while the mouse is over it.
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-off.svg", 1, "reaction-button" },
+	// Drawn instead when the user has reacted to the message.
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-on.svg", 1, "reaction-button-on" },
+	// The reactions in LINE's reaction picker (ReactionDockWidget; names are iconLabels() keys).
+	{ ":/resource/img/basic/chat/reaction/1001_icon.png", 1, "reaction-love", true },
+	{ ":/resource/img/basic/chat/reaction/1002_icon.png", 1, "reaction-fun", true },
+	{ ":/resource/img/basic/chat/reaction/1003_icon.png", 1, "reaction-like", true },
+	{ ":/resource/img/basic/chat/reaction/1004_icon.png", 1, "reaction-envy", true },
+	{ ":/resource/img/basic/chat/reaction/1005_icon.png", 1, "reaction-surprise", true },
+	{ ":/resource/img/basic/chat/reaction/1006_icon.png", 1, "reaction-sad", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-more.png", 1, "reaction-more", true },
+	// The button on LINE's preview of a sticker (sticker window, mouse over a sticker): the kind of
+	// sticker, a click plays its sound; a message sticker has an edit button instead.
+	{ ":/resource/img/basic/sticker/sound_type_icon.svg", 1, "stype-sound" },
+	{ ":/resource/img/basic/sticker/animation_sound_type_icon.svg", 1, "stype-animation-sound" },
+	{ ":/resource/img/basic/sticker/popup_sound_type_icon.svg", 1, "stype-popup-sound" },
+	{ ":/resource/img/basic/sticker/effect_sound_type_icon.svg", 1, "stype-effect-sound" },
+	{ ":/resource/img/basic/sticker/popup_type_icon.svg", 1, "stype-popup" },
+	{ ":/resource/img/basic/sticker/effect_type_icon.svg", 1, "stype-effect" },
+	{ ":/resource/img/basic/sticker/text_type_icon.svg", 1, "stype-text" },
+	{ ":/resource/img/basic/sticker/message-sticker-edit-ic.svg", 1, "stype-edit" },
+	{ ":/resource/img/basic/sticker/message-sticker-edit-ic-dark.svg", 1, "stype-edit" },
+	// The reactions drawn under a message (18 px at 150 %; matched in colour, recordImage()).
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-like.png", 1, "badge-like", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-like-20.png", 1, "badge-like", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-like-24.png", 1, "badge-like", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-like-40.png", 1, "badge-like", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-love.png", 1, "badge-love", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-love-20.png", 1, "badge-love", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-love-24.png", 1, "badge-love", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-love-40.png", 1, "badge-love", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-fun.png", 1, "badge-fun", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-fun-20.png", 1, "badge-fun", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-fun-24.png", 1, "badge-fun", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-fun-40.png", 1, "badge-fun", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-envy.png", 1, "badge-envy", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-envy-20.png", 1, "badge-envy", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-envy-24.png", 1, "badge-envy", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-envy-40.png", 1, "badge-envy", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-sad.png", 1, "badge-sad", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-sad-20.png", 1, "badge-sad", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-sad-24.png", 1, "badge-sad", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-sad-40.png", 1, "badge-sad", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-surprise.png", 1, "badge-surprise", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-surprise-20.png", 1, "badge-surprise", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-surprise-24.png", 1, "badge-surprise", true },
+	{ ":/resource/img/basic/chat/reaction/ic-reaction-surprise-40.png", 1, "badge-surprise", true },
 };
 
 struct IconMask {
-	QByteArray alpha; // kMaskSide x kMaskSide
+	QByteArray alpha; // kMaskSide x kMaskSide; RGB (3 bytes a pixel, over black) for colour icons
 	qreal aspect = 1;
 	const char *name = nullptr;
+	bool color = false;
 };
 
 QByteArray alphaMask(const QImage &image)
@@ -91,6 +147,28 @@ QByteArray alphaMask(const QImage &image)
 	mask.reserve(kMaskSide * kMaskSide);
 	for (int y = 0; y < kMaskSide; ++y)
 		mask.append(reinterpret_cast<const char *>(small.constScanLine(y)), kMaskSide);
+	return mask;
+}
+
+QByteArray colorMask(const QImage &image)
+{
+	// Over black: the faces are white with dark outlines, and LINE's pixmaps may come pre-composited
+	// on black.
+	QImage flat(image.size(), QImage::Format_RGB32);
+	flat.fill(Qt::black);
+	{
+		// Pixel for pixel: a grab at 150 % has device pixel ratio 1.5 and would be drawn smaller.
+		QImage source = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+		source.setDevicePixelRatio(1);
+		QPainter p(&flat);
+		p.drawImage(0, 0, source);
+	}
+	const QImage small = flat.scaled(kMaskSide, kMaskSide, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+	                         .convertToFormat(QImage::Format_RGB888);
+	QByteArray mask;
+	mask.reserve(kMaskSide * kMaskSide * 3);
+	for (int y = 0; y < kMaskSide; ++y)
+		mask.append(reinterpret_cast<const char *>(small.constScanLine(y)), kMaskSide * 3);
 	return mask;
 }
 
@@ -107,7 +185,7 @@ const QList<IconMask> &iconMasks()
 			const int w = sprite.width() / icon.slices;
 			for (int i = 0; i < icon.slices; ++i) {
 				const QImage slice = sprite.copy(i * w, 0, w, sprite.height());
-				list.append({ alphaMask(slice), qreal(w) / sprite.height(), icon.name });
+				list.append({ icon.color ? colorMask(slice) : alphaMask(slice), qreal(w) / sprite.height(), icon.name, icon.color });
 			}
 		}
 		return list;
@@ -130,6 +208,10 @@ const char *knownIcon(qint64 key, const QImage &image)
 		for (const IconMask &known : iconMasks()) {
 			if (qAbs(aspect - known.aspect) > known.aspect * 0.15)
 				continue;
+			// Colour icons are matched on rendered widgets only (reactionIcon()): LINE hands the
+			// picker's images to the painter in another form than the screen shows.
+			if (known.color)
+				continue;
 			int sum = 0;
 			for (int i = 0; i < mask.size(); ++i)
 				sum += qAbs(int(quint8(mask[i])) - int(quint8(known.alpha[i])));
@@ -140,6 +222,26 @@ const char *knownIcon(qint64 key, const QImage &image)
 			}
 		}
 	}
+	if (cache.size() > 4000)
+		cache.clear();
+	if (key)
+		cache.insert(key, found);
+	return found;
+}
+
+} // namespace
+
+const char *colorIconName(const QImage &rendered, const char *prefix);
+
+namespace {
+
+// Which reaction face a small round picture is ("badge-like", ...), or nullptr; kept per image.
+const char *reactionBadge(qint64 key, const QImage &image)
+{
+	static QHash<qint64, const char *> cache;
+	if (const auto it = cache.constFind(key); key && it != cache.constEnd())
+		return it.value();
+	const char *found = colorIconName(image, "badge-");
 	if (cache.size() > 4000)
 		cache.clear();
 	if (key)
@@ -244,6 +346,10 @@ private:
 			if (size.width() <= 96 && size.height() <= 96 && size.width() >= 8 && size.height() >= 8)
 				if (const char *icon = knownIcon(key, image))
 					pi.icon = QLatin1String(icon);
+			// A reaction under a message: a small round face, told apart by its colours only.
+			if (size.width() >= 12 && size.width() <= 64 && qAbs(size.width() - size.height()) <= 2)
+				if (const char *badge = reactionBadge(key, image))
+					pi.icon = QLatin1String(badge);
 		}
 		m_out->images << pi;
 	}
@@ -444,6 +550,41 @@ QString capturedTextInReadingOrder(const CaptureResult &r)
 		lastY = it.pos.y();
 	}
 	return out;
+}
+
+QString reactionIcon(const QImage &rendered)
+{
+	return colorIcon(rendered, "reaction-");
+}
+
+QString colorIcon(const QImage &rendered, const char *prefix)
+{
+	const char *found = colorIconName(rendered, prefix);
+	return found ? QLatin1String(found) : QString();
+}
+
+const char *colorIconName(const QImage &rendered, const char *prefix)
+{
+	if (rendered.isNull())
+		return nullptr;
+	const QByteArray mask = colorMask(rendered);
+	const qreal aspect = qreal(rendered.width()) / rendered.height();
+	const char *found = nullptr;
+	int best = kMaxMaskDifference + 1;
+	for (const IconMask &known : iconMasks()) {
+		if (!known.color || qAbs(aspect - known.aspect) > known.aspect * 0.15
+		    || !QLatin1StringView(known.name).startsWith(QLatin1StringView(prefix)))
+			continue;
+		int sum = 0;
+		for (int i = 0; i < mask.size(); ++i)
+			sum += qAbs(int(quint8(mask[i])) - int(quint8(known.alpha[i])));
+		const int mean = sum / int(mask.size());
+		if (mean < best) {
+			best = mean;
+			found = known.name;
+		}
+	}
+	return found;
 }
 
 } // namespace line_a11y

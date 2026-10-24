@@ -108,8 +108,16 @@ const LabelTranslations kLabels[] = {
 	{ "Background blur", "เบลอพื้นหลัง", "背景ぼかし", "背景模糊", "背景模糊" },
 	{ "Notes", "โน้ต", "ノート", "记事本", "記事本" },
 	{ "Show or hide chat list", "แสดงหรือซ่อนรายการแชท", "トークリストの表示/非表示", "显示或隐藏聊天列表", "顯示或隱藏聊天列表" },
+	{ "Show or hide chat room, chat room shown", "แสดงหรือซ่อนห้องแชท, ห้องแชทแสดงอยู่", "トークルームの表示/非表示、表示中", "显示或隐藏聊天室，正在显示", "顯示或隱藏聊天室，顯示中" },
+	{ "Show or hide chat room, chat room hidden", "แสดงหรือซ่อนห้องแชท, ห้องแชทซ่อนอยู่", "トークルームの表示/非表示、非表示中", "显示或隐藏聊天室，已隐藏", "顯示或隱藏聊天室，已隱藏" },
 	{ "Pause", "หยุดชั่วคราว", "一時停止", "暂停", "暫停" },
 	{ "Play", "เล่น", "再生", "播放", "播放" },
+	{ "Position", "ตำแหน่ง", "再生位置", "播放位置", "播放位置" },
+	{ "Playback speed", "ความเร็วในการเล่น", "再生速度", "播放速度", "播放速度" },
+	{ "Your video", "วิดีโอของคุณ", "自分の映像", "你的视频画面", "你的影像" },
+	{ "%1's camera is off", "กล้องของ %1 ปิดอยู่", "%1 のカメラはオフです", "%1 的摄像头已关闭", "%1 的鏡頭已關閉" },
+	{ "Your microphone is off", "ไมโครโฟนของคุณปิดอยู่", "マイクはオフです", "你的麦克风已关闭", "你的麥克風已關閉" },
+	{ "Your camera is off", "กล้องของคุณปิดอยู่", "カメラはオフです", "你的摄像头已关闭", "你的鏡頭已關閉" },
 	{ "Play sound", "เล่นเสียง", "音を再生", "播放声音", "播放聲音" },
 	{ "Test sound", "ทดสอบเสียง", "サウンドをテスト", "测试声音", "測試聲音" },
 	{ "Profile settings", "ตั้งค่าโปรไฟล์", "プロフィール設定", "个人资料设置", "個人檔案設定" },
@@ -135,6 +143,9 @@ const LabelTranslations kLabels[] = {
 	{ "Download", "ดาวน์โหลด", "ダウンロード", "下载", "下載" },
 	{ "Upload", "อัปโหลด", "アップロード", "上传", "上傳" },
 	{ "Save", "บันทึก", "保存", "保存", "儲存" },
+	{ "Open", "เปิด", "開く", "打开", "開啟" },
+	{ "Copy link", "คัดลอกลิงก์", "リンクをコピー", "复制链接", "複製連結" },
+	{ "Copy text", "คัดลอกข้อความ", "テキストをコピー", "复制文字", "複製文字" },
 	{ "Pin", "ปักหมุด", "ピン留め", "置顶", "釘選" },
 	{ "Unpin", "เลิกปักหมุด", "ピン留めを解除", "取消置顶", "取消釘選" },
 	{ "Mute notifications", "ปิดการแจ้งเตือน", "通知をオフ", "关闭通知", "關閉通知" },
@@ -171,17 +182,43 @@ const LabelTranslations kLabels[] = {
 	{ "Text area", "ช่องข้อความ", "テキスト入力欄", "文本框", "文字欄位" },
 	{ "Context menu", "เมนู", "メニュー", "菜单", "選單" },
 	{ "%1 options", "ตัวเลือก%1", "%1 のオプション", "%1 选项", "%1 選項" },
+	{ "Show %1's profile", "แสดงโปรไฟล์ %1", "%1 のプロフィールを表示", "查看 %1 的个人资料", "查看 %1 的個人資料" },
+	{ "React", "แสดงความรู้สึก", "リアクション", "回应", "回應" },
+	{ "Remove reaction", "ยกเลิกการแสดงความรู้สึก", "リアクションを取り消す", "取消回应", "取消回應" },
+	{ "Reaction: %1", "ความรู้สึก: %1", "リアクション: %1", "回应：%1", "回應：%1" },
+	{ "Reactions: %1", "ความรู้สึก: %1", "リアクション: %1", "回应：%1", "回應：%1" },
+	{ "%1 %2 people", "%1 %2 คน", "%1 %2人", "%1 %2 人", "%1 %2 人" },
+	{ "%1, %2 people", "%1, รวม %2 คน", "%1、計%2人", "%1，共 %2 人", "%1，共 %2 人" },
+	{ "Surprised", "ตกใจ", "びっくり", "惊讶", "驚訝" },
+	{ "Funny", "ตลก", "ウケる", "好笑", "好笑" },
+	{ "Like", "ถูกใจ", "いいね", "赞", "讚" },
+	{ "Jealous", "อิจฉา", "うらやましい", "羡慕", "羨慕" },
+	{ "Awesome", "สุดยอด", "すごい", "厉害", "厲害" },
+	{ "Sad", "เศร้า", "悲しい", "难过", "難過" },
+	{ "More reactions", "ความรู้สึกเพิ่มเติม", "その他のリアクション", "更多回应", "更多回應" },
+	{ "Reactions", "แสดงความรู้สึก", "リアクション", "回应", "回應" },
+	{ "%1, chosen", "%1, เลือกอยู่", "%1、選択中", "%1,已选", "%1,已選" },
+	{ "has reactions", "มีคนแสดงความรู้สึก", "リアクションあり", "有回应", "有回應" },
+	{ "Show the sender's profile", "แสดงโปรไฟล์ผู้ส่ง", "送信者のプロフィールを表示", "查看发送者的个人资料", "查看傳送者的個人資料" },
 	{ "%1 new", "ใหม่ %1", "新着 %1", "%1 条新消息", "%1 則新訊息" },
 	{ "Country code %1", "รหัสประเทศ %1", "国番号 %1", "国家代码 %1", "國碼 %1" },
 	{ "%1 members", "สมาชิก %1 คน", "メンバー %1 人", "%1 名成员", "%1 位成員" },
+	{ "sent by %1 on %2", "ส่งโดย %1 เมื่อ %2", "%1 が送信、%2", "由 %1 发送于 %2", "由 %1 傳送於 %2" },
 	{ "%1 unread", "ยังไม่อ่าน %1", "未読 %1", "%1 条未读", "%1 則未讀" },
 	{ "Photo or sticker", "รูปภาพหรือสติกเกอร์", "写真またはスタンプ", "照片或贴图", "照片或貼圖" },
 	{ "Photos", "อัลบั้มรูปภาพ", "写真アルバム", "相册", "相簿" },
 	{ "Sticker", "สติกเกอร์", "スタンプ", "贴图", "貼圖" },
+	{ "Sticker %1", "สติกเกอร์ %1", "スタンプ %1", "贴图 %1", "貼圖 %1" },
+	{ "Emoji %1", "อิโมจิ %1", "絵文字 %1", "表情 %1", "表情貼 %1" },
+	{ "%1, selected, press again to send", "%1, เลือกอยู่, กดอีกครั้งเพื่อส่ง", "%1、選択中、もう一度押すと送信",
+	  "%1，已选择，再按一次即发送", "%1，已選取，再按一次即傳送" },
+	{ "Recently used", "ใช้ล่าสุด", "最近使用", "最近使用", "最近使用" },
+	{ "Package %1", "แพ็กเกจ %1", "パッケージ %1", "套装 %1", "套裝 %1" },
 	{ "LINE emoji", "อีโมจิ LINE", "LINE絵文字", "LINE 表情", "LINE 表情貼" },
 	{ "File", "ไฟล์", "ファイル", "文件", "檔案" },
 	{ "Call message", "การโทร", "通話", "通话", "通話" },
 	{ "Photo", "รูปภาพ", "写真", "照片", "照片" },
+	{ "Profile picture", "รูปโปรไฟล์", "プロフィール画像", "头像", "大頭貼" },
 	{ "You", "คุณ", "あなた", "你", "你" },
 	{ "Messages", "ข้อความ", "メッセージ", "消息", "訊息" },
 	{ "Message", "ข้อความ", "メッセージ", "消息", "訊息" },
@@ -197,7 +234,12 @@ const LabelTranslations kLabels[] = {
 	{ "Sort", "เรียงลำดับ", "並べ替え", "排序", "排序" },
 	{ "Open in new window", "เปิดในหน้าต่างใหม่", "新しいウィンドウで開く", "在新窗口中打开", "在新視窗中開啟" },
 	{ "Close panel", "ปิดแผง", "パネルを閉じる", "关闭面板", "關閉面板" },
-	{ "Search in chat list", "ค้นหาในรายการแชท", "トークリスト内を検索", "在聊天列表中搜索", "在聊天列表中搜尋" },
+	{ "Search results", "ผลการค้นหา", "検索結果", "搜索结果", "搜尋結果" },
+	{ "Show results as a list", "แสดงผลการค้นหาเป็นรายการ", "検索結果を一覧表示", "以列表显示搜索结果", "以清單顯示搜尋結果" },
+	{ "Previous result", "ผลการค้นหาก่อนหน้า", "前の検索結果", "上一个搜索结果", "上一個搜尋結果" },
+	{ "Next result", "ผลการค้นหาถัดไป", "次の検索結果", "下一个搜索结果", "下一個搜尋結果" },
+	{ "Go to date", "ไปยังวันที่", "日付へ移動", "转到日期", "前往日期" },
+	{ "Close search", "ปิดการค้นหา", "検索を閉じる", "关闭搜索", "關閉搜尋" },
 	{ "AI search", "ค้นหาด้วย AI", "AI検索", "AI 搜索", "AI 搜尋" },
 	{ "Cancel reply", "ยกเลิกการตอบกลับ", "リプライをキャンセル", "取消回复", "取消回覆" },
 	{ "Close ad", "ปิดโฆษณา", "広告を閉じる", "关闭广告", "關閉廣告" },
@@ -287,6 +329,9 @@ const QHash<QString, const char *> &iconLabels()
 		{ QStringLiteral("today-btn"), "LINE TODAY" },
 		{ QStringLiteral("system-full"), "Maximize" },
 		{ QStringLiteral("down-arrow"), "Scroll to latest message" },
+		// The round down arrow over a chat scrolled up (floating_dark.png); it was read "Floating".
+		{ QStringLiteral("floating-dark"), "Scroll to latest message" },
+		{ QStringLiteral("floating"), "Scroll to latest message" },
 		{ QStringLiteral("add-chat-floating"), "Create chat" },
 		{ QStringLiteral("search-cancel"), "Clear search" },
 		{ QStringLiteral("search-keyword-delete"), "Clear search" },
@@ -297,7 +342,10 @@ const QHash<QString, const char *> &iconLabels()
 		{ QStringLiteral("sorting"), "Sort" },
 		{ QStringLiteral("new-window"), "Open in new window" },
 		{ QStringLiteral("panel-close"), "Close panel" },
-		{ QStringLiteral("chat-search-list"), "Search in chat list" },
+		// In-chat search bar: the results in a window of their own, the calendar (MessageCalendarWindow).
+		{ QStringLiteral("chat-search-list"), "Show results as a list" },
+		{ QStringLiteral("chat-calendar"), "Go to date" },
+		{ QStringLiteral("search-close"), "Close search" },
 		{ QStringLiteral("ai-search"), "AI search" },
 		{ QStringLiteral("reply-layer-close"), "Cancel reply" },
 		{ QStringLiteral("banner-close"), "Close ad" },
@@ -364,6 +412,23 @@ const QHash<QString, const char *> &iconLabels()
 		{ QStringLiteral("more"), "More options" },
 		{ QStringLiteral("more-icon"), "More options" },
 		// Chat room header
+		// LINE's reaction picker (ReactionDockWidget)
+		// Named as LINE's phone app names them (user report: the heart eyes are "Like", the thumbs
+		// up "Awesome"); the keys follow the resource names (ic-reaction-love.png, ...).
+		{ QStringLiteral("reaction-love"), "Like" },
+		{ QStringLiteral("reaction-fun"), "Funny" },
+		{ QStringLiteral("reaction-like"), "Awesome" },
+		{ QStringLiteral("reaction-envy"), "Jealous" },
+		{ QStringLiteral("reaction-surprise"), "Surprised" },
+		{ QStringLiteral("reaction-sad"), "Sad" },
+		// The same faces drawn under a message
+		{ QStringLiteral("badge-love"), "Like" },
+		{ QStringLiteral("badge-fun"), "Funny" },
+		{ QStringLiteral("badge-like"), "Awesome" },
+		{ QStringLiteral("badge-envy"), "Jealous" },
+		{ QStringLiteral("badge-surprise"), "Surprised" },
+		{ QStringLiteral("badge-sad"), "Sad" },
+		{ QStringLiteral("reaction-more"), "More reactions" },
 		{ QStringLiteral("chatroom-call"), "Call" },
 		{ QStringLiteral("chatroom-video-call"), "Video call" },
 		{ QStringLiteral("chatroom-search"), "Search" },
@@ -723,6 +788,23 @@ QString iconSource(const QWidget *w)
 			return v.toString();
 	}
 	return QString();
+}
+
+int chatSearchArrow(const QWidget *w)
+{
+	if (!inheritsClass(w, "LcButton") || !iconSource(w).endsWith(QLatin1StringView("/down-arrow.svg")) || !w->parentWidget())
+		return 0;
+	// The search bar's arrows sit beside the result counter ("41/42") and the clear button; the other
+	// down arrows (scroll to the newest message) do not.
+	bool searchBar = false;
+	for (QObject *sibling : w->parentWidget()->children()) {
+		if (sibling != w && inheritsClass(sibling, "LcButton")
+		    && iconSource(static_cast<QWidget *>(sibling)).contains(QLatin1StringView("search-keyword-delete")))
+			searchBar = true;
+	}
+	if (!searchBar)
+		return 0;
+	return qRound(readProperty(w, "rotationAngle").toDouble()) % 360 == 180 ? -1 : 1;
 }
 
 QString humanizeIconName(const QString &iconName)

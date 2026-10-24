@@ -17,7 +17,7 @@ from NVDAObjects.behaviors import Dialog
 from NVDAObjects.UIA import UIA
 from scriptHandler import script
 
-from . import bridge, elements
+from . import bridge, chatSearch, elements
 from .calls import CallCommandsAppModule
 
 addonHandler.initTranslation()
@@ -95,6 +95,8 @@ def chooseOverlayClasses(obj, clsList):
 		and className not in MAIN_WINDOW_CLASSES
 	):
 		clsList.insert(0, DialogWindow)
+	elif className == "LcTextField" or className == "LcButton":
+		chatSearch.chooseOverlayClasses(obj, clsList)
 	elif obj.role in (controlTypes.Role.GROUPING, controlTypes.Role.PANE) and (
 		className in LAYOUT_CLASSES or className.endswith("Panel")
 	):

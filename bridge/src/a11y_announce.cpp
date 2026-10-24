@@ -1,9 +1,12 @@
 #include "a11y_announce.h"
 
 #include "a11y_log.h"
+#include "accessible_quick.h"
 
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
+#include <QtCore/QTimer>
+#include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
 
 #include <windows.h>
@@ -57,6 +60,35 @@ void announceIncomingCall(const QString &text)
 	static const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, L"Local\\lineMR.incomingCall");
 	const BOOL ok = event && SetEvent(event);
 	a11yLog("[announce] incoming call signalled (%d)", int(ok));
+}
+
+void startEndCallListener(QObject *context)
+{
+	const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, L"Local\\lineMR.endCall");
+	if (!event) {
+		a11yLog("[call] cannot create the end-call event");
+		return;
+	}
+	auto *timer = new QTimer(context);
+	QObject::connect(timer, &QTimer::timeout, context, [event] {
+		if (WaitForSingleObject(event, 0) != WAIT_OBJECT_0)
+			return;
+		// The voice call window (widgets): its End call button, tagged by the bridge.
+		for (QWidget *window : QApplication::topLevelWidgets()) {
+			QWidget *end = window->isVisible() ? window->findChild<QWidget *>(QStringLiteral("lineMR_call-end")) : nullptr;
+			if (!end || !end->isVisible())
+				continue;
+			QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(end);
+			if (QAccessibleActionInterface *action = iface ? iface->actionInterface() : nullptr) {
+				action->doAction(QAccessibleActionInterface::pressAction());
+				a11yLog("[call] ended the call in %s", window->metaObject()->className());
+				return;
+			}
+		}
+		if (!endQuickCall())
+			a11yLog("[call] end call requested, but no call window shows one");
+	});
+	timer->start(200);
 }
 
 } // namespace line_a11y

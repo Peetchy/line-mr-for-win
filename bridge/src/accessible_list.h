@@ -77,6 +77,12 @@ public:
 	bool moveCursor(int key);
 	// Opens the chat under the cursor if it is not the open one; false if there is nothing to open.
 	bool openCursorRow();
+	// Grids and lists LINE gives no keyboard (a chat's Photos & videos, Links, Files): the arrows,
+	// PageUp/PageDown and Home/End move the bridge's cursor by what is on screen (Left/Right one
+	// item, Up/Down the nearest item in the line above / below). Returns false for other keys.
+	bool moveGridCursor(int key);
+	// Clicks the item under the cursor (or the current one), as a mouse user would.
+	bool clickCursorRow();
 	// Space / Enter on a long message: clicks its "See more" (ดูเพิ่มเติม) link, which shows the
 	// whole text. False if the current row has none.
 	bool openSeeMore();
@@ -102,6 +108,28 @@ public:
 	// "Delete" could hit another chat. Right-clicks the cursor row instead and keeps the cursor
 	// there once the menu closes. False if there is no row.
 	bool openCursorMenu();
+	// Applications key in a chat's Photos & videos / Links / Files window, where LINE has no menu:
+	// the bridge's own (Open; Save for photos, videos and files; Copy link and Copy text for links).
+	bool openContentMenu();
+	// Space / Enter in a chat's search results (ChatSearchResultWindow, the search bar's list
+	// button): double-clicks the row like a mouse user (LINE then moves the chat to that message;
+	// a single click does nothing) and puts the keyboard on that message in the chat. False in
+	// other lists.
+	bool openSearchResult();
+	// The sender's picture of the received message at `row`: in that row, or (LINE draws the picture
+	// and the name only on the first of several messages in a row from one person) in a row above it.
+	// Returns that row, or -1 (own messages, notices, dates, or not found). With `scroll`, rows are
+	// scrolled into view to be looked at; without, only rows already shown are. Sets `name` to the
+	// sender's name drawn above the bubble (groups; empty in one-to-one chats) and `picture` to the
+	// picture's place in its row.
+	int senderPictureRow(int row, bool scroll, QString *name = nullptr, QRectF *picture = nullptr) const;
+	// Clicks the sender's picture of the message at `row` like a mouse user: LINE opens that
+	// person's profile. False if the message has none.
+	bool openSenderProfile(int row);
+	// Hovers the message at `row` and clicks the reaction button LINE then draws beside it (LINE
+	// opens its reaction picker). False if the row cannot be looked at.
+	// remove: take back the reaction the user gave (press the chosen face).
+	bool openReactions(int row, bool remove = false);
 	// Back to following LINE's current row (the open chat).
 	void resetCursor();
 	// The row the user is on: the cursor while it is set, else LINE's current row (-1: none).
@@ -134,5 +162,23 @@ private:
 	// The message row last read while the list had focus (focusRememberedRow()).
 	QPersistentModelIndex m_lastRead;
 };
+
+// The message menu the keyboard opened (openRowMenu) gets one more item, "Show <sender>'s profile",
+// for received messages (user request): a widget of the bridge's own inside LINE's menu, reached and
+// pressed with the menu keys the bridge already handles. Called once the menu is shown.
+void addProfileMenuItem(QWidget *menu);
+
+// The sticker window's package strip has no names; LINE draws them only in "My stickers" (its Edit
+// button). When names are missing or the number of packages changed, open "My stickers", read both
+// tabs, go back and put focus back (user request). Called when a StickerWindow shows.
+void refreshStickerPackageNames(QWidget *stickerWindow);
+// Removes that item again (the menu is hidden; LINE may show the same menu widget again).
+void removeExtraMenuItems(QWidget *menu);
+bool isExtraMenuItem(const QWidget *w);
+// The item's interface (menu item with a press action), nullptr for other widgets.
+QAccessibleInterface *extraMenuItemAccessible(QWidget *w);
+// An item the bridge asked to press in the next menu LINE shows within a few seconds (a file's
+// "Save as..." after jumping to its message), matched by text; nullptr if none is pending or matches.
+QWidget *takePendingMenuChoice(const QList<QWidget *> &items);
 
 } // namespace line_a11y

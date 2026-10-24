@@ -6,7 +6,8 @@
 # bridge writes "Incoming call: <caller>, ..." to %LOCALAPPDATA%\LineMR\incoming-call.txt and
 # signals the event Local\lineMR.incomingCall, which this plugin waits for and speaks (NVDA drops
 # UI Automation notifications from background windows). Alt+A / Alt+D work only while LINE is in
-# front: they are commands of LINE's app modules (appModules/line/calls.py).
+# front: they are commands of LINE's app modules (appModules/line/calls.py). LINE (and Windows) lower
+# other sounds during calls; NVDA's own sound is kept at its volume (appModules/line/ducking.py).
 
 import ctypes
 import os
@@ -78,6 +79,8 @@ class _CallListener(threading.Thread):
 		super().__init__(name="lineMR.callListener", daemon=True)
 		self._stopping = False
 		self._event = _kernel32.CreateEventW(None, False, False, CALL_EVENT_NAME)
+		#: Called on this thread when a call comes in.
+		self.onCall = None
 
 	def run(self):
 		if not self._event:
@@ -85,6 +88,8 @@ class _CallListener(threading.Thread):
 			return
 		while not self._stopping:
 			if _kernel32.WaitForSingleObject(self._event, 1000) == _WAIT_OBJECT_0 and not self._stopping:
+				if self.onCall:
+					self.onCall()
 				queueHandler.queueFunction(queueHandler.eventQueue, _speakIncomingCall)
 		_kernel32.CloseHandle(self._event)
 
@@ -104,7 +109,18 @@ def _repairHelperBridges():
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self):
 		super().__init__()
+		self._volumeKeeper = None
+		try:
+			from appModules.line import ducking
+
+			self._volumeKeeper = ducking.Keeper()
+			self._volumeKeeper.start()
+		except Exception:
+			log.error("LINE MR: cannot keep NVDA's volume during calls", exc_info=True)
 		self._listener = _CallListener()
+		if self._volumeKeeper:
+			# NVDA may have opened a new audio session since the last check.
+			self._listener.onCall = self._volumeKeeper.poke
 		self._listener.start()
 		# LINE downloads and updates its helper processes (LineCall.exe, LineMediaPlayer.exe) on its
 		# own; give every version the bridge before a call comes in or a photo is opened.
@@ -112,6 +128,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	def terminate(self):
 		self._listener.stop()
+		if self._volumeKeeper:
+			self._volumeKeeper.stop()
 		super().terminate()
 
 	@script(

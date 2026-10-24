@@ -14,6 +14,7 @@
 #include <QtCore/QSize>
 #include <QtCore/QString>
 
+class QImage;
 class QWidget;
 
 namespace line_a11y {
@@ -63,5 +64,12 @@ void setSafeMode(bool on);
 
 // The captured items joined in reading order (top-to-bottom, then left-to-right).
 QString capturedTextInReadingOrder(const CaptureResult &r);
+
+// Which of LINE's reaction faces a rendered picture (QWidget::grab() of a reaction picker choice)
+// shows: "reaction-love", "reaction-fun", ..., or "" (compared by colour, see text_capture.cpp).
+QString reactionIcon(const QImage &rendered);
+
+// The same for any colour icon whose name starts with `prefix` ("reaction-", "badge-").
+QString colorIcon(const QImage &rendered, const char *prefix);
 
 } // namespace line_a11y

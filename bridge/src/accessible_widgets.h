@@ -33,6 +33,24 @@ bool isLineInputWidget(const QWidget *w);
 // The message input of a chat (ChatDetailInputTextEdit, or AutoSuggestTextArea in group chats):
 // a multi-line LINE text field inside the chat panel.
 bool isMessageInput(const QWidget *w);
+// Name of the open chat in `w`'s window (the first text in the chat header), or "".
+QString chatNameFor(const QWidget *w);
+// "Sticker 3" for a sticker (or emoji) in the sticker window's grid, else empty.
+QString stickerName(const QWidget *w);
+// Does the chat `w` belongs to show a member count (group, OpenChat), unlike a one-to-one chat?
+bool chatHasMemberCount(const QWidget *w);
+// The chat header's name and member count ("(500)") both open the member list: the name reads
+// "<name>, 500 members" (chatNameWithMemberCount, "" if `w` is not the header's name) and the count
+// is left out (no Tab stop, invisible to UIA).
+// A left click in the middle of `w` the way the mouse makes one: enter, move, press, release.
+void sendMouseClick(QWidget *w);
+// Presses an LcButton / LcCheckBox as LineAccessibleButton does, focus left alone. False if `w` is
+// not such a button.
+bool pressButtonQuietly(QWidget *w);
+bool isChatHeaderMemberCount(const QWidget *w);
+QString chatNameWithMemberCount(const QWidget *w, const QString &name);
+// "sent by <sender> on <date>" from the photo / video viewer's header, or just the date, or "".
+QString viewerSenderInfo(QWidget *viewer);
 
 // Accessible name / description for an input: explicit accessibleName -> placeholder (property
 // or painted hint) -> class/context heuristics -> nearby LcText.
@@ -74,6 +92,8 @@ public:
 	QAccessible::State state() const override;
 	QStringList actionNames() const override;
 	void doAction(const QString &actionName) override;
+	// press() without what a user's press also does (focus follows a panel it shows).
+	void pressQuietly() { press(); }
 
 protected:
 	QString computeName() const override;
@@ -184,15 +204,16 @@ public:
 // A QQuickWidget (the photo / video viewer's VideoRenderPanelWidget): Qt 6.6's own interface for the
 // Qt Quick scene inside lets UI Automation run from its items into the host window and the desktop
 // (other applications' windows appeared under the video slider). In LineMediaPlayer.exe it is
-// presented as one leaf, named after what the viewer shows (Photo / Video).
+// presented by the bridge, named after what the viewer shows (Photo / Video); a video holds the
+// player's Play / Pause button and Position slider (video_controls.h), nothing else.
 class LineAccessibleQuickWidget : public QAccessibleWidget {
 public:
 	explicit LineAccessibleQuickWidget(QWidget *w);
-	int childCount() const override { return 0; }
-	QAccessibleInterface *child(int) const override { return nullptr; }
-	int indexOfChild(const QAccessibleInterface *) const override { return -1; }
-	QAccessibleInterface *childAt(int, int) const override { return nullptr; }
-	QAccessibleInterface *focusChild() const override { return nullptr; }
+	int childCount() const override;
+	QAccessibleInterface *child(int index) const override;
+	int indexOfChild(const QAccessibleInterface *child) const override;
+	QAccessibleInterface *childAt(int x, int y) const override;
+	QAccessibleInterface *focusChild() const override;
 	QString text(QAccessible::Text t) const override;
 };
 

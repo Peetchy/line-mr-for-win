@@ -6,6 +6,7 @@
 #include "text_capture.h"
 
 #include <QtCore/QAbstractItemModel>
+#include <QtCore/QDateTime>
 #include <QtCore/QDir>
 #include <QtCore/QDirIterator>
 #include <QtCore/QFile>
@@ -19,6 +20,8 @@
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
+
+#include <algorithm>
 
 namespace line_a11y {
 namespace {
@@ -219,10 +222,8 @@ void writeResourceList(const QString &path)
 
 // Copies of the call windows' style sheets and QML (their layout and texts, for windows that only
 // appear during a real call) into resources\.
-void writeCallResources(const QString &directory)
+void writeResources(const QString &directory, const QRegularExpression &interesting)
 {
-	static const QRegularExpression interesting(QStringLiteral("(voip|call|toast)[^/]*\\.(style|qml)$"),
-	                                            QRegularExpression::CaseInsensitiveOption);
 	QDir().mkpath(directory);
 	for (QDirIterator it(QStringLiteral(":/"), QDirIterator::Subdirectories); it.hasNext();) {
 		const QString name = it.next();
@@ -233,6 +234,13 @@ void writeCallResources(const QString &directory)
 		if (in.open(QIODevice::ReadOnly) && out.open(QIODevice::WriteOnly | QIODevice::Truncate))
 			out.write(in.readAll());
 	}
+}
+
+void writeCallResources(const QString &directory)
+{
+	static const QRegularExpression interesting(QStringLiteral("(voip|call|toast)[^/]*\\.(style|qml)$"),
+	                                            QRegularExpression::CaseInsensitiveOption);
+	writeResources(directory, interesting);
 }
 
 void writeDump(const QString &fileName, const QWidgetList &windows)
@@ -288,11 +296,9 @@ void writeDelegateDump(const QString &path)
 		if (w->isVisible() || !QLatin1StringView(w->metaObject()->className()).endsWith(QLatin1StringView("DelegateWidget")))
 			continue;
 		out << "=== " << w->metaObject()->className() << '\n';
+		// Structure only: rendering a row template that holds no row crashed LINE twice (2026-10-24,
+		// LINE's own paint code in QObject::connect, called from QWidget::render here).
 		dumpWidget(out, w, 0, first);
-		if (w->width() > 0 && w->height() > 0) {
-			const QString text = capturedTextInReadingOrder(captureWidgetText(w, true));
-			out << "  painted: \"" << QString(text).replace(QLatin1Char('\n'), QStringLiteral(" / ")) << "\"\n";
-		}
 	}
 }
 
@@ -428,6 +434,27 @@ void pollTypeProbe()
 	writeTypeProbe();
 }
 
+// Creating %LOCALAPPDATA%\LineMR\export-request with one Qt resource path per line (an icon:
+// ":/resource/img/basic/chat/floating_dark.png") copies those files to exports\.
+void pollExportRequest()
+{
+	QFile request(bridgeDirectory() + QStringLiteral("export-request"));
+	if (!request.exists() || !request.open(QIODevice::ReadOnly | QIODevice::Text))
+		return;
+	const QStringList paths = QString::fromUtf8(request.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+	request.close();
+	request.remove();
+	const QString directory = bridgeDirectory() + QStringLiteral("exports/");
+	QDir().mkpath(directory);
+	for (const QString &path : paths) {
+		QFile in(path.trimmed());
+		QFile out(directory + QFileInfo(path.trimmed()).fileName());
+		const bool ok = in.open(QIODevice::ReadOnly) && out.open(QIODevice::WriteOnly | QIODevice::Truncate)
+		    && out.write(in.readAll()) >= 0;
+		a11yLog("[diag] export %s: %s", qUtf8Printable(path.trimmed()), ok ? "ok" : "not found");
+	}
+}
+
 } // namespace
 
 void writeWidgetDump()
@@ -455,6 +482,37 @@ void startDiagnostics(QApplication *app)
 	QObject::connect(timer, &QTimer::timeout, timer, &pollDumpRequest);
 	QObject::connect(timer, &QTimer::timeout, timer, &pollCallAnnounceTest);
 	QObject::connect(timer, &QTimer::timeout, timer, &pollTypeProbe);
+	QObject::connect(timer, &QTimer::timeout, timer, &pollExportRequest);
+	timer->start(kPollIntervalMs);
+}
+
+void startHelperDiagnostics(QObject *context)
+{
+	auto *timer = new QTimer(context);
+	QObject::connect(timer, &QTimer::timeout, context, [] {
+		const QString prefix = helperProcessName() + QLatin1Char('-');
+		const QString request = bridgeDirectory() + prefix + QStringLiteral("dump-request");
+		if (!QFile::exists(request))
+			return;
+		// LINE keeps idle copies of its helpers (two viewers): the one showing a window answers; any
+		// copy does once the request is a few seconds old.
+		const QWidgetList windows = QApplication::topLevelWidgets();
+		const bool showsWindow = std::any_of(windows.cbegin(), windows.cend(), [](const QWidget *w) { return w->isVisible(); });
+		if (!showsWindow && QFileInfo(request).lastModified().msecsTo(QDateTime::currentDateTime()) < 3000)
+			return;
+		if (!QFile::remove(request))
+			return;
+		writeDump(prefix + QStringLiteral("widget-dump.txt"), QApplication::topLevelWidgets());
+		QFile f(bridgeDirectory() + prefix + QStringLiteral("quick-dump.txt"));
+		if (f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+			QTextStream out(&f);
+			out.setEncoding(QStringConverter::Utf8);
+			dumpQuickWindows(out);
+		}
+		// The helper's own QML (the viewer's video player, the call windows).
+		static const QRegularExpression qml(QStringLiteral("\\.qml$"), QRegularExpression::CaseInsensitiveOption);
+		writeResources(bridgeDirectory() + QStringLiteral("resources/") + helperProcessName() + QLatin1Char('/'), qml);
+	});
 	timer->start(kPollIntervalMs);
 }
 

@@ -31,6 +31,10 @@ void quickWindowShown(QQuickWindow *window);
 // Space / Enter on a clickable area that has keyboard focus: clicks it. Returns true if handled.
 bool handleQuickKey(QQuickWindow *window, int key);
 
+// Ends the call shown in a Qt Quick call window (the video call window) like its End call
+// confirmation does. Returns false if there is none.
+bool endQuickCall();
+
 // Item trees of all visible Qt Quick windows, for widget-dump.txt.
 void dumpQuickWindows(QTextStream &out);
 
