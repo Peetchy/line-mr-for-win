@@ -175,6 +175,35 @@ class _Checker:
 _checker = _Checker()
 
 
+def _changesPath():
+	"""The add-on's "What's new" page in NVDA's language (zh_TW, zh, ...), else English."""
+	try:
+		import languageHandler
+		lang = languageHandler.getLanguage()
+	except Exception:
+		lang = "en"
+	docs = os.path.join(addonHandler.getCodeAddon().path, "doc")
+	for candidate in (lang, lang.split("_")[0], "en"):
+		path = os.path.join(docs, candidate, "changes.html")
+		if os.path.isfile(path):
+			return path
+	return None
+
+
+def showWhatsNew():
+	"""Shows the changes of each version in a browseable window (headings per version)."""
+	path = _changesPath()
+	if not path:
+		# Translators: Reported when the add-on's list of changes is missing.
+		ui.message(_("The list of changes was not found."))
+		return
+	with open(path, encoding="utf-8") as f:
+		html = f.read()
+	body = re.search(r"<body>(.*)</body>", html, re.DOTALL)
+	# Translators: Title of the window that lists what changed in each version of the add-on.
+	ui.browseableMessage(body.group(1) if body else html, _("What's new in LINE MR"), isHtml=True)
+
+
 class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 	# Translators: Title of the add-on's category in NVDA's settings.
 	title = _("LINE MR")
@@ -189,6 +218,9 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		# Translators: Button in the add-on's settings.
 		checkNow = helper.addItem(wx.Button(self, label=_("&Check for updates now")))
 		checkNow.Bind(wx.EVT_BUTTON, lambda evt: _checker.check(manual=True))
+		# Translators: Button in the add-on's settings: shows what changed in each version.
+		whatsNew = helper.addItem(wx.Button(self, label=_("&What's new")))
+		whatsNew.Bind(wx.EVT_BUTTON, lambda evt: showWhatsNew())
 
 	def onSave(self):
 		config.conf[CONFIG_SECTION]["checkForUpdates"] = self.checkForUpdates.GetValue()

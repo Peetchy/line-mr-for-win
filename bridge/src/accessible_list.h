@@ -25,6 +25,8 @@ QT_END_NAMESPACE
 namespace line_a11y {
 
 bool isLineListView(const QWidget *w);
+// The posts of a group's / OpenChat's Notes (TimelineListView).
+bool isPostList(const QWidget *w);
 
 // LcListView as a flat list of row items. Items stand for row *positions* (their model index is
 // resolved on every query), so they survive LINE's constant model churn.
@@ -94,6 +96,12 @@ public:
 	// would (play / pause button, video play button, the file's bubble, the picture), so LINE plays
 	// or opens it. False for other rows (text, stickers, calls).
 	bool openMessageContent();
+	// Space / Enter on a post in Notes: clicks its first photo or video (a video's play button), which
+	// LINE opens in its media viewer. False if the post shows none.
+	bool openPostMedia();
+	// Applications key on a post in Notes: the bridge's menu (Open, Save as..., Copy text, LINE's own
+	// "More options" menu). LINE has no context menu there.
+	bool openPostMenu();
 	// Space / Enter in a picker list (Share with...): ticks or unticks the current row the way a
 	// click does (LINE ignores those keys there). False if the row is not a picker row.
 	bool toggleCursorRow();

@@ -28,7 +28,8 @@ QAccessibleInterface *quickAccessibleFactory(const QString &key, QObject *object
 // first focus and report focus changes between its items.
 void quickWindowShown(QQuickWindow *window);
 
-// Space / Enter on a clickable area that has keyboard focus: clicks it. Returns true if handled.
+// Space / Enter on a clickable area that has keyboard focus: clicks it. Up / Down / Page Up / Page
+// Down / Home / End on a row of a list: moves to another row and scrolls to it. True if handled.
 bool handleQuickKey(QQuickWindow *window, int key);
 
 // Ends the call shown in a Qt Quick call window (the video call window) like its End call

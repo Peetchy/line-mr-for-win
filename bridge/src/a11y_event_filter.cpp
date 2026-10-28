@@ -17,6 +17,8 @@
 #include <functional>
 #include <memory>
 
+#include <QtCore/QDateTime>
+#include <QtCore/QFile>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QEvent>
 #include <QtCore/QObject>
@@ -33,6 +35,7 @@
 #include <QtQuick/QQuickWindow>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QComboBox>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QScrollArea>
@@ -160,32 +163,101 @@ bool isViewerWindow(const QWidget *w)
 	    && (w->windowType() == Qt::Window || w->windowType() == Qt::Dialog);
 }
 
+// The viewer's Download button (image://viewer/download.svg): LINE shows it only while the mouse is
+// over the picture, so keyboard users press it through the bridge (Ctrl+S, or Save as... in a post's
+// menu in Notes). LINE then asks where to save in Windows' Save As dialog.
+bool saveViewerMedia(QWidget *viewer)
+{
+	for (QWidget *button : viewer->findChildren<QWidget *>()) {
+		if (inheritsClass(button, "LcButton") && iconSource(button).endsWith(QLatin1StringView("/download.svg"))) {
+			// The accessible press skips hidden buttons: emit its clicked() signals as a click does.
+			a11yLog("[viewer] save: pressing Download (%s)", button->isVisible() ? "shown" : "hidden");
+			QPointer<QWidget> guard(button);
+			void *self = button;
+			void *args[] = { nullptr, &self };
+			emitSignal(button, "clicked()");
+			if (guard)
+				emitSignal(button, "clicked(LcButton*)", args);
+			return true;
+		}
+	}
+	a11yLog("[viewer] save: no Download button");
+	return false;
+}
+
 void viewerShown(QWidget *w)
 {
+	// "Save as..." chosen in LINE (a post's menu in Notes) just before this window showed: save once
+	// the picture or video has loaded.
+	QPointer<QWidget> viewer(w);
+	for (int delay : { 800, 1600, 2400 }) {
+		QTimer::singleShot(delay, w, [viewer] {
+			if (!viewer || !viewer->isVisible())
+				return;
+			QFile request(bridgeDirectory() + QStringLiteral("viewer-save-request"));
+			if (!request.open(QIODevice::ReadOnly))
+				return;
+			const qint64 at = request.readAll().trimmed().toLongLong();
+			request.close();
+			request.remove();
+			if (QDateTime::currentMSecsSinceEpoch() - at < 15000)
+				saveViewerMedia(viewer);
+		});
+	}
 	const HWND front = GetForegroundWindow();
 	if (front && isLineWindow(front)) {
 		g_returnWindow = front;
 		a11yLog("[viewer] %s shown over LINE window %p", w->metaObject()->className(), static_cast<void *>(front));
 	}
+	// A video opened from a note (post) leaves focus on the thumbnail strip, where Space and the arrows
+	// do nothing for the video: start on the player (Play / Pause, Position, Playback speed), as a
+	// video opened from a chat does. Tried until the window is active and the player shows.
+	QPointer<QWidget> window(w);
+	for (int delay : { 300, 700, 1200, 2000 }) {
+		QTimer::singleShot(delay, w, [window] {
+			if (!window || !window->isActiveWindow() || window->property("_lineA11yPlayerFocused").toBool())
+				return;
+			for (QWidget *video : window->findChildren<QWidget *>()) {
+				const QWidget *panel = ancestorInheriting(video, "VideoPlayerPanel");
+				if (!isVideoWidget(video) || !video->isVisible() || !panel || !panel->isVisible())
+					continue;
+				window->setProperty("_lineA11yPlayerFocused", true);
+				if (window->focusWidget() != video) {
+					a11yLog("[viewer] focus to the video player (was %s)",
+					        window->focusWidget() ? window->focusWidget()->metaObject()->className() : "nothing");
+					video->setFocus(Qt::OtherFocusReason);
+				}
+				return;
+			}
+		});
+	}
 }
 
 void viewerHidden(QWidget *w)
 {
+	w->setProperty("_lineA11yPlayerFocused", false);
 	const HWND back = g_returnWindow;
 	g_returnWindow = nullptr;
 	if (!back || !IsWindow(back) || !IsWindowVisible(back))
 		return;
 	// Windows activates the next window once this one is hidden: give that a moment, then go back
-	// to LINE unless the user is already there.
+	// to the LINE window the viewer was opened from. Windows may pick another LINE window (the main
+	// window, when a video was opened from Notes), which counts as wrong too.
 	QTimer::singleShot(100, [back, name = QByteArray(w->metaObject()->className())] {
 		const HWND front = GetForegroundWindow();
-		if (front == back || (front && isLineWindow(front)))
+		if (front == back)
 			return;
 		const bool ok = SetForegroundWindow(back);
 		a11yLog("[viewer] %s hidden: back to LINE window %p (%s)", name.constData(), static_cast<void *>(back),
 		        ok ? "done" : "refused");
 	});
 }
+
+// The window a photo / video was opened from with the keyboard (Notes), until LINE comes back from
+// its media viewer (g_mediaReturnLeft: LINE was in the background since).
+QPointer<QWidget> g_mediaReturnWindow;
+QElapsedTimer g_mediaReturnTimer;
+bool g_mediaReturnLeft = false;
 
 // Marks widgets whose focus policy the bridge changed (so it only ever touches those).
 constexpr const char *kMadeFocusableProperty = "_lineA11yFocusable";
@@ -218,6 +290,12 @@ bool duplicatesTabStop(QWidget *w)
 		return false;
 	for (QWidget *p = w->parentWidget(); p && !p->isWindow(); p = p->parentWidget()) {
 		if (classifyWidget(p) == WidgetKind::Button && nameOf(p) == name)
+			return true;
+	}
+	// A small arrow LINE lays over its own combo box (Create OpenChat's category): the combo box is the stop.
+	const QRect rect(w->mapTo(w->window(), QPoint()), w->size());
+	for (QComboBox *box : w->window()->findChildren<QComboBox *>()) {
+		if (box->isVisible() && QRect(box->mapTo(w->window(), QPoint()), box->size()).contains(rect))
 			return true;
 	}
 	QWidget *parent = w->parentWidget();
@@ -454,15 +532,34 @@ void labelComboBox(QWidget *box)
 {
 	if (!inheritsClass(box, "QComboBox") || !box->accessibleName().isEmpty() || !box->isVisible())
 		return;
-	if (const QString text = labelAboveText(box); !text.isEmpty())
+	// Create OpenChat draws "หมวดหมู่" (Category) and the value over its combo box: the text at the left.
+	const QRect boxRect(box->mapTo(box->window(), QPoint()), box->size());
+	QWidget *inside = nullptr;
+	for (QWidget *t : box->window()->findChildren<QWidget *>()) {
+		if (!inheritsClass(t, "LcText") || !t->isVisible())
+			continue;
+		const QRect r(t->mapTo(box->window(), QPoint()), t->size());
+		if (boxRect.contains(r.center()) && (!inside || r.left() < inside->mapTo(box->window(), QPoint()).x()))
+			inside = t;
+	}
+	const QString insideText = inside ? extractLcTextString(inside) : QString();
+	if (!insideText.isEmpty() && insideText != cleanText(static_cast<QComboBox *>(box)->currentText()))
+		box->setAccessibleName(insideText);
+	else if (const QString text = labelAboveText(box); !text.isEmpty())
 		box->setAccessibleName(text);
 	else if (const QString text = nearbyLabelText(box); !text.isEmpty())
 		box->setAccessibleName(text);
+	// The text profile editor's font list has no label at all.
+	else if (inheritsClass(box->window(), "CustomProfileEditorWindow"))
+		box->setAccessibleName(label("Font"));
 }
 
 void tagWidget(QWidget *w)
 {
 	labelComboBox(w);
+	// The text profile editor's colour swatches sit in a scroll area that would be a nameless stop.
+	if (inheritsClass(w, "LcScrollArea") && inheritsClass(w->window(), "CustomProfileEditorWindow"))
+		w->setFocusPolicy(Qt::NoFocus);
 	if (!w->objectName().isEmpty())
 		return;
 	if (const QString tag = tagFor(w); !tag.isEmpty())
@@ -514,6 +611,8 @@ bool pressIsRecent()
 // The last context menu item press, and the window it opened.
 QElapsedTimer g_menuPressTimer;
 QPointer<QWidget> g_windowAfterMenu;
+// The same for a Qt Quick window (Create chat -> the friend picker).
+QPointer<QQuickWindow> g_quickWindowAfterMenu;
 // The pressed menu item was one of a set of options (Sort: Time received / Unread).
 bool g_menuOptionPressed = false;
 
@@ -541,14 +640,21 @@ void moveFocusToNewContent()
 	if (!content || !content->isVisible() || !content->window()->isActiveWindow())
 		return;
 	QWidget *focus = QApplication::focusWidget();
-	if (focus && focus->isVisible() && focus != g_pressed.data() && !focus->isAncestorOf(content))
-		return; // LINE (or the user) already put focus somewhere on purpose
 	if (focus && content->isAncestorOf(focus))
 		return;
+	// When the pressed control went away with the old page (Create OpenChat's ต่อไป), Qt moved focus
+	// to the next stop, often the title bar's Close: that was not on purpose.
+	const bool movedByQt = (g_pressed && !g_pressed->isVisible()) || (focus && ancestorInheriting(focus, "LcTitleBar"));
+	if (focus && focus->isVisible() && focus != g_pressed.data() && !focus->isAncestorOf(content) && !movedByQt)
+		return; // LINE (or the user) already put focus somewhere on purpose
 	QList<QWidget *> stops, titleBar;
 	collectTabStops(content, stops, titleBar, false);
 	// A page built around a list (friends, chats, search results) starts in the list.
 	std::stable_partition(stops.begin(), stops.end(), [](QWidget *stop) { return isLineListView(stop); });
+	// A form page (Create OpenChat's nickname) starts in its text field, whose description tells what
+	// the page is for; the picture buttons come first in the Tab order.
+	if (inheritsClass(content, "PagePanel"))
+		std::stable_partition(stops.begin(), stops.end(), [](QWidget *stop) { return isLineInputWidget(stop); });
 	for (QWidget *stop : std::as_const(stops) + titleBar) {
 		if (stop->isVisible() && stop->isEnabled()) {
 			static int logged = 0;
@@ -576,6 +682,8 @@ void pressWithKeyboard(QWidget *w)
 	QTimer::singleShot(200, window, [pressed, window] {
 		if (!window || !window->isActiveWindow() || (pressed && pressed->isVisible()))
 			return;
+		if (g_newContent && g_newContent->isVisible() && g_newContent->window() == window)
+			return; // moveFocusToNewContent() starts at the new page's own first control
 		if (QWidget *first = firstContentTabStop(window))
 			first->setFocus(Qt::TabFocusReason);
 	});
@@ -873,17 +981,29 @@ public:
 		case QEvent::FocusIn:
 			enforceAccessibilityHandler("FocusIn");
 			break;
+		case QEvent::ApplicationStateChange:
+			if (g_mediaReturnWindow && static_cast<QApplicationStateChangeEvent *>(event)->applicationState() != Qt::ApplicationActive)
+				g_mediaReturnLeft = true;
+			break;
 		default:
 			break;
 		}
 		if (!watched->isWidgetType()) {
 			if (isQuickWindow(watched)) {
 				auto *window = static_cast<QQuickWindow *>(watched);
-				if (event->type() == QEvent::Show)
+				if (event->type() == QEvent::Show) {
+					if (menuPressIsRecent()) {
+						a11yLog("[menu] after the press: %s shown", window->metaObject()->className());
+						g_quickWindowAfterMenu = window;
+					}
 					quickWindowShown(window);
+				}
 				else if (event->type() == QEvent::KeyPress) {
 					auto *key = static_cast<QKeyEvent *>(event);
-					if (!key->isAutoRepeat() && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier))
+					// Held arrows repeat (lists); held Space / Enter must not click again.
+					const bool repeats = key->key() == Qt::Key_Up || key->key() == Qt::Key_Down
+					                     || key->key() == Qt::Key_PageUp || key->key() == Qt::Key_PageDown;
+					if ((!key->isAutoRepeat() || repeats) && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier))
 					    && handleQuickKey(window, key->key()))
 						return true;
 				}
@@ -924,6 +1044,24 @@ public:
 				menuShown(w);
 			break;
 		case QEvent::WindowActivate:
+			// Back from LINE's media viewer: LINE activates its main window, not the Notes window the
+			// photo / video was opened from.
+			if (g_mediaReturnWindow && w->isWindow()) {
+				QPointer<QWidget> back = g_mediaReturnWindow;
+				if (w == back || g_mediaReturnTimer.elapsed() > 600000) {
+					g_mediaReturnWindow = nullptr;
+				} else if (g_mediaReturnLeft) {
+					g_mediaReturnWindow = nullptr;
+					a11yLog("[viewer] %s activated after the viewer: back to %s", w->metaObject()->className(),
+					        back->metaObject()->className());
+					QTimer::singleShot(0, back, [back] {
+						if (back && back->isVisible()) {
+							back->raise();
+							back->activateWindow();
+						}
+					});
+				}
+			}
 			// A dialog window LINE opens with nothing focused, or (first activation) with focus on a
 			// title-bar button such as Close: start at its first control.
 			if (w->isWindow() && !isContextMenu(w)) {
@@ -969,6 +1107,17 @@ public:
 			    && (ancestorInheriting(w, "MainChatPanel") || ancestorInheriting(w, "MainFriendPanel"))) {
 				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
 					list->resetCursor();
+			}
+			// Notes: start on a post, not on the blank row behind the search field.
+			if (isPostList(w)) {
+				QPointer<QWidget> view(w);
+				QTimer::singleShot(0, w, [view] {
+					auto *list = view ? dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(view)) : nullptr;
+					const QModelIndex current = view ? static_cast<QAbstractItemView *>(view.data())->currentIndex() : QModelIndex();
+					QAccessibleInterface *item = list && current.isValid() ? list->itemAt(current.row()) : nullptr;
+					if (list && (!item || item->text(QAccessible::Name).isEmpty()))
+						list->focusEdgeRow(false);
+				});
 			}
 			if (isMessageList(w)) {
 				// Entering the messages (Tab, Shift+Tab, Alt+M) starts at the newest one; coming back
@@ -1036,11 +1185,11 @@ public:
 			// of LINE's current row (the open chat). The Applications key already opened it on its
 			// key press (below); Shift+F10 arrives only here.
 			if (static_cast<QContextMenuEvent *>(event)->reason() == QContextMenuEvent::Keyboard
-			    && (isCursorList(w) || isContentList(w))) {
+			    && (isCursorList(w) || isContentList(w) || isPostList(w))) {
 				if (m_cursorMenuKey.isValid() && m_cursorMenuKey.elapsed() < 1000)
 					return true;
 				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
-				    list && (isContentList(w) ? list->openContentMenu() : list->openCursorMenu()))
+				    list && (isContentList(w) || isPostList(w) ? list->openContentMenu() : list->openCursorMenu()))
 					return true;
 			}
 			break;
@@ -1167,6 +1316,19 @@ public:
 						return true;
 				}
 			}
+			// Notes: LINE's arrows move from a row of its own (Enter then hit another post) and stop on
+			// the blank row behind the search field: the bridge steps through the posts itself.
+			if (isPostList(w) && isListNavigationKey(key->key())
+			    && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier))) {
+				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w))) {
+					if (key->key() == Qt::Key_Home || key->key() == Qt::Key_End
+					    || !static_cast<QAbstractItemView *>(w)->currentIndex().isValid())
+						list->focusEdgeRow(key->key() == Qt::Key_End);
+					else
+						list->stepRow(key->key());
+					return true;
+				}
+			}
 			if (isContentList(w) && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier))) {
 				auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
 				if (list && (isListNavigationKey(key->key()) || key->key() == Qt::Key_Left || key->key() == Qt::Key_Right)
@@ -1203,7 +1365,7 @@ public:
 				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
 				    list && !key->isAutoRepeat()
 				    && (isMessageList(w) ? list->openSeeMore() || list->openLink() || list->openMessageContent()
-				                         : list->openSearchResult() || list->toggleCursorRow()))
+				                         : list->openSearchResult() || list->toggleCursorRow() || list->openPostMedia()))
 					return true;
 			}
 			// The Applications key on a message: its menu (see the context menu event above). Handled on
@@ -1216,9 +1378,13 @@ public:
 					return true;
 				}
 			}
-			if ((isCursorList(w) || isContentList(w)) && key->key() == Qt::Key_Menu && !key->isAutoRepeat()) {
+			if (key->key() == Qt::Key_S && key->modifiers() == Qt::ControlModifier && !key->isAutoRepeat()
+			    && isViewerWindow(w->window()) && inheritsClass(w->window(), "MediaViewerWindow")
+			    && saveViewerMedia(w->window()))
+				return true;
+			if ((isCursorList(w) || isContentList(w) || isPostList(w)) && key->key() == Qt::Key_Menu && !key->isAutoRepeat()) {
 				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
-				    list && (isContentList(w) ? list->openContentMenu() : list->openCursorMenu())) {
+				    list && (isContentList(w) || isPostList(w) ? list->openContentMenu() : list->openCursorMenu())) {
 					m_cursorMenuKey.start();
 					return true;
 				}
@@ -1342,6 +1508,11 @@ private:
 			// The chosen item opened a window (a confirmation): it keeps the keyboard.
 			if (g_windowAfterMenu && g_windowAfterMenu->isVisible() && g_windowAfterMenu->window() != back->window()) {
 				a11yLog("[menu] closed; %s keeps the focus", g_windowAfterMenu->metaObject()->className());
+				return;
+			}
+			if (g_quickWindowAfterMenu && g_quickWindowAfterMenu->isVisible()) {
+				a11yLog("[menu] closed; %s keeps the focus", g_quickWindowAfterMenu->metaObject()->className());
+				g_quickWindowAfterMenu->requestActivate();
 				return;
 			}
 			// A Sort option: LINE re-sorts the chat (or friend) list beside the Sort button, which looked
@@ -1518,6 +1689,7 @@ void noteMenuPress(QWidget *item, const char *how)
 {
 	g_menuPressTimer.start();
 	g_windowAfterMenu = nullptr;
+	g_quickWindowAfterMenu = nullptr;
 	QAccessibleInterface *iface = item ? QAccessible::queryAccessibleInterface(item) : nullptr;
 	g_menuOptionPressed = iface && iface->state().checkable;
 	a11yLog("[menu] pressed \"%s\" (%s)", iface ? qUtf8Printable(iface->text(QAccessible::Name)) : "", how);
@@ -1543,6 +1715,13 @@ void endListBrowsing()
 {
 	if (g_filter)
 		g_filter->endBrowsing();
+}
+
+void noteMediaOpenedFrom(QWidget *window)
+{
+	g_mediaReturnWindow = window;
+	g_mediaReturnTimer.start();
+	g_mediaReturnLeft = false;
 }
 
 } // namespace line_a11y

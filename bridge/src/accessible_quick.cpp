@@ -28,12 +28,17 @@
 
 #include <algorithm>
 #include <functional>
+#include <memory>
 
 namespace line_a11y {
 namespace {
 
 // Marks items the bridge put into the Tab chain.
 constexpr const char *kMadeFocusableProperty = "_lineA11yFocusable";
+// Set on a window while focus changes there are not reported (see clickItem).
+constexpr const char *kQuietFocusProperty = "_lineA11yQuietFocus";
+// Marks LINE's Tab stops the bridge took out of the Tab chain while they are transparent.
+constexpr const char *kHiddenTabStopProperty = "_lineA11yHiddenTabStop";
 // The window's item list is rebuilt at most this often (NVDA asks for children repeatedly).
 constexpr qint64 kModelTtlMs = 300;
 
@@ -245,8 +250,19 @@ qsizetype coveringChild(const QList<QQuickItem *> &children)
 void collect(QQuickItem *item, QList<QQuickItem *> &texts, QList<QQuickItem *> &clickables,
              QList<QQuickItem *> &images, QList<QQuickItem *> &qtItems)
 {
-	if (!item->isVisible() || item->opacity() <= 0.01)
+	if (!item->isVisible() || item->opacity() <= 0.01) {
+		// LINE's controls are Tab stops of their own even while transparent (the search field's
+		// Clear button before anything is typed): NVDA said "Button" for nothing shown.
+		if (item->activeFocusOnTab() && isClickable(item)) {
+			item->setActiveFocusOnTab(false);
+			item->setProperty(kHiddenTabStopProperty, true);
+		}
 		return;
+	}
+	if (item->property(kHiddenTabStopProperty).toBool()) {
+		item->setActiveFocusOnTab(true);
+		item->setProperty(kHiddenTabStopProperty, false);
+	}
 	// A clickable without size is no control (the call footer's Stickers LcQuickButton is 0 px wide
 	// beside its picture), but Tab stopped there and NVDA said "Button".
 	if (item->activeFocusOnTab() && (item->width() <= 0 || item->height() <= 0) && isClickable(item))
@@ -307,6 +323,54 @@ bool readingOrder(const QQuickItem *a, const QQuickItem *b)
 
 void nameInput(QQuickItem *item);
 void nameQtButton(QQuickItem *item);
+QQuickItem *itemViewOf(const QQuickItem *item);
+
+// An on/off switch (LINE's "radio-btn-bg" LcQuickButton; "selected" is its state): Create group's
+// "Members join automatically".
+bool isToggleSwitch(const QQuickItem *item)
+{
+	return inheritsClass(item, "LcQuickButton") && item->property("selected").metaType().id() == QMetaType::Bool
+	       && sourceOf(item).contains(QLatin1StringView("radio-btn"));
+}
+
+bool hasAncestorClass(const QQuickItem *item, QLatin1StringView prefix)
+{
+	for (const QQuickItem *p = item->parentItem(); p; p = p->parentItem()) {
+		if (QLatin1StringView(p->metaObject()->className()).startsWith(prefix))
+			return true;
+	}
+	return false;
+}
+
+// The heading of LINE's name editor (CommonNameEditor: "ชื่อกลุ่ม" over the name, an edit button and a
+// hidden text field), or empty.
+QString nameEditorHeading(const QQuickItem *item)
+{
+	for (const QQuickItem *p = item->parentItem(); p; p = p->parentItem()) {
+		if (!QLatin1StringView(p->metaObject()->className()).startsWith(QLatin1StringView("CommonNameEditor")))
+			continue;
+		for (QQuickItem *child : p->childItems()) {
+			if (inheritsClass(child, "QQuickText") && child->isVisible() && !itemText(child).isEmpty())
+				return itemText(child);
+		}
+		return QString();
+	}
+	return QString();
+}
+
+// The row of a ListView / GridView that `item` belongs to (a child of the view's content item), or nullptr.
+QQuickItem *delegateOf(const QQuickItem *item)
+{
+	QQuickItem *view = itemViewOf(item);
+	auto *content = view ? view->property("contentItem").value<QQuickItem *>() : nullptr;
+	if (!content)
+		return nullptr;
+	for (QQuickItem *p = const_cast<QQuickItem *>(item); p; p = p->parentItem()) {
+		if (p->parentItem() == content)
+			return p;
+	}
+	return nullptr;
+}
 
 const QuickModel &modelFor(QQuickWindow *window)
 {
@@ -352,11 +416,17 @@ const QuickModel &modelFor(QQuickWindow *window)
 			}
 			if (row) {
 				m.checks.insert(row, area);
+				area->setActiveFocusOnTab(false); // the row is the Tab stop
 				continue;
 			}
 		}
+		// A row of a list is named from its own texts only: a row half under the bar of chosen
+		// friends below the list took the names on that bar.
+		QQuickItem *row = delegateOf(area);
 		QList<QQuickItem *> inside;
 		for (QQuickItem *t : std::as_const(texts)) {
+			if (row ? !row->isAncestorOf(t) : delegateOf(t) != nullptr)
+				continue;
 			// Mostly inside: a small edit icon next to a text does not take that text as its label.
 			const QRectF tr = sceneRect(t);
 			const QRectF common = rect.intersected(tr);
@@ -377,6 +447,54 @@ const QuickModel &modelFor(QQuickWindow *window)
 			const QString text = itemText(t);
 			if (std::none_of(parts.cbegin(), parts.cend(), [&text](const QString &part) { return part.contains(text); }))
 				parts << text;
+		}
+		// A switch is named by the text left of it on its line.
+		if (parts.isEmpty() && isToggleSwitch(area)) {
+			QQuickItem *best = nullptr;
+			for (QQuickItem *t : std::as_const(texts)) {
+				const QRectF tr = sceneRect(t);
+				if (claimed.contains(t) || tr.right() > rect.left() + 1 || qAbs(tr.center().y() - rect.center().y()) > 10)
+					continue;
+				if (!best || tr.right() > sceneRect(best).right())
+					best = t;
+			}
+			if (best) {
+				parts << itemText(best);
+				claimed.insert(best);
+			}
+		}
+		// The group picture's camera buttons (Create group): one on the picture, one on the background.
+		if (parts.isEmpty() && sourceOf(area).contains(QLatin1StringView("camera_btn"))
+		    && hasAncestorClass(area, QLatin1StringView("ProfileSettingPanel"))) {
+			bool onPicture = false;
+			if (QQuickItem *panel = area->parentItem()) {
+				for (QQuickItem *child : panel->childItems()) {
+					const QRectF cr = sceneRect(child);
+					if (child != area && child->isVisible() && child->opacity() > 0.01 && cr.width() <= 100
+					    && cr.height() <= 100 && cr.width() >= 40 && cr.adjusted(-6, -6, 6, 6).intersects(rect))
+						onPicture = true;
+				}
+			}
+			parts << label(onPicture ? "Change profile picture" : "Change background picture");
+		}
+		// The edit button of a name ("ชื่อกลุ่ม"): "Edit group name".
+		if (parts.isEmpty() && sourceOf(area).contains(QLatin1StringView("icon_edit")))
+			if (const QString heading = nameEditorHeading(area); !heading.isEmpty())
+				parts << label("Edit %1").arg(heading);
+		// A row partly scrolled out of its list: its texts are clipped, but they are its name.
+		if (parts.isEmpty() && row && area->width() * area->height() >= 0.5 * row->width() * row->height())
+			parts = textsInside(row);
+		// The remove button on a chip of the chosen friends (Create chat): "Remove <name>".
+		if (parts.isEmpty() && sourceOf(area).contains(QLatin1StringView("select-close"))) {
+			if (QQuickItem *chip = area->parentItem()) {
+				for (QQuickItem *child : chip->childItems()) {
+					if (isTextItem(child) && !itemText(child).isEmpty()) {
+						parts << label("Remove %1").arg(itemText(child));
+						claimed.insert(child);
+						break;
+					}
+				}
+			}
 		}
 		// The call footer's LabelButtons put their label under the clickable picture (Stickers).
 		if (parts.isEmpty()) {
@@ -501,7 +619,9 @@ void nameInput(QQuickItem *item)
 	QQmlProperty role(item, QStringLiteral("Accessible.role"), context);
 	if (role.isValid() && role.read().toInt() == int(QAccessible::NoRole))
 		role.write(int(QAccessible::EditableText));
-	const QString hint = cleanText(item->property("placeholderText").toString());
+	QString hint = cleanText(item->property("placeholderText").toString());
+	if (hint.isEmpty())
+		hint = nameEditorHeading(item);
 	QQmlProperty name(item, QStringLiteral("Accessible.name"), context);
 	if (!hint.isEmpty() && name.isValid() && name.read().toString().isEmpty())
 		name.write(hint);
@@ -536,6 +656,20 @@ QQuickItem *shownEndCallButton(QQuickWindow *window)
 	return nullptr;
 }
 
+// Reports a new checked state of `item` (a picker row, a switch) once LINE has changed it.
+void reportCheckedChange(QQuickItem *item)
+{
+	QPointer<QQuickItem> guard(item);
+	QTimer::singleShot(200, item, [guard] {
+		if (!guard)
+			return;
+		QAccessible::State changed;
+		changed.checked = true;
+		QAccessibleStateChangeEvent ev(guard.data(), changed);
+		QAccessible::updateAccessibility(&ev);
+	});
+}
+
 void clickItem(QQuickItem *item)
 {
 	QPointer<QQuickItem> guard(item);
@@ -562,7 +696,18 @@ void clickItem(QQuickItem *item)
 		}
 		// LINE's own controls act on clicked(), like their widget counterparts.
 		if (isLineQuickControl(guard)) {
+			const bool toggle = isToggleSwitch(guard);
+			// LINE's switch handler focuses the group name field (it went into edit mode, NVDA said
+			// "edit", and the next Space typed into the name): stay on the switch, quietly.
+			if (toggle)
+				window->setProperty(kQuietFocusProperty, true);
 			emitSignal(guard, "clicked()");
+			if (toggle) {
+				window->setProperty(kQuietFocusProperty, false);
+				if (guard && window->activeFocusItem() != guard)
+					guard->forceActiveFocus(Qt::OtherFocusReason);
+				reportCheckedChange(guard);
+			}
 			return;
 		}
 		QMouseEvent press(QEvent::MouseButtonPress, scene, scene, global, Qt::LeftButton, Qt::LeftButton,
@@ -572,16 +717,8 @@ void clickItem(QQuickItem *item)
 		                    Qt::NoModifier);
 		QCoreApplication::sendEvent(window, &release);
 		// A picker row: report the new state of its selection box.
-		if (modelFor(window).checks.contains(guard.data())) {
-			QTimer::singleShot(200, guard, [guard] {
-				if (!guard)
-					return;
-				QAccessible::State changed;
-				changed.checked = true;
-				QAccessibleStateChangeEvent ev(guard.data(), changed);
-				QAccessible::updateAccessibility(&ev);
-			});
-		}
+		if (modelFor(window).checks.contains(guard.data()))
+			reportCheckedChange(guard);
 	}, Qt::QueuedConnection);
 }
 
@@ -609,7 +746,7 @@ public:
 	{
 		if (m_kind != QuickKind::Clickable)
 			return QAccessible::StaticText;
-		return selectionBox() ? QAccessible::CheckBox : QAccessible::Button;
+		return selectionBox() || isToggleSwitch(item()) ? QAccessible::CheckBox : QAccessible::Button;
 	}
 
 	// The row's selection box (see modelFor), if it has one.
@@ -648,7 +785,7 @@ public:
 		if (m_kind == QuickKind::Clickable) {
 			st.focusable = true;
 			st.focused = i->hasActiveFocus();
-			if (QQuickItem *box = selectionBox()) {
+			if (QQuickItem *box = isToggleSwitch(i) ? i : selectionBox()) {
 				st.checkable = true;
 				st.checked = box->property("selected").toBool();
 			}
@@ -665,7 +802,7 @@ public:
 
 	QStringList actionNames() const override
 	{
-		if (selectionBox())
+		if (selectionBox() || isToggleSwitch(item()))
 			return { pressAction(), toggleAction(), setFocusAction() };
 		return { pressAction(), setFocusAction() };
 	}
@@ -761,8 +898,9 @@ public:
 
 	QAccessibleInterface *focusChild() const override
 	{
+		// Not an item of a page LINE has hidden (it keeps focus there until the bridge moves it).
 		QQuickItem *focus = quickWindow()->activeFocusItem();
-		return focus ? QAccessible::queryAccessibleInterface(focus) : nullptr;
+		return focus && isShown(focus) ? QAccessible::queryAccessibleInterface(focus) : nullptr;
 	}
 
 	QAccessibleInterface *childAt(int x, int y) const override
@@ -953,6 +1091,161 @@ QAccessibleInterface *quickAccessibleFactory(const QString &key, QObject *object
 	return kind == QuickKind::None ? nullptr : new LineQuickItem(item, kind);
 }
 
+namespace {
+
+// ---- Lists (ListView / GridView) ------------------------------------------------------------------
+//
+// LINE's QML lists (the friend picker of Create chat / Create group: 650 friends) create rows only
+// around what is shown and have no keyboard support: Tab reached the rows on screen, then rows
+// below the visible part (focused but not shown), then nothing. The arrows move from row to row
+// and scroll the list; a row reached with Tab is scrolled into view too.
+
+// The ListView / GridView `item` lies in, or nullptr.
+QQuickItem *itemViewOf(const QQuickItem *item)
+{
+	for (QQuickItem *p = item ? item->parentItem() : nullptr; p; p = p->parentItem()) {
+		if (inheritsClass(p, "QQuickItemView"))
+			return p;
+	}
+	return nullptr;
+}
+
+// The model index of the row `item` is in (or on), or -1.
+int rowIndexOf(QQuickItem *view, const QQuickItem *item)
+{
+	auto *content = view->property("contentItem").value<QQuickItem *>();
+	if (!content)
+		return -1;
+	const QPointF c = content->mapFromItem(item, QPointF(item->width() / 2, item->height() / 2));
+	int index = -1;
+	QMetaObject::invokeMethod(view, "indexAt", Q_RETURN_ARG(int, index), Q_ARG(qreal, c.x()), Q_ARG(qreal, c.y()));
+	return index;
+}
+
+void scrollRowIntoView(QQuickItem *view, int index)
+{
+	constexpr int kContain = 4; // ListView.Contain
+	QMetaObject::invokeMethod(view, "positionViewAtIndex", Q_ARG(int, index), Q_ARG(int, kContain));
+}
+
+// Shows row `index` of `view` and returns its control: the largest Tab stop in it.
+QQuickItem *rowControl(QQuickWindow *window, QQuickItem *view, int index)
+{
+	scrollRowIntoView(view, index);
+	QQuickItem *row = nullptr;
+	QMetaObject::invokeMethod(view, "itemAtIndex", Q_RETURN_ARG(QQuickItem *, row), Q_ARG(int, index));
+	if (!row)
+		return nullptr;
+	models().remove(window); // rows LINE created just now become Tab stops
+	const QuickModel &m = modelFor(window);
+	QQuickItem *best = nullptr;
+	for (const QPointer<QQuickItem> &item : m.order) {
+		if (item && item->activeFocusOnTab() && row->isAncestorOf(item)
+		    && (!best || item->width() * item->height() > best->width() * best->height()))
+			best = item;
+	}
+	return best;
+}
+
+// Up / Down / Page Up / Page Down / Home / End on a row of a list: the row before / after, a page
+// up / down, the first / last. True if handled.
+bool moveInItemView(QQuickWindow *window, QQuickItem *focus, int key)
+{
+	// Tab / Shift+Tab leave the list (the friend picker has 650 rows) for the next / previous control.
+	if (key == Qt::Key_Tab || key == Qt::Key_Backtab) {
+		QQuickItem *view = isInputItem(focus) ? nullptr : itemViewOf(focus);
+		if (!view)
+			return false;
+		const QuickModel &m = modelFor(window);
+		const QRectF list = sceneRect(view);
+		QQuickItem *next = nullptr;
+		for (const QPointer<QQuickItem> &item : m.order) {
+			if (!item || view->isAncestorOf(item) || !(isInputItem(item) || item->activeFocusOnTab()) || !isShown(item))
+				continue;
+			const QRectF r = sceneRect(item);
+			if (key == Qt::Key_Tab && r.top() >= list.bottom() - 1 && !next)
+				next = item;
+			else if (key == Qt::Key_Backtab && r.bottom() <= list.top() + 1)
+				next = item;
+		}
+		if (!next)
+			return false;
+		next->forceActiveFocus(key == Qt::Key_Tab ? Qt::TabFocusReason : Qt::BacktabFocusReason);
+		return true;
+	}
+	if (key != Qt::Key_Up && key != Qt::Key_Down && key != Qt::Key_PageUp && key != Qt::Key_PageDown
+	    && key != Qt::Key_Home && key != Qt::Key_End)
+		return false;
+	if (isInputItem(focus) || !focus->activeFocusOnTab())
+		return false;
+	QQuickItem *view = itemViewOf(focus);
+	if (!view)
+		return false;
+	const int count = view->property("count").toInt();
+	const int index = rowIndexOf(view, focus);
+	if (index < 0 || count <= 0)
+		return false;
+	const int page = qMax(1, int(view->height() / qMax(1.0, focus->height())) - 1);
+	int target = index;
+	switch (key) {
+	case Qt::Key_Up: target = index - 1; break;
+	case Qt::Key_Down: target = index + 1; break;
+	case Qt::Key_PageUp: target = index - page; break;
+	case Qt::Key_PageDown: target = index + page; break;
+	case Qt::Key_Home: target = 0; break;
+	case Qt::Key_End: target = count - 1; break;
+	default: break;
+	}
+	target = qBound(0, target, count - 1);
+	// Rows without a control (the friend picker has empty rows at the start of each section) are
+	// skipped, onwards in the direction of the move.
+	const int step = (key == Qt::Key_Up || key == Qt::Key_PageUp || key == Qt::Key_End) ? -1 : 1;
+	QQuickItem *control = nullptr;
+	for (int tries = 0; target != index && target >= 0 && target < count && tries < 8; ++tries, target += step) {
+		if ((control = rowControl(window, view, target)))
+			break;
+	}
+	if (!control) {
+		target = index;
+		scrollRowIntoView(view, index);
+	}
+	if (target == index) {
+		// At the first / last row: say it again.
+		if (QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(focus)) {
+			QAccessibleEvent event(iface, QAccessible::Focus);
+			QAccessible::updateAccessibility(&event);
+		}
+		return true;
+	}
+	control->forceActiveFocus(Qt::TabFocusReason);
+	static int logged = 0;
+	if (logged++ < 20) {
+		QQuickItem *now = window->activeFocusItem();
+		a11yLog("[quick] list row %d -> %d of %d: %s, focus %s", index, target, count,
+		        control ? control->metaObject()->className() : "no control",
+		        now ? now->metaObject()->className() : "-");
+	}
+	return true;
+}
+
+// The control a page starts on: not one of the window buttons along the top edge (close, ...) unless
+// there is nothing else.
+QQuickItem *firstControl(const QuickModel &m)
+{
+	QQuickItem *first = nullptr;
+	for (const QPointer<QQuickItem> &item : m.order) {
+		if (!item || !(isInputItem(item) || item->activeFocusOnTab()))
+			continue;
+		if (sceneRect(item).top() >= 40)
+			return item;
+		if (!first)
+			first = item;
+	}
+	return first;
+}
+
+} // namespace
+
 void quickWindowShown(QQuickWindow *window)
 {
 	if (!isOnScreenQuickWindow(window))
@@ -980,14 +1273,60 @@ void quickWindowShown(QQuickWindow *window)
 			keepShown->start(250);
 		}
 		QObject::connect(window, &QObject::destroyed, [window] { models().remove(window); });
+		// Back in the window after a dialog that changed its page (Create group: "Create a new group"
+		// in "Group exists" shows the group profile): focus was left on the old page's hidden button,
+		// read "Button". Start on the new page's first control.
+		QObject::connect(window, &QWindow::activeChanged, window, [window] {
+			if (!window->isActive())
+				return;
+			QPointer<QQuickWindow> guard(window);
+			QTimer::singleShot(150, window, [guard] {
+				if (!guard || !guard->isActive())
+					return;
+				QQuickItem *focus = guard->activeFocusItem();
+				if (focus && focus != guard->contentItem() && isShown(focus))
+					return;
+				models().remove(guard.data());
+				if (QQuickItem *first = firstControl(modelFor(guard))) {
+					first->forceActiveFocus(Qt::TabFocusReason);
+					a11yLog("[quick] %s: focus was on a hidden item; now on %s", guard->metaObject()->className(),
+					        first->metaObject()->className());
+				}
+			});
+		});
 		// Qt Quick reports focus only for items it considers accessible.
 		QObject::connect(window, &QQuickWindow::activeFocusItemChanged, window, [window] {
 			QQuickItem *focus = window->activeFocusItem();
-			if (!focus || focus == window->contentItem())
+			if (!focus || focus == window->contentItem() || !focus->isVisible()
+			    || window->property(kQuietFocusProperty).toBool())
 				return;
 			// LINE focuses a page's text field itself (profile -> edit name): expose it first.
 			if (isInputItem(focus))
 				nameInput(focus);
+			// LINE changes pages inside the window (Create group: friends -> group profile): name
+			// the focused control from the page shown now.
+			models().remove(window);
+			// Lists: Tab / Shift+Tab into a list return to the row read last there (Qt's own choice was
+			// a row half scrolled out, read "Button"); a row reached otherwise is scrolled into view.
+			static QHash<const QQuickWindow *, QPointer<QQuickItem>> previousFocus;
+			const QPointer<QQuickItem> before = previousFocus.value(window);
+			previousFocus.insert(window, focus);
+			if (QQuickItem *view = itemViewOf(focus); view && !isInputItem(focus)) {
+				const int index = rowIndexOf(view, focus);
+				const QVariant last = view->property("_lineA11yLastRow");
+				const bool entering = !before || !view->isAncestorOf(before);
+				if (entering && last.isValid() && last.toInt() != index) {
+					if (QQuickItem *control = rowControl(window, view, last.toInt())) {
+						control->forceActiveFocus(Qt::TabFocusReason);
+						return;
+					}
+				}
+				if (index >= 0) {
+					view->setProperty("_lineA11yLastRow", index);
+					scrollRowIntoView(view, index);
+					models().remove(window); // named again now that the whole row shows
+				}
+			}
 			if (QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(focus)) {
 				QAccessibleEvent event(iface, QAccessible::Focus);
 				QAccessible::updateAccessibility(&event);
@@ -1024,20 +1363,24 @@ void quickWindowShown(QQuickWindow *window)
 		QQuickItem *focus = guard->activeFocusItem();
 		if (focus && focus != guard->contentItem() && isShown(focus))
 			return;
-		// Not on the window buttons along the top edge (close, ...) unless there is nothing else.
-		QQuickItem *first = nullptr;
-		for (const QPointer<QQuickItem> &item : m.order) {
-			if (!item || !(isInputItem(item) || item->activeFocusOnTab()))
-				continue;
-			if (sceneRect(item).top() >= 40) {
-				first = item;
-				break;
-			}
-			if (!first)
-				first = item;
-		}
-		if (first)
+		QQuickItem *first = firstControl(m);
+		if (first) {
 			first->forceActiveFocus(Qt::TabFocusReason);
+			// Activation is asynchronous, and an inactive window had no focus item afterwards (the
+			// friend picker opened from the Create chat menu): focus again once it is active.
+			if (!guard->isActive()) {
+				QPointer<QQuickItem> item(first);
+				auto connection = std::make_shared<QMetaObject::Connection>();
+				*connection = QObject::connect(guard, &QWindow::activeChanged, guard, [guard, item, connection] {
+					if (!guard || !guard->isActive())
+						return;
+					QObject::disconnect(*connection);
+					QQuickItem *now = guard->activeFocusItem();
+					if (item && (!now || now == guard->contentItem()))
+						item->forceActiveFocus(Qt::TabFocusReason);
+				});
+			}
+		}
 		static int logged = 0;
 		if (logged++ < 10)
 			a11yLog("[quick] %s: %d items, focus %s", guard->metaObject()->className(), int(m.order.size()),
@@ -1047,10 +1390,12 @@ void quickWindowShown(QQuickWindow *window)
 
 bool handleQuickKey(QQuickWindow *window, int key)
 {
-	if (key != Qt::Key_Space && key != Qt::Key_Return && key != Qt::Key_Enter)
-		return false;
 	QQuickItem *focus = window->activeFocusItem();
 	if (!focus)
+		return false;
+	if (moveInItemView(window, focus, key))
+		return true;
+	if (key != Qt::Key_Space && key != Qt::Key_Return && key != Qt::Key_Enter)
 		return false;
 	// Qt Quick Controls buttons take Space themselves, not Enter.
 	if (isQtButton(focus) && key != Qt::Key_Space && focus->isEnabled()) {
@@ -1058,7 +1403,9 @@ bool handleQuickKey(QQuickWindow *window, int key)
 			clickItem(focus);
 		return true;
 	}
-	if (!focus->property(kMadeFocusableProperty).toBool() || !isClickable(focus))
+	// Areas the bridge made focusable, and LINE's own controls (LcQuickButton: Space on the Create
+	// group switch went to LINE, which moved focus to the group name field instead).
+	if (!(focus->property(kMadeFocusableProperty).toBool() || isLineQuickControl(focus)) || !isClickable(focus))
 		return false;
 	clickItem(focus);
 	return true;

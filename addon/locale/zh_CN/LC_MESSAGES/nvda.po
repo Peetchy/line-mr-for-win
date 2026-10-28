@@ -246,3 +246,15 @@ msgstr "没有搜索结果"
 
 msgid "Result {current} of {total}"
 msgstr "第 {current} 个结果，共 {total} 个"
+
+#. Translators: Button in the add-on's settings: shows what changed in each version.
+msgid "&What's new"
+msgstr "新功能(&W)"
+
+#. Translators: Title of the window that lists what changed in each version of the add-on.
+msgid "What's new in LINE MR"
+msgstr "LINE MR 新功能"
+
+#. Translators: Reported when the add-on's list of changes is missing.
+msgid "The list of changes was not found."
+msgstr "找不到更改列表。"

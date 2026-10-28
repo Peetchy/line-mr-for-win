@@ -2,11 +2,13 @@
 //
 // "See more" under a long message opens ChatDetailTextMessageWindow, which shows the whole text as a
 // single list row: a screen reader reads it in one go, with no caret to move by line or word. The
-// bridge lays a transparent, read-only QPlainTextEdit holding the same lines (as LINE wraps them)
-// over the list and gives it focus: a caret, lines, words and characters, as in Notepad. Its own
-// accessibility interface serves them from a cached copy of the text and reports only the caret's
-// line as its value. The view never repaints and LINE's list does not scroll along (both made LINE
-// redraw the long row for seconds per key); mouse events pass through to LINE.
+// bridge lays a transparent, read-only QPlainTextEdit over the list and gives it focus. It holds the
+// text as its author wrote it (a line break only where the author started a new line, told from
+// LINE's wraps by geometry) and moves the caret by the lines LINE draws, as in a word processor; its
+// own accessibility interface reports those lines (Value: the caret's line; Help: where each line
+// starts, read by the add-on's appModules/line/fullText.py, since Qt's UI Automation text ranges
+// treat only line breaks as lines). The view never repaints and LINE's list does not scroll along
+// (both made LINE redraw the long row for seconds per key); mouse events pass through to LINE.
 
 #pragma once
 

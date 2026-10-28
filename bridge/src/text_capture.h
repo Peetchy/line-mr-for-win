@@ -11,8 +11,10 @@
 #include <QtCore/QPointF>
 #include <QtCore/QRect>
 #include <QtCore/QRectF>
+#include <QtGui/QColor>
 #include <QtCore/QSize>
 #include <QtCore/QString>
+#include <QtGui/QFont>
 
 class QImage;
 class QWidget;
@@ -23,6 +25,8 @@ struct CapturedText {
 	QPointF pos; // baseline origin, in the rendered widget's coordinates
 	QString text;
 	qreal width = 0; // advance of the text, in the same coordinates
+	QFont font;      // the font it was drawn with
+	qreal scale = 1; // from the font's units to these coordinates
 };
 
 // An image or pixmap the widget drew.
@@ -33,6 +37,7 @@ struct PaintedImage {
 	bool clearCorners = false; // its four corner pixels are transparent (stickers, round icons)
 	bool clipped = false; // drawn with a clip set (LINE rounds photo corners that way)
 	QString icon;         // which of LINE's known icons it is ("voice", see text_capture.cpp), or empty
+	QColor average;       // mean colour of its opaque pixels (small alpha images only; badges)
 };
 
 // A path, rectangle or ellipse the widget drew.

@@ -10,12 +10,14 @@
 
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QCoreApplication>
+#include <QtCore/QDateTime>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
 #include <QtCore/QItemSelectionModel>
 #include <QtCore/QMetaProperty>
 #include <QtCore/QPointer>
 #include <QtCore/QRegularExpression>
+#include <QtCore/QSet>
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
 #include <QtGui/QClipboard>
@@ -119,6 +121,20 @@ QString dataObjectText(const QObject *data)
 	QList<Part> parts;
 	const QMetaObject *mo = data->metaObject();
 	const int first = QObject::staticMetaObject.propertyCount();
+	// Each data class's properties once (names and types; values only for bool / int).
+	static QSet<QByteArray> described;
+	if (!described.contains(mo->className())) {
+		described.insert(mo->className());
+		QStringList props;
+		for (int i = first; i < mo->propertyCount(); ++i) {
+			const QMetaProperty prop = mo->property(i);
+			QString entry = QString::fromLatin1(prop.name()) + u':' + QString::fromLatin1(prop.typeName());
+			if (prop.metaType().id() == QMetaType::Bool || prop.metaType().id() == QMetaType::Int)
+				entry += u'=' + prop.read(data).toString();
+			props << entry;
+		}
+		a11yLog("[list] %s properties: %s", mo->className(), qPrintable(props.join(u' ')));
+	}
 	for (int i = first; i < mo->propertyCount(); ++i) {
 		const QMetaProperty prop = mo->property(i);
 		const QByteArray name = prop.name();
@@ -234,6 +250,19 @@ QString reactionSummary(const CaptureResult &cap, const QString &count)
 		return count.isEmpty() ? label("Reaction: %1").arg(names.first()) : label("%1 %2 people").arg(names.first(), count);
 	const QString kinds = label("Reactions: %1").arg(names.join(QStringLiteral(", ")));
 	return count.isEmpty() ? kinds : label("%1, %2 people").arg(kinds, count);
+}
+
+// Logs a small picture once per size and kind (which icons LINE draws where messageKind() looks).
+void logIconOnce(const char *what, const PaintedImage &pi)
+{
+	static QSet<QString> seen;
+	const QString key = QStringLiteral("%1 %2x%3 %4").arg(QLatin1StringView(what)).arg(pi.size.width())
+	                        .arg(pi.size.height()).arg(pi.icon);
+	if (seen.size() > 200 || seen.contains(key))
+		return;
+	seen.insert(key);
+	a11yLog("[kind] %s: %.0fx%.0f image (%dx%d) icon \"%s\"", what, pi.rect.width(), pi.rect.height(),
+	        pi.size.width(), pi.size.height(), qUtf8Printable(pi.icon));
 }
 
 // What a message without (much) text is, from what LINE draws for it. ChatMessageData has no
@@ -359,13 +388,18 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 		const QRectF &r = pi.rect;
 		if (isAvatar(pi) || !inRow(r))
 			continue;
-		// A call: a small bubble with a phone icon inside (and its length or status as text).
+		// A call: a small bubble with a phone icon inside (and its length or status as text). Only
+		// LINE's call icons count: link previews have small bubbles with other icons of that size.
 		if (r.height() >= 60 && r.height() <= 95 && r.width() <= 140) {
 			for (const PaintedImage &icon : cap.images) {
-				if (icon.alpha && icon.rect.width() >= 20 && icon.rect.width() <= 28 && r.contains(icon.rect)) {
-					*lengthBubble = r;
-					return "Call message";
+				if (!icon.alpha || icon.rect.width() < 20 || icon.rect.width() > 28 || !r.contains(icon.rect))
+					continue;
+				if (!icon.icon.endsWith(QLatin1StringView("call"))) { // also the header's chatroom-call
+					logIconOnce("not a call", icon);
+					continue;
 				}
+				*lengthBubble = r;
+				return "Call message";
 			}
 		}
 		if (textInside(r))
@@ -485,6 +519,175 @@ QString searchResultRowText(QWidget *viewport, const QRect &rowRect, bool *skipp
 			out += t; // Thai wraps anywhere
 		else
 			out += QLatin1Char(' ') + t;
+	}
+	return out;
+}
+
+// A post's photos and videos (Notes of a group / OpenChat: TimelineListView rows drawn by
+// PostContentDelegateWidget): pictures of at least 100x80, duplicates (placeholder + picture) once.
+// `videos` tells which ones show a play button (album_note/play_icon.svg, 20x20 at the bottom left).
+QList<QRectF> postMedia(const CaptureResult &cap, QList<bool> *videos)
+{
+	QList<QRectF> media;
+	for (const PaintedImage &pi : cap.images) {
+		if (pi.rect.width() < 100 || pi.rect.height() < 80)
+			continue;
+		bool seen = false;
+		for (const QRectF &m : std::as_const(media))
+			seen = seen || m.intersected(pi.rect).width() * m.intersected(pi.rect).height() > 0.8 * m.width() * m.height();
+		if (!seen)
+			media << pi.rect;
+	}
+	if (videos) {
+		videos->clear();
+		for (const QRectF &m : std::as_const(media)) {
+			bool video = false;
+			for (const PaintedImage &pi : cap.images) {
+				if (!m.contains(pi.rect.center()) || pi.rect.width() > 48 || pi.rect.height() > 48)
+					continue;
+				video = video || pi.icon == QLatin1StringView("video")
+				    || (pi.alpha && pi.rect.width() >= 14 && pi.rect.height() >= 14 && pi.rect.center().x() < m.center().x()
+				        && pi.rect.center().y() > m.center().y());
+			}
+			videos->append(video);
+		}
+	}
+	return media;
+}
+
+// The post's own text (what Copy text copies): the lines under the author's name and above the
+// reaction / comment bar, outside the pictures; lines on one baseline joined, others on new lines.
+QString postBodyText(const CaptureResult &cap, const QRect &rowRect)
+{
+	qreal barTop = rowRect.height() - 50;
+	for (const PaintedImage &pi : cap.images) {
+		if (pi.icon.startsWith(QLatin1StringView("note-")))
+			barTop = qMin(barTop, pi.rect.top() - 2);
+	}
+	const QList<QRectF> media = postMedia(cap, nullptr);
+	QList<const CapturedText *> lines;
+	for (const CapturedText &it : cap.items) {
+		if (cleanText(it.text).isEmpty() || it.pos.y() < 40 || it.pos.y() > barTop)
+			continue;
+		bool inMedia = false;
+		for (const QRectF &m : media)
+			inMedia = inMedia || m.contains(it.pos);
+		if (!inMedia)
+			lines << &it;
+	}
+	std::stable_sort(lines.begin(), lines.end(), [](const CapturedText *a, const CapturedText *b) {
+		return qAbs(a->pos.y() - b->pos.y()) > 4 ? a->pos.y() < b->pos.y() : a->pos.x() < b->pos.x();
+	});
+	QString out;
+	qreal lastY = -1000;
+	for (const CapturedText *it : std::as_const(lines)) {
+		if (out.isEmpty())
+			out = it->text.trimmed();
+		else if (qAbs(it->pos.y() - lastY) <= 4)
+			out += it->text; // runs on one line
+		else
+			out += QLatin1Char('\n') + it->text.trimmed();
+		lastY = it->pos.y();
+	}
+	return out.trimmed();
+}
+
+// The "More options" button of a post (album_note/more_icon.svg, top right), from the hidden row
+// template LINE draws the posts with: its centre relative to the row.
+QPointF postMoreButtonPoint()
+{
+	for (QWidget *top : QApplication::topLevelWidgets()) {
+		if (!inheritsClass(top, "PostContentDelegateWidget"))
+			continue;
+		for (QWidget *child : top->findChildren<QWidget *>()) {
+			if (inheritsClass(child, "LcButton") && iconSource(child).contains(QLatin1StringView("album_note/more_icon")))
+				return QPointF(child->mapTo(top, QPoint())) + QPointF(child->width() / 2.0, child->height() / 2.0);
+		}
+	}
+	return QPointF();
+}
+
+// A post: author, text, its photos / videos, the numbers of reactions and comments, the time
+// ("Peet, Video, 2 comments, 8 minutes ago").
+QString postRowText(QWidget *viewport, const QRect &rowRect, bool *skipped)
+{
+	const CaptureResult cap = captureRegionText(viewport, rowRect);
+	*skipped = cap.skipped;
+	if (cap.skipped)
+		return QString();
+	struct Part {
+		qreal y;
+		qreal x;
+		qreal right;
+		QString text;
+	};
+	QList<Part> parts;
+	for (const CapturedText &it : cap.items) {
+		if (!cleanText(it.text).isEmpty())
+			parts.append({ it.pos.y(), it.pos.x(), it.pos.x() + it.width, it.text });
+	}
+	// The numbers beside the reaction / comment buttons say what they count.
+	static const QRegularExpression number(QStringLiteral("^\\d[\\d,.]*[KkMm+]?$"));
+	for (Part &p : parts) {
+		if (!number.match(cleanText(p.text)).hasMatch())
+			continue;
+		for (const PaintedImage &pi : cap.images) {
+			if (!pi.icon.startsWith(QLatin1StringView("note-")) || p.x < pi.rect.right() - 2 || p.x > pi.rect.right() + 12
+			    || p.y < pi.rect.top() || p.y > pi.rect.bottom() + 6)
+				continue;
+			p.text = label(pi.icon == QLatin1StringView("note-comments") ? "%1 comments" : "%1 reactions").arg(cleanText(p.text));
+			break;
+		}
+	}
+	QList<bool> videos;
+	const QList<QRectF> media = postMedia(cap, &videos);
+	if (!media.isEmpty()) {
+		const qsizetype videoCount = videos.count(true);
+		const qsizetype photoCount = media.size() - videoCount;
+		QStringList kinds;
+		if (media.size() == 1) {
+			kinds << label(videoCount ? "Video" : "Photo");
+		} else {
+			if (photoCount)
+				kinds << label("%1 photos").arg(photoCount);
+			if (videoCount)
+				kinds << label("%1 videos").arg(videoCount);
+		}
+		qreal top = media.first().top();
+		for (const QRectF &m : media)
+			top = qMin(top, m.top());
+		parts.append({ top, 0, 0, kinds.join(QStringLiteral(", ")) });
+	}
+	// Lines: baselines a few pixels apart are one line.
+	std::stable_sort(parts.begin(), parts.end(), [](const Part &a, const Part &b) { return a.y < b.y; });
+	qreal lineY = -1000;
+	for (Part &p : parts) {
+		if (p.y - lineY > 4)
+			lineY = p.y;
+		p.y = lineY;
+	}
+	std::stable_sort(parts.begin(), parts.end(), [](const Part &a, const Part &b) {
+		return a.y != b.y ? a.y < b.y : a.x < b.x;
+	});
+	auto isThai = [](QChar c) { return c.unicode() >= 0x0E00 && c.unicode() <= 0x0E7F; };
+	QString out;
+	const Part *last = nullptr;
+	for (const Part &p : std::as_const(parts)) {
+		const QString t = cleanText(p.text);
+		if (t.isEmpty())
+			continue;
+		if (!last) {
+			out = t;
+		} else if (last->y == p.y && p.x - last->right < 6 && p.right > 0) {
+			out += t; // runs LINE draws separately
+		} else if (last->y != p.y && qAbs(last->x - p.x) <= 2 && p.right > 0 && last->right > 0
+		           && p.y - last->y < 30 && p.y > 40) {
+			// A wrapped line of the post's text (Thai wraps anywhere).
+			out += isThai(out.back()) && isThai(t.front()) ? t : QLatin1Char(' ') + t;
+		} else {
+			out += QStringLiteral(", ") + t;
+		}
+		last = &p;
 	}
 	return out;
 }
@@ -1095,6 +1298,61 @@ public:
 	{
 	}
 
+	// The chat list: "Selected" before the name for the chat that is open (LINE's current row; the
+	// bridge's cursor is separate; user request: "เลือกอยู่ Apple, ปักหมุด, ..."), and "Pinned" right
+	// after the name (LINE draws a pin badge on the picture; ChatData has no property for it).
+	QString withChatStatus(const QString &text, QObject *data) const
+	{
+		QString result = text;
+		if (chatPinned(data)) {
+			const QString name = cleanText(data->property("name").toString());
+			const QString pinned = label("Pinned");
+			if (!name.isEmpty() && text.startsWith(name))
+				result = name + QStringLiteral(", ") + pinned + text.mid(name.size());
+			else
+				result = pinned + QStringLiteral(", ") + text;
+		}
+		if (m_view->currentIndex().row() == m_row && m_view->selectionModel()
+		    && m_view->selectionModel()->isSelected(index()))
+			result = label("Selected") + u' ' + result;
+		return result;
+	}
+
+	bool chatPinned(QObject *data) const
+	{
+		struct Seen {
+			bool pinned = false;
+			QElapsedTimer age;
+		};
+		static QHash<QString, Seen> seen;
+		const QString id = data->property("id").toString();
+		Seen &entry = seen[id];
+		const QModelIndex idx = index();
+		const QRect r = m_view->visualRect(idx);
+		const bool onScreen = !r.isEmpty() && m_view->viewport()->rect().contains(r);
+		if (!onScreen || (entry.age.isValid() && entry.age.elapsed() < kRowTextTtlMs))
+			return entry.pinned; // off screen: what the row showed last time
+		const CaptureResult cap = captureRegionText(m_view->viewport(), r);
+		if (cap.skipped)
+			return entry.pinned;
+		entry.pinned = false;
+		QStringList drawn;
+		for (const PaintedImage &image : cap.images) {
+			drawn << QStringLiteral("%1x%2%3 %4").arg(image.size.width()).arg(image.size.height()).arg(image.icon.isEmpty() ? QString() : u'=' + image.icon, image.average.isValid() ? image.average.name() : QString());
+			// The blue badge (pin-badge.svg, #587DE4) on the picture's lower right corner; the same
+			// place holds a green badge for OpenChats.
+			const QColor c = image.average;
+			// (Its shape alone matches round profile pictures.)
+			if (c.isValid() && image.size.width() >= 20 && c.blue() > c.red() + 60 && c.blue() > c.green() + 30)
+				entry.pinned = true;
+		}
+		entry.age.start();
+		static int logged = 0;
+		if (logged++ < 12)
+			a11yLog("[list] chat row %d: %s", m_row, qPrintable(drawn.join(u' ')));
+		return entry.pinned;
+	}
+
 	QModelIndex index() const
 	{
 		QAbstractItemModel *model = m_view ? m_view->model() : nullptr;
@@ -1129,8 +1387,11 @@ public:
 		if (!idx.isValid())
 			return QString();
 		QObject *data = idx.data(kItemDataRole).value<QObject *>();
-		if (QString text = dataObjectText(data); !text.isEmpty())
+		if (QString text = dataObjectText(data); !text.isEmpty()) {
+			if (inheritsClass(data, "ChatData") && ancestorInheriting(m_view, "MainChatPanel"))
+				return withChatStatus(text, data);
 			return text;
+		}
 		// "My stickers" (the sticker window's Edit): LINE draws each package's name there; remembered
 		// for the package strip.
 		if (inheritsClass(data, "StickerEditPackageData") || inheritsClass(data, "SticonEditPackageData")) {
@@ -1264,6 +1525,11 @@ private:
 bool isLineListView(const QWidget *w)
 {
 	return w && qobject_cast<const QAbstractItemView *>(w) && inheritsClass(w, "LcListView");
+}
+
+bool isPostList(const QWidget *w)
+{
+	return isLineListView(w) && inheritsClass(w, "TimelineListView");
 }
 
 // ---- LineAccessibleList --------------------------------------------------------------------------
@@ -1451,7 +1717,8 @@ QString LineAccessibleList::paintedRowText(int row, QObject *data) const
 	bool skipped = false;
 	QString text = inheritsClass(v->window(), "ChatSearchResultWindow")
 	    ? searchResultRowText(v->viewport(), r, &skipped)
-	    : line_a11y::paintedRowText(v->viewport(), r, messages, &skipped);
+	    : isPostList(v) ? postRowText(v->viewport(), r, &skipped)
+	                    : line_a11y::paintedRowText(v->viewport(), r, messages, &skipped);
 	if (skipped) {
 		// LINE was painting: answer with what we knew and read the row again shortly; NVDA
 		// hears about the real text through a name change.
@@ -1990,6 +2257,49 @@ bool LineAccessibleList::openMessageContent()
 	                    qBound(shown.top(), r.top() + point.y(), shown.bottom()));
 	a11yLog("[keyboard] %s in message row %d: click at %.0f,%.0f", kind, row, local.x(), local.y());
 	// LINE's row widgets track the mouse: move there first, as a real click does.
+	QPointer<QWidget> viewport = v->viewport();
+	QMouseEvent move(QEvent::MouseMove, local, viewport->mapTo(viewport->window(), local),
+	                 viewport->mapToGlobal(local), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+	QCoreApplication::sendEvent(viewport, &move);
+	if (viewport)
+		sendClick(viewport, local);
+	return true;
+}
+
+bool LineAccessibleList::openPostMedia()
+{
+	QAbstractItemView *v = view();
+	const int row = cursorRow();
+	if (!v || !v->model() || row < 0 || !isPostList(v))
+		return false;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	v->scrollTo(idx);
+	const QRect r = v->visualRect(idx);
+	const CaptureResult cap = captureRegionText(v->viewport(), r);
+	if (cap.skipped)
+		return false;
+	QList<bool> videos;
+	const QList<QRectF> media = postMedia(cap, &videos);
+	if (media.isEmpty()) {
+		QStringList seen;
+		for (const PaintedImage &pi : cap.images)
+			seen << QStringLiteral("%1x%2@%3,%4%5:%6").arg(pi.rect.width()).arg(pi.rect.height()).arg(pi.rect.x())
+			            .arg(pi.rect.y()).arg(pi.alpha ? QStringLiteral("a") : QString()).arg(pi.icon);
+		a11yLog("[keyboard] post row %d shows no photo or video (%s)", row, qPrintable(seen.join(QLatin1Char(' '))));
+		return false;
+	}
+	// The first one (top, then left), where a mouse user clicks: the middle of the part on screen.
+	qsizetype first = 0;
+	for (qsizetype i = 1; i < media.size(); ++i) {
+		if (media[i].top() < media[first].top() - 4 || (qAbs(media[i].top() - media[first].top()) <= 4 && media[i].left() < media[first].left()))
+			first = i;
+	}
+	const QRectF shown = QRectF(media[first].translated(r.topLeft())).intersected(QRectF(v->viewport()->rect()).adjusted(1, 1, -1, -1));
+	if (shown.isEmpty())
+		return false;
+	const QPointF local = shown.center();
+	a11yLog("[keyboard] %s in post row %d: click at %.0f,%.0f", videos[first] ? "video" : "photo", row, local.x(), local.y());
+	noteMediaOpenedFrom(v->window());
 	QPointer<QWidget> viewport = v->viewport();
 	QMouseEvent move(QEvent::MouseMove, local, viewport->mapTo(viewport->window(), local),
 	                 viewport->mapToGlobal(local), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
@@ -2874,9 +3184,82 @@ QWidget *takePendingMenuChoice(const QList<QWidget *> &items)
 	return nullptr;
 }
 
+bool LineAccessibleList::openPostMenu()
+{
+	QAbstractItemView *v = view();
+	const int row = cursorRow();
+	if (!v || !v->model() || row < 0 || !isPostList(v))
+		return false;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	v->scrollTo(idx);
+	const QRect r = v->visualRect(idx);
+	const CaptureResult cap = captureRegionText(v->viewport(), r);
+	if (cap.skipped || r.isEmpty())
+		return false;
+	QList<bool> videos;
+	const QList<QRectF> media = postMedia(cap, &videos);
+	const QString body = postBodyText(cap, r);
+	const QPointF more = postMoreButtonPoint();
+	if (media.isEmpty() && body.isEmpty() && more.isNull())
+		return false;
+	const QPersistentModelIndex keep(idx);
+	QPointer<QAbstractItemView> view(v);
+	auto *menu = new QMenu(v);
+	menu->setAttribute(Qt::WA_DeleteOnClose);
+	if (!media.isEmpty()) {
+		QObject::connect(menu->addAction(label("Open")), &QAction::triggered, v, [view, keep] {
+			if (LineAccessibleList *list = view ? listFor(view) : nullptr; list && keep.isValid()) {
+				view->setCurrentIndex(keep);
+				list->openPostMedia();
+			}
+		});
+		// LINE saves from its viewer only (Download, shown while the mouse is over the picture): open
+		// the picture and ask the viewer's bridge to press it (Windows' Save As follows).
+		QObject::connect(menu->addAction(label("Save as...")), &QAction::triggered, v, [view, keep] {
+			LineAccessibleList *list = view ? listFor(view) : nullptr;
+			if (!list || !keep.isValid())
+				return;
+			QFile request(bridgeDirectory() + QStringLiteral("viewer-save-request"));
+			if (request.open(QIODevice::WriteOnly | QIODevice::Truncate))
+				request.write(QByteArray::number(QDateTime::currentMSecsSinceEpoch()));
+			request.close();
+			view->setCurrentIndex(keep);
+			if (!list->openPostMedia())
+				QFile::remove(request.fileName());
+		});
+	}
+	if (!body.isEmpty()) {
+		QObject::connect(menu->addAction(label("Copy text")), &QAction::triggered, v, [body] {
+			QGuiApplication::clipboard()->setText(body);
+		});
+	}
+	if (!more.isNull()) {
+		QObject::connect(menu->addAction(label("More options")), &QAction::triggered, v, [view, keep, more] {
+			if (!view || !keep.isValid())
+				return;
+			const QRect rr = view->visualRect(keep);
+			const QPointF local = QPointF(rr.topLeft()) + more;
+			a11yLog("[post] more options of row %d: click at %.0f,%.0f", keep.row(), local.x(), local.y());
+			QPointer<QWidget> viewport = view->viewport();
+			QMouseEvent move(QEvent::MouseMove, local, viewport->mapTo(viewport->window(), local),
+			                 viewport->mapToGlobal(local), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+			QCoreApplication::sendEvent(viewport, &move);
+			if (viewport)
+				sendClick(viewport, local);
+		});
+	}
+	a11yLog("[post] menu for row %d (%d actions, %d pictures, text %d chars)", row, int(menu->actions().size()),
+	        int(media.size()), int(body.size()));
+	menu->popup(v->viewport()->mapToGlobal(QRectF(r.intersected(v->viewport()->rect())).center().toPoint()));
+	menu->setActiveAction(menu->actions().value(0));
+	return true;
+}
+
 bool LineAccessibleList::openContentMenu()
 {
 	QAbstractItemView *v = view();
+	if (v && isPostList(v))
+		return openPostMenu();
 	const int row = cursorRow();
 	const ContentKind kind = v ? contentKind(v) : ContentKind::Other;
 	if (!v || !v->model() || row < 0 || kind == ContentKind::Other)

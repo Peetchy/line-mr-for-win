@@ -53,6 +53,12 @@ const KnownIcon kKnownIcons[] = {
 	{ ":/resource/img/basic/chat/chatcontents/video_icon.svg", 1, "video" },
 	{ ":/resource/img/basic/chat/flex_video_play.svg", 1, "video" },
 	{ ":/resource/img/basic/chat/chatcontents/no_mov_icon.svg", 1, "video" },
+	// Notes (posts): the play button on a video, the reaction and comment buttons (the numbers
+	// beside them say how many).
+	{ ":/resource/img/basic/album_note/play_icon.svg", 1, "video" },
+	{ ":/resource/img/basic/album_note/smile_off_26.svg", 1, "note-reactions" },
+	{ ":/resource/img/basic/album_note/smile_on_26.svg", 1, "note-reactions" },
+	{ ":/resource/img/basic/album_note/comment_icon.svg", 1, "note-comments" },
 	{ ":/resource/img/basic/chat/chatcontents/no_img_icon.svg", 1, "photo" },
 	// File type icons beside a file's name (45x45).
 	{ ":/resource/img/basic/chat/chatcontents/ai_ic.svg", 1, "file" },
@@ -66,6 +72,22 @@ const KnownIcon kKnownIcons[] = {
 	{ ":/resource/img/basic/chat/chatcontents/txt_ic.svg", 1, "file" },
 	{ ":/resource/img/basic/chat/chatcontents/xlsx_ic.svg", 1, "file" },
 	{ ":/resource/img/basic/chat/chatcontents/zip_ic.svg", 1, "file" },
+	// The phone in a call's bubble (messageKind(): a small bubble with any 20-28 px icon was taken for
+	// a call, which made link previews read "Call").
+	{ ":/resource/img/basic/chat/call.svg", 1, "call" },
+	{ ":/resource/img/basic/chat/calling.svg", 1, "call" },
+	{ ":/resource/img/basic/chat/call-join.svg", 1, "call" },
+	{ ":/resource/img/basic/chat/video-call.svg", 1, "call" },
+	{ ":/resource/img/basic/chat/video-call-join.svg", 1, "call" },
+	{ ":/resource/img/basic/chat/chat_word_send_linecall_icon.png", 1, "call" },
+	{ ":/resource/img/basic/chat/chat_word_receive_linecall_icon.png", 1, "call" },
+	{ ":/resource/img/basic/chat/chat_word_send_linecallsucess_icon.png", 1, "call" },
+	{ ":/resource/img/basic/chat/chat_word_receive_linecallsucess_icon.png", 1, "call" },
+	{ ":/resource/img/basic/chat/chat_word_send_linecallfail_icon.png", 1, "call" },
+	{ ":/resource/img/basic/chat/chat_word_receive_linecallfail_icon.png", 1, "call" },
+	{ ":/resource/img/basic/chat/chat_word_send_freecallsucess_icon.png", 1, "call" },
+	{ ":/resource/img/basic/chat/chat_word_send_freecallfail_icon.png", 1, "call" },
+	{ ":/resource/img/basic/chat/chat_groupcall_video_icon.png", 1, "call" },
 	// The red flag in a location's bubble (14x16).
 	{ ":/resource/img/basic/chat/chat_word_flag.png", 1, "location" },
 	// Sound stickers and stickers that could not be loaded.
@@ -286,7 +308,7 @@ public:
 			return;
 		}
 		const qreal width = QFontMetricsF(ti.font()).horizontalAdvance(text) * m_transform.m11();
-		m_out->items.push_back({ m_transform.map(p), text, width });
+		m_out->items.push_back({ m_transform.map(p), text, width, ti.font(), m_transform.m11() });
 	}
 
 	void drawPixmap(const QRectF &r, const QPixmap &pm, const QRectF &) override
@@ -346,6 +368,23 @@ private:
 			if (size.width() <= 96 && size.height() <= 96 && size.width() >= 8 && size.height() >= 8)
 				if (const char *icon = knownIcon(key, image))
 					pi.icon = QLatin1String(icon);
+			// Badges are told apart by colour (chat list: blue pin vs green OpenChat badge).
+			if (size.width() <= 48 && size.height() <= 48) {
+				long r = 0, g = 0, b = 0, n = 0;
+				for (int y = 0; y < image.height(); ++y) {
+					for (int x = 0; x < image.width(); ++x) {
+						const QRgb p = image.pixel(x, y);
+						if (qAlpha(p) > 200) {
+							r += qRed(p);
+							g += qGreen(p);
+							b += qBlue(p);
+							++n;
+						}
+					}
+				}
+				if (n)
+					pi.average = QColor(int(r / n), int(g / n), int(b / n));
+			}
 			// A reaction under a message: a small round face, told apart by its colours only.
 			if (size.width() >= 12 && size.width() <= 64 && qAbs(size.width() - size.height()) <= 2)
 				if (const char *badge = reactionBadge(key, image))

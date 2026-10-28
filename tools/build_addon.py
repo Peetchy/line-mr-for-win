@@ -2,7 +2,7 @@
 
 Usage: python tools/build_addon.py [--dll PATH] [--stage-only]
 
-Compiles locale/*/LC_MESSAGES/nvda.po to .mo, renders doc/*/readme.md to readme.html and
+Compiles locale/*/LC_MESSAGES/nvda.po to .mo, renders doc/*/readme.md and changes.md to HTML and
 bundles bridge/build/line_a11y.dll as bridge/line_a11y.dll and COPYING.txt inside the add-on.
 """
 
@@ -95,7 +95,8 @@ def render_docs():
 	docroot = os.path.join(STAGE, "doc")
 	for dirpath, _dirs, files in os.walk(docroot):
 		for name in files:
-			if name != "readme.md":
+			# The guide and "What's new" (shown from the add-on's settings).
+			if name not in ("readme.md", "changes.md"):
 				continue
 			src = os.path.join(dirpath, name)
 			with open(src, encoding="utf-8") as f:
@@ -107,7 +108,7 @@ def render_docs():
 				f'<!DOCTYPE html>\n<html lang="{lang}">\n<head>\n<meta charset="utf-8">\n'
 				f"<title>LINE MR</title>\n</head>\n<body>\n{body}\n</body>\n</html>\n"
 			)
-			with open(os.path.join(dirpath, "readme.html"), "w", encoding="utf-8") as f:
+			with open(os.path.join(dirpath, name[:-3] + ".html"), "w", encoding="utf-8") as f:
 				f.write(html)
 			os.remove(src)
 

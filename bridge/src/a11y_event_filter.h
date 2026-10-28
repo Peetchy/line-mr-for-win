@@ -41,4 +41,8 @@ int contextMenusShown();
 // Is the user browsing `list` (focus there, or briefly pulled into the open chat by LINE)?
 bool isBrowsingList(const QWidget *list);
 
+// A photo / video was opened from `window` (Notes): when LINE comes back from its media viewer, that
+// window is activated again (LINE activates its main window).
+void noteMediaOpenedFrom(QWidget *window);
+
 } // namespace line_a11y

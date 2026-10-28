@@ -10,6 +10,8 @@
 #include "video_controls.h"
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QHash>
+#include <QtCore/QLineF>
 #include <QtCore/QPointer>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSet>
@@ -92,6 +94,165 @@ QString stickerName(const QWidget *w)
 	return name;
 }
 
+// A colour swatch: an LcButton without icon or text holding one round LcImage of its size, among
+// at least eight alike (text profile editor, "สร้างโปรไฟล์ข้อความ"). Nothing names the colour, so
+// it is read from the picture.
+bool isColorSwatch(const QWidget *w)
+{
+	const auto plain = [](const QWidget *b) {
+		if (!inheritsClass(b, "LcButton") || !iconSource(b).isEmpty() || !stringProp(b, "text").isEmpty()
+		    || b->width() < 20 || b->width() > 48 || qAbs(b->width() - b->height()) > 4)
+			return false;
+		const QList<QWidget *> children = b->findChildren<QWidget *>(Qt::FindDirectChildrenOnly);
+		return children.size() == 1 && inheritsClass(children.first(), "LcImage")
+		    && qAbs(children.first()->width() - b->width()) <= 4;
+	};
+	if (!plain(w) || !w->parentWidget())
+		return false;
+	int alike = 0;
+	for (const QWidget *other : w->parentWidget()->findChildren<QWidget *>(Qt::FindDirectChildrenOnly))
+		alike += !other->isHidden() && plain(other);
+	return alike >= 8;
+}
+
+QString colorName(const QColor &c)
+{
+	const float l = c.lightnessF();
+	const int chroma = qMax(c.red(), qMax(c.green(), c.blue())) - qMin(c.red(), qMin(c.green(), c.blue()));
+	const int h = c.hslHue();
+	if (chroma < 24 || h < 0) {
+		if (l > 0.93f)
+			return label("White");
+		if (l > 0.7f)
+			return label("Light grey");
+		if (l > 0.4f)
+			return label("Grey");
+		if (l > 0.15f)
+			return label("Dark grey");
+		return label("Black");
+	}
+	const char *hue;
+	if (h < 15 || h >= 345)
+		hue = "Red";
+	else if (h < 42)
+		hue = l < 0.4f ? "Brown" : "Orange";
+	else if (h < 70)
+		hue = l < 0.35f ? "Brown" : "Yellow";
+	else if (h < 165)
+		hue = "Green";
+	else if (h < 195)
+		hue = "Teal";
+	else if (h < 250)
+		hue = l < 0.3f ? "Navy" : "Blue";
+	else if (h < 290)
+		hue = "Purple";
+	else
+		hue = "Pink";
+	const QString name = label(hue);
+	if (qstrcmp(hue, "Brown") == 0 || qstrcmp(hue, "Navy") == 0)
+		return name;
+	if (l > 0.78f)
+		return label("Light %1").arg(name);
+	if (l < 0.3f)
+		return label("Dark %1").arg(name);
+	return name;
+}
+
+// "Color 3: Grey"; `chosen` tells whether LINE draws the chosen colour's mark over it (a second
+// colour covering part of the disc: the tick).
+QString colorSwatchName(const QWidget *w, bool *chosen = nullptr)
+{
+	if (!isColorSwatch(w))
+		return QString();
+	QWidget *picture = w->findChildren<QWidget *>(Qt::FindDirectChildrenOnly).first();
+	QList<const QWidget *> items;
+	for (const QWidget *other : w->parentWidget()->findChildren<QWidget *>(Qt::FindDirectChildrenOnly)) {
+		if (other->isVisible() && isColorSwatch(other))
+			items << other;
+	}
+	std::sort(items.begin(), items.end(), [](const QWidget *a, const QWidget *b) {
+		return a->y() != b->y() ? a->y() < b->y() : a->x() < b->x();
+	});
+	const QString number = QString::number(items.indexOf(w) + 1);
+	if (picture->paintingActive())
+		return label("Color %1: %2").arg(number, QString()).section(u':', 0, 0);
+	const QImage image = picture->grab().toImage().convertToFormat(QImage::Format_ARGB32);
+	// Count colours (quantised) inside the disc, away from its border.
+	QHash<QRgb, int> counts;
+	const QPointF centre(image.width() / 2.0, image.height() / 2.0);
+	const qreal radius = qMin(image.width(), image.height()) * 0.4;
+	int total = 0;
+	for (int y = 0; y < image.height(); ++y) {
+		for (int x = 0; x < image.width(); ++x) {
+			if (QLineF(centre, QPointF(x + 0.5, y + 0.5)).length() > radius)
+				continue;
+			const QRgb p = image.pixel(x, y);
+			if (qAlpha(p) < 200)
+				continue;
+			++counts[qRgb(qRed(p) & 0xf0, qGreen(p) & 0xf0, qBlue(p) & 0xf0)];
+			++total;
+		}
+	}
+	if (!total)
+		return label("Color %1: %2").arg(number, QString()).section(u':', 0, 0);
+	QRgb main = 0;
+	int best = 0;
+	for (auto it = counts.cbegin(); it != counts.cend(); ++it) {
+		if (it.value() > best) {
+			best = it.value();
+			main = it.key();
+		}
+	}
+	// The average of the pixels near the main colour gives the real shade.
+	long r = 0, g = 0, b = 0, n = 0;
+	for (int y = 0; y < image.height(); ++y) {
+		for (int x = 0; x < image.width(); ++x) {
+			const QRgb p = image.pixel(x, y);
+			if (qAlpha(p) >= 200 && qRgb(qRed(p) & 0xf0, qGreen(p) & 0xf0, qBlue(p) & 0xf0) == main) {
+				r += qRed(p);
+				g += qGreen(p);
+				b += qBlue(p);
+				++n;
+			}
+		}
+	}
+	// The chosen colour is drawn at 80 % brightness with a tick over about a tenth of the disc.
+	const bool marked = best < total * 0.95;
+	if (chosen)
+		*chosen = marked;
+	const qreal undo = marked ? 1 / 0.8 : 1;
+	const QColor colour(qMin(255, qRound(r / n * undo)), qMin(255, qRound(g / n * undo)), qMin(255, qRound(b / n * undo)));
+	QString name = label("Color %1: %2").arg(number, colorName(colour));
+	static QSet<QString> logged;
+	const QString key = colour.name() + (marked ? QStringLiteral("+") : QString());
+	if (logged.size() < 64 && !logged.contains(key)) {
+		logged.insert(key);
+		a11yLog("[swatch] %s %s main %d of %d px", qPrintable(number), qPrintable(key), best, total);
+	}
+	return name;
+}
+
+// The text profile editor's choices: the colour swatches and the Text color / Background color
+// switch (LcButtons "font_color_*" / "bgcolor_*", the chosen one "*_select"). Checkable, so NVDA
+// says which one is chosen.
+bool isColorChoice(const QWidget *w)
+{
+	if (isColorSwatch(w))
+		return true;
+	const QString source = iconSource(w);
+	return inheritsClass(w->window(), "CustomProfileEditorWindow")
+	    && (source.contains(QLatin1StringView("font_color")) || source.contains(QLatin1StringView("bgcolor")));
+}
+
+bool colorChoiceChosen(const QWidget *w)
+{
+	if (iconSource(w).contains(QLatin1StringView("_select.")))
+		return true;
+	bool chosen = false;
+	colorSwatchName(w, &chosen);
+	return chosen;
+}
+
 // The larger copy LINE lays over the sticker the mouse is on (sticker window, AnimatedSticker).
 QWidget *stickerPreview(QWidget *sticker)
 {
@@ -163,12 +324,16 @@ QString iconDerivedName(const QWidget *w)
 {
 	if (QString sticker = stickerName(w); !sticker.isEmpty())
 		return sticker;
+	if (QString swatch = colorSwatchName(w); !swatch.isEmpty())
+		return swatch;
 	if (isChatRoomToggle(w))
 		return chatRoomToggleName(w);
 	if (const int arrow = chatSearchArrow(w); arrow != 0)
 		return label(arrow < 0 ? "Previous result" : "Next result");
-	if (const QString source = iconSource(w); !source.isEmpty())
+	if (const QString source = iconSource(w); !source.isEmpty()) {
+		// The text profile editor's Text color / Background color: the chosen one is "*_select".
 		return humanizeIconName(source);
+	}
 	if (isClickableImage(w))
 		return humanizeIconName(paintedIcon(const_cast<QWidget *>(w)));
 	return QString();
@@ -280,6 +445,9 @@ QString placeholderOf(QWidget *w)
 	// LcTextField / LcTextArea draw the hint themselves while empty.
 	if (inputIsEmpty(w)) {
 		QString hint = paintedText(w);
+		// A text area (Create OpenChat's keywords) draws its hint on the viewport.
+		if (auto *area = qobject_cast<QAbstractScrollArea *>(w); hint.isEmpty() && area && area->viewport())
+			hint = paintedText(area->viewport());
 		if (hint.isEmpty()) {
 			for (QObject *child : w->children()) {
 				if (child->isWidgetType() && inheritsClass(child, "LcText")
@@ -534,6 +702,9 @@ QString inputAccessibleName(QWidget *w)
 		if (const QString chat = chatNameFor(w); !chat.isEmpty())
 			return label("Message to %1").arg(chat);
 	}
+	// Create OpenChat's second page: LINE fills in the LINE name, so there is no hint to read.
+	if (ancestorInheriting(w, "SquarePrivateSettingPanel"))
+		return label("Your nickname in this OpenChat");
 	if (const QString placeholder = placeholderOf(w); !placeholder.isEmpty())
 		return placeholder;
 	if (const QString heuristic = heuristicInputLabel(w); !heuristic.isEmpty())
@@ -547,6 +718,29 @@ QString inputAccessibleName(QWidget *w)
 	return qobject_cast<QTextEdit *>(w) ? label("Text area") : label("Text field");
 }
 
+// An explanation LINE draws right under a field's frame (Create OpenChat: "กำหนดชื่อเล่นและรูปโปรไฟล์...").
+QString explanationBelow(QWidget *w)
+{
+	QWidget *frame = w->parentWidget();
+	QWidget *panel = frame ? frame->parentWidget() : nullptr;
+	if (!panel)
+		return QString();
+	const QRect field = frame->geometry();
+	for (QObject *child : panel->children()) {
+		if (!child->isWidgetType() || !inheritsClass(child, "LcText"))
+			continue;
+		auto *text = static_cast<QWidget *>(child);
+		const QRect r = text->geometry();
+		if (text->isHidden() || r.top() < field.bottom() || r.top() > field.bottom() + 20
+		    || r.right() < field.left() || r.left() > field.right())
+			continue;
+		// Counters ("0 / 20") and short errors are not explanations.
+		if (const QString s = extractLcTextString(text); s.size() >= 20)
+			return s;
+	}
+	return QString();
+}
+
 QString inputAccessibleDescription(QWidget *w)
 {
 	if (!w)
@@ -554,8 +748,11 @@ QString inputAccessibleDescription(QWidget *w)
 	if (const QString desc = cleanText(w->accessibleDescription()); !desc.isEmpty())
 		return desc;
 	const QString name = inputAccessibleName(w);
-	const QString tip = extractLcWidgetToolTip(w);
-	return tip != name ? tip : QString();
+	if (const QString tip = extractLcWidgetToolTip(w); !tip.isEmpty() && tip != name)
+		return tip;
+	if (const QString below = explanationBelow(w); below != name)
+		return below;
+	return QString();
 }
 
 // ---- LineAccessibleWidget ------------------------------------------------------------------------
@@ -769,6 +966,10 @@ QString callWindowButtonName(const QWidget *w)
 
 QAccessible::Role LineAccessibleButton::roleFor(const QWidget *w)
 {
+	// Check boxes, not radio buttons: Qt 6.6's UIA raises a toggle state change only for check
+	// boxes, so NVDA would not say that Space chose the colour.
+	if (isColorChoice(w))
+		return QAccessible::CheckBox;
 	if (inheritsClass(w, "LcCheckBox"))
 		return inRadioGroup(w) ? QAccessible::RadioButton : QAccessible::CheckBox;
 	if (inheritsClass(w, "LcRadioButton"))
@@ -788,6 +989,8 @@ bool LineAccessibleButton::isCheckable() const
 
 bool LineAccessibleButton::isChecked() const
 {
+	if (isColorChoice(widget()))
+		return colorChoiceChosen(widget());
 	return firstTrueBoolProp(widget(), { "checked", "isChecked", "selected" });
 }
 
@@ -861,7 +1064,7 @@ QString LineAccessibleButton::computeName() const
 		return text;
 	if (QString children = collectVisibleChildTexts(w, QStringLiteral(" ")); !children.isEmpty())
 		return children;
-	if (isCheckable()) {
+	if (isCheckable() && !isColorChoice(w)) {
 		if (QString lbl = nearbyLabelText(w); !lbl.isEmpty())
 			return lbl;
 	}
@@ -1025,6 +1228,19 @@ void LineAccessibleButton::press()
 {
 	QWidget *w = widget();
 	QPointer<QWidget> guard(w);
+	// The text profile editor's colours: LINE redraws the mark of the chosen one.
+	if (isColorChoice(w)) {
+		QTimer::singleShot(400, w, [guard] {
+			if (!guard)
+				return;
+			if (QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(guard)) {
+				QAccessible::State changed;
+				changed.checked = true;
+				QAccessibleStateChangeEvent event(iface, changed);
+				QAccessible::updateAccessibility(&event);
+			}
+		});
+	}
 	if (isChatRoomToggle(w)) {
 		QTimer::singleShot(400, w, [guard] {
 			if (!guard)
@@ -1657,7 +1873,8 @@ QString viewerSenderInfo(QWidget *viewer)
 			else if (child->isWidgetType() && inheritsClass(child, "LcText") && sender.isEmpty())
 				sender = extractLcTextString(static_cast<QWidget *>(child));
 		}
-		if (when.isEmpty())
+		// Videos opened from a note (post) carry no date: LINE shows "1 Jan 1970 7.00".
+		if (when.isEmpty() || when.contains(QLatin1StringView("1970")))
 			continue;
 		if (sender.isEmpty())
 			return when;
