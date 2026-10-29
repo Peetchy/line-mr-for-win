@@ -153,6 +153,9 @@ private:
 	void schedulePrune() const;
 	// Makes `row` current, or reads it again if it already is (NVDA ignores a repeated focus event).
 	void makeCurrent(int row);
+	// Bounded wait for rows loaded by an edge scroll. Persistent indices follow prepends.
+	void continueEdgeStep(quint64 request, int key, QPersistentModelIndex anchor, int attempts);
+	quint64 m_edgeRequest = 0;
 
 	mutable QHash<int, QAccessible::Id> m_items;
 	struct PaintedText {

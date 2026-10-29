@@ -23,6 +23,7 @@
 #include <QtGui/QClipboard>
 #include <QtGui/QEnterEvent>
 #include <QtGui/QMouseEvent>
+#include <QtGui/QWheelEvent>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QMenu>
@@ -1591,6 +1592,7 @@ void LineAccessibleList::checkModel() const
 // forget what the old model's rows said.
 void LineAccessibleList::connectModel()
 {
+	++m_edgeRequest;
 	for (const QMetaObject::Connection &c : std::as_const(m_modelConnections))
 		QObject::disconnect(c);
 	m_modelConnections.clear();
@@ -1810,6 +1812,7 @@ void LineAccessibleList::focusLastVisibleRow()
 
 void LineAccessibleList::focusEdgeRow(bool last)
 {
+	++m_edgeRequest;
 	QAbstractItemView *v = view();
 	const int rows = rowCount();
 	if (!v || rows == 0)
@@ -1847,6 +1850,7 @@ bool LineAccessibleList::focusRememberedRow()
 
 bool LineAccessibleList::stepRow(int key)
 {
+	const quint64 request = ++m_edgeRequest;
 	QAbstractItemView *v = view();
 	const int rows = rowCount();
 	if (!v || rows == 0)
@@ -1878,11 +1882,59 @@ bool LineAccessibleList::stepRow(int key)
 		}
 		travelled += v->visualRect(idx).height();
 	}
-	// At the top LINE loads older messages once the first row is in view; Up then goes on.
+	// At an edge, actually reach the scroll limit (EnsureVisible can leave a spacer or
+	// part of a tall row off screen). Do not makeCurrent(): it scrolls back to the anchor.
+	if (target == current && ancestorInheriting(v, "ChatMessageView")) {
+		const QPersistentModelIndex anchor(v->currentIndex());
+		// LINE only loaded history when a wheel movement CROSSED the edge: a wheel
+		// sent while already at zero was accepted but did nothing. Re-arm that transition
+		// by one scrollbar unit, then let LINE's own wheel handler cross the boundary.
+		if (QScrollBar *bar = v->verticalScrollBar()) {
+			const int inset = qMin(1, bar->maximum() - bar->minimum());
+			bar->setValue(step < 0 ? bar->minimum() + inset : bar->maximum() - inset);
+		}
+		QWidget *viewport = v->viewport();
+		const QPoint pos = viewport->rect().center();
+		QWheelEvent wheel(QPointF(pos), QPointF(viewport->mapToGlobal(pos)), QPoint(),
+		                  QPoint(0, step < 0 ? 120 : -120), Qt::NoButton, Qt::NoModifier,
+		                  Qt::NoScrollPhase, false);
+		QCoreApplication::sendEvent(viewport, &wheel);
+		continueEdgeStep(request, key, anchor, 30);
+		return true;
+	}
 	if (target == current)
 		v->scrollTo(v->model()->index(step < 0 ? 0 : rows - 1, 0, v->rootIndex()));
 	makeCurrent(target);
 	return true;
+}
+
+void LineAccessibleList::continueEdgeStep(quint64 request, int key, QPersistentModelIndex anchor, int attempts)
+{
+	const QPointer<QAbstractItemView> listView = view();
+	if (!listView || attempts <= 0)
+		return;
+	QTimer::singleShot(100, listView, [listView, request, key, anchor, attempts] {
+		auto *list = listFor(listView);
+		if (!list || list->m_edgeRequest != request || !listView->hasFocus() || !listView->isVisible()
+		    || !anchor.isValid() || anchor.model() != listView->model() || listView->currentIndex() != anchor) {
+			return;
+		}
+		listView->doItemsLayout();
+		const int step = (key == Qt::Key_Up || key == Qt::Key_PageUp) ? -1 : 1;
+		for (int row = anchor.row() + step; row >= 0 && row < list->rowCount(); row += step) {
+			const QModelIndex idx = listView->model()->index(row, 0, listView->rootIndex());
+			listView->scrollTo(idx);
+			if (auto *item = list->itemAt(row); item && !item->text(QAccessible::Name).isEmpty()) {
+				// One key resumes once, even if LINE inserted an entire page.
+				list->stepRow(key);
+				return;
+			}
+		}
+		// Probing blank spacer rows must not undo the edge scroll either.
+		if (QScrollBar *bar = listView->verticalScrollBar())
+			bar->setValue(step < 0 ? bar->minimum() : bar->maximum());
+		list->continueEdgeStep(request, key, anchor, attempts - 1);
+	});
 }
 
 void LineAccessibleList::makeCurrent(int row)
