@@ -1288,10 +1288,12 @@ void LineAccessibleButton::press()
 		QWidget *target = guard.data();
 		if (!target || !target->isEnabled() || !target->isVisible())
 			return;
-		// The chat list's folder tabs (All / Friends / Groups / Official accounts) filter the list
-		// only on a mouse click: setting `selected` and emitting clicked() ticked the tab but left the
-		// list unfiltered.
-		if (ancestorInheriting(target, "TabBar")) {
+		// Setting selected and emitting clicked() can change a check mark without
+		// persisting the preference. Let LINE's mouse handler perform the whole action,
+		// just as for folder tabs where a property change alone does not filter the list.
+		const bool settingCheckBox = inheritsClass(target->window(), "SettingWindow")
+		    && inheritsClass(target, "LcCheckBox") && !inRadioGroup(target);
+		if (ancestorInheriting(target, "TabBar") || settingCheckBox) {
 			sendMouseClick(target);
 			QTimer::singleShot(150, target, [guard] {
 				if (!guard)
