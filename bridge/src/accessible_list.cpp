@@ -5,6 +5,7 @@
 #include "a11y_event_filter.h"
 #include "a11y_log.h"
 #include "line_introspect.h"
+#include "voice_bubble.h"
 #include "qt_signal_utils.h"
 #include "text_capture.h"
 
@@ -363,6 +364,11 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 					return "Voice message";
 				}
 			}
+		}
+		const QRectF tiled = tiledVoiceBubble(cap, voice->rect, rowRect.width());
+		if (!tiled.isEmpty()) {
+			*lengthBubble = tiled;
+			return "Voice message";
 		}
 	}
 	if (fileIcon)
