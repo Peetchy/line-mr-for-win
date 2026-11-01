@@ -111,6 +111,8 @@ public:
 	// menu (voice messages, files: the first point was not on the part LINE reacts to), closes it
 	// and tries the message's other parts. False if no point can be placed.
 	bool openRowMenu();
+	// Internal commands dispatched by NVDA's remappable scripts: reply, delete, unsend.
+	bool openMessageCommand(int command);
 	// Applications key / Shift+F10 in the chat or friend list: Qt would open the menu of LINE's
 	// current row (the open chat), not of the row the bridge's cursor is on (the one NVDA read), so
 	// "Delete" could hit another chat. Right-clicks the cursor row instead and keeps the cursor

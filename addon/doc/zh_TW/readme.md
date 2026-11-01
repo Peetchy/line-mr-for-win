@@ -95,3 +95,10 @@ NVDA 啟動時,LINE MR 會在 GitHub 上檢查是否有新版本。如果有,會
 記錄檔:`%LOCALAPPDATA%\LineMR\logs\bridge.log`。
 
 LINE MR 是一個獨立專案,與 LY Corporation / LINE 無關聯,也未獲其認可。
+
+
+## 訊息選單快捷鍵
+
+在訊息列表中，Alt+R 回覆目前訊息並移到編輯框；Delete 刪除此裝置的目前訊息；Shift+Delete 收回目前訊息。這些指令列於 NVDA「偏好設定 → 輸入手勢 → LINE MR」，可重新指定按鍵。在訊息編輯框等其他控制項中，按鍵維持原本用途。
+
+刪除與收回只啟動 LINE 原有選單項目，保留原生確認視窗；沒有該項目時會提示無法使用，不改選其他操作。以 Application 鍵或 Shift+F10 開啟選單後，選擇「回覆」也會移至編輯框。

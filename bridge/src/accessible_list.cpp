@@ -2868,6 +2868,13 @@ struct PendingMenuChoice {
 	QElapsedTimer at;
 } g_menuChoice;
 
+struct PendingMessageCommand {
+	QPointer<QAbstractItemView> source;
+	QPersistentModelIndex row;
+	QStringList labels;
+	QElapsedTimer at;
+} g_messageCommand;
+
 // The chat's message list in a window showing one (the main window or a popped-out chat).
 QAbstractItemView *visibleMessageList()
 {
@@ -3243,8 +3250,55 @@ bool LineAccessibleList::openReactions(int row, bool remove)
 	return true;
 }
 
+bool LineAccessibleList::openMessageCommand(int command)
+{
+	QAbstractItemView *v = view();
+	if (!v || !v->hasFocus() || !v->currentIndex().isValid() || command < 0 || command > 2)
+		return false;
+	if (g_messageCommand.source && g_messageCommand.at.isValid() && g_messageCommand.at.elapsed() < 2000)
+		return true;
+	static const QStringList labels[] = {
+		{ QStringLiteral("Reply"), QStringLiteral("回覆"), QStringLiteral("回复"), QStringLiteral("回復"), QStringLiteral("返信"), QStringLiteral("ตอบกลับ") },
+		{ QStringLiteral("Delete"), QStringLiteral("刪除"), QStringLiteral("删除"), QStringLiteral("削除"), QStringLiteral("ลบ") },
+		{ QStringLiteral("Unsend"), QStringLiteral("收回"), QStringLiteral("撤回"), QStringLiteral("送信取消"), QStringLiteral("送信を取り消す"), QStringLiteral("ยกเลิกข้อความ"), QStringLiteral("ยกเลิกการส่ง") },
+	};
+	g_messageCommand.source = v;
+	g_messageCommand.row = v->currentIndex();
+	g_messageCommand.labels = labels[command];
+	g_messageCommand.at.start();
+	a11yLog("[message-command] requested command=%d row=%d", command, v->currentIndex().row());
+	if (!openRowMenu()) {
+		g_messageCommand = PendingMessageCommand();
+		return false;
+	}
+	return true;
+}
+
 QWidget *takePendingMenuChoice(const QList<QWidget *> &items)
 {
+	if (g_messageCommand.source) {
+		const QPointer<QAbstractItemView> source = g_messageCommand.source;
+		const bool valid = g_messageCommand.at.isValid() && g_messageCommand.at.elapsed() < 2000
+		    && g_messageCommand.row.isValid() && g_messageCommand.row.model() == source->model()
+		    && source->currentIndex() == g_messageCommand.row;
+		const QStringList wanted = g_messageCommand.labels;
+		g_messageCommand = PendingMessageCommand(); // consume once; never continue into a confirmation
+		if (!valid)
+			return nullptr;
+		for (QWidget *item : items) {
+			QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(item);
+			QString text = iface ? cleanText(iface->text(QAccessible::Name)).remove(u'&').trimmed() : QString();
+			while (text.endsWith(u'.') || text.endsWith(QChar(0x2026)))
+				text.chop(1);
+			if (item->isEnabled() && wanted.contains(text.trimmed())) {
+				a11yLog("[message-command] activating %s", qUtf8Printable(text));
+				return item;
+			}
+		}
+		a11yLog("[message-command] command unavailable for this row");
+		announce(source, label("This message action is not available."));
+		return nullptr;
+	}
 	if (g_menuChoice.texts.isEmpty() || !g_menuChoice.at.isValid() || g_menuChoice.at.elapsed() > 5000)
 		return nullptr;
 	for (QWidget *item : items) {
