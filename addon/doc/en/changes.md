@@ -12,6 +12,10 @@
 - With NVDA 2025.4 or older (32-bit NVDA), LINE MR asked again and again to restart LINE although it was working. It now sees that LINE runs with LINE MR.
 - In the message input and other text fields, Up/Down read the line shown on screen: a long paragraph that wraps is read line by line instead of whole again at every line, and an empty line reads "blank" instead of the line above it.
 - Up/Down in the message input no longer move focus away (into LINE's sticker and emoji suggestions above it) while you read a text line by line.
+- Up on the oldest loaded message makes LINE load older messages, and Up goes on into them (contributed by wengweng0312).
+- Settings check boxes changed with the keyboard (for example Notifications > Show message contents) are now saved (contributed by wengweng0312).
+- Voice messages that LINE draws in several pieces are recognised, so Enter and Space play them (contributed by wengweng0312).
+- Traditional Chinese LINE: read receipts (已讀) and times (下午 2:49) are read at the end of a message, and a received message that says "已讀" is not taken for a receipt (contributed by Keyang556).
 
 ## Version 0.5.4
 
