@@ -162,11 +162,12 @@ QString dataObjectText(const QObject *data)
 
 // ---- Row text from what LINE paints ------------------------------------------------------------
 
-// Time ("2:49 PM", "14:49", "14.49 น.") and read receipt ("Read", "Read 3", "อ่านแล้ว") labels.
+// Time ("2:49 PM", "14:49", "14.49 น.", "下午 2:49") and read receipt ("Read", "Read 3", "อ่านแล้ว",
+// "已讀") labels.
 bool isTimeOrReceipt(const QString &text)
 {
 	static const QRegularExpression pattern(QStringLiteral(
-		"^(\\d{1,2}[:.]\\d{2}(\\s?([AaPp][Mm]|น\\.?))?|Read( \\d+)?|อ่านแล้ว( \\d+)?)$"));
+		"^(([上下]午\\s?)?\\d{1,2}[:.]\\d{2}(\\s?([AaPp][Mm]|น\\.?))?|Read( \\d+)?|อ่านแล้ว( \\d+)?|已讀(\\s?\\d+)?)$"));
 	return pattern.match(text.trimmed()).hasMatch();
 }
 
@@ -198,7 +199,7 @@ bool isPhotoMenu(const QString &text)
 
 bool isReceipt(const QString &text)
 {
-	static const QRegularExpression pattern(QStringLiteral("^(Read( \\d+)?|อ่านแล้ว( \\d+)?)$"));
+	static const QRegularExpression pattern(QStringLiteral("^(Read( \\d+)?|อ่านแล้ว( \\d+)?|已讀(\\s?\\d+)?)$"));
 	return pattern.match(text.trimmed()).hasMatch();
 }
 
@@ -692,6 +693,8 @@ QString postRowText(QWidget *viewport, const QRect &rowRect, bool *skipped)
 	return out;
 }
 
+QRectF senderPicture(const CaptureResult &cap);
+
 // A chat message row: sender, content, then time and read receipt (which LINE draws beside the
 // bubble). Sent messages are drawn on the right and have no sender name.
 QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, bool *skipped)
@@ -740,6 +743,9 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	bool fileSize = false;
 	// Received group messages start with the sender's name, beside the avatar at the top.
 	bool sender = false;
+	// LINE draws read receipts only beside the user's own messages: in a row with the sender's
+	// picture, "Read" / "已讀" is what the sender wrote.
+	const bool received = !senderPicture(cap).isEmpty();
 	// The number of people who reacted, drawn right of the reaction faces under the bubble.
 	QString reactionCount;
 	QRectF faces;
@@ -758,7 +764,7 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 			continue;
 		}
 		fileSize = fileSize || isFileSize(t);
-		if (isTimeOrReceipt(t)) {
+		if (isTimeOrReceipt(t) && !(received && isReceipt(t))) {
 			receipt = receipt || isReceipt(t);
 			trailing << t;
 			trailingX << l.x;
@@ -1159,13 +1165,17 @@ RowSide rowSide(const CaptureResult &cap, const QRect &rowRect)
 	const qreal width = rowRect.width();
 	qreal minX = width, maxRight = 0, timeRight = -1;
 	bool text = false;
+	// (Read receipts are drawn only beside the user's own messages, never in a row with the
+	// sender's picture.)
+	const bool received = !senderPicture(cap).isEmpty();
 	for (const CapturedText &it : cap.items) {
 		const QString t = cleanText(it.text);
 		if (t.isEmpty() || isPhotoMenu(t))
 			continue;
-		if (isReceipt(t))
+		const bool receipt = isReceipt(t);
+		if (receipt && !received)
 			return RowSide::Other;
-		if (isTimeOrReceipt(t)) {
+		if (!receipt && isTimeOrReceipt(t)) {
 			timeRight = qMax(timeRight, it.pos.x() + it.width);
 			continue;
 		}
