@@ -23,7 +23,7 @@ It is the Windows counterpart of [LINE MR for Mac](https://github.com/Peetchy/li
 - [Troubleshooting](#troubleshooting)
 - [How it works](#how-it-works)
 - [Development](#development)
-- [Contributing and feedback](#contributing-and-feedback)
+- [Contribute](#contribute)
 - [License](#license)
 
 ## Features
@@ -208,9 +208,40 @@ Logs and crash data live in `%LOCALAPPDATA%\LineMR`: `logs\bridge.log` (plus `li
 | `addon/locale/`, `addon/doc/` | Translations, user guides and "What's new" in five languages |
 | `tools/`, `tests/` | Build, install, inspection and checks |
 
-## Contributing and feedback
+## Contribute
 
-Bug reports, translations and pull requests are welcome in [GitHub Issues](https://github.com/Peetchy/line-mr-for-win/issues). For a bug, please include the report from NVDA+Shift+Control+L (pressed twice), your LINE and NVDA versions, and the steps that lead to the problem. A new user-visible label or message needs all five languages: the bridge's `kLabels` in `line_introspect.cpp`, the add-on's `.po` files and the guides.
+LINE MR is built together with its users. Bug reports, testing with real LINE accounts, translations, documentation and code are all welcome.
+
+### Report a problem or an idea
+
+Open an issue in [GitHub Issues](https://github.com/Peetchy/line-mr-for-win/issues). For a bug, please include:
+
+- the report from **NVDA+Shift+Control+L pressed twice** (it is copied to the clipboard; it holds versions, settings and the bridge's tagged log lines, no chat text),
+- your LINE and NVDA versions, and your display scale,
+- the steps that lead to the problem, and what NVDA said.
+
+### Send a pull request
+
+1. Fork the repository and create a branch for one change (`fix/...` or `feature/...`).
+2. Build and install it locally (see [Development](#development)): `tools/build.ps1`, then `tools/install-bridge.ps1 -Restart` and `tools/dev-install-addon.ps1`.
+3. Test with LINE and NVDA. Describe in the pull request what you tested, and how (real keys, which window or chat type).
+4. Keep to the project's rules:
+   - Never modify LINE's own files; the bridge must stay inert outside LINE's processes and must never crash LINE (no raw memory reads or offsets).
+   - A new user-visible label or message needs all five languages (English, Thai, Japanese, Simplified and Traditional Chinese): the bridge's `kLabels` in `line_introspect.cpp`, the add-on's `.po` files and the guides in `addon/doc`.
+   - Follow the surrounding code style (tabs, the existing naming).
+   - Do not include private chat text in commits, tests or screenshots.
+5. Open the pull request against `main`. For a first-time contributor, GitHub waits for the maintainer to approve the CI run; the build must pass before merging.
+
+### Thank you
+
+LINE MR is maintained by **Itsawat Banlawanich** ([@Peetchy](https://github.com/Peetchy), peet.itsawat@gmail.com).
+
+Thank you to everyone who helps make LINE accessible. Contributors whose pull requests have been merged, in order of their first contribution:
+
+| # | Contributor | GitHub | Contributions |
+|---|---|---|---|
+| 1 | Keyang556 | [@keyang556](https://github.com/keyang556) | Traditional Chinese read receipts and times in chats ([#2](https://github.com/Peetchy/line-mr-for-win/pull/2)) |
+| 2 | wengweng0312 | [@wengweng0312](https://github.com/wengweng0312) | Loading older messages at the top of a chat ([#8](https://github.com/Peetchy/line-mr-for-win/pull/8)), settings check boxes that are saved ([#10](https://github.com/Peetchy/line-mr-for-win/pull/10)), voice messages drawn in tiles ([#11](https://github.com/Peetchy/line-mr-for-win/pull/11)) |
 
 ## License
 
