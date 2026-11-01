@@ -6,8 +6,6 @@ LINE MR is a free, open-source NVDA add-on that makes the LINE desktop app usabl
 
 It is the Windows counterpart of [LINE MR for Mac](https://github.com/Peetchy/line-mr-for-mac) (VoiceOver).
 
-> **ภาษาไทย:** LINE MR (ไลน์ไม่รู้) เป็นส่วนเสริมฟรีสำหรับ NVDA ที่ทำให้ผู้พิการทางการเห็นใช้ LINE บน Windows ได้ด้วยตนเอง NVDA จะอ่านปุ่ม รายการแชท และข้อความ ใช้งานทุกส่วนได้ด้วยแป้นพิมพ์ และแจ้งสายเรียกเข้าพร้อมรับสายได้ โดยไม่แก้ไขไฟล์ของ LINE ดู[คู่มือภาษาไทย](addon/doc/th/readme.md)
-
 **[⬇ Download the latest version (`lineMR.nvda-addon`)](https://github.com/Peetchy/line-mr-for-win/releases/latest/download/lineMR.nvda-addon)** · [All releases and release notes](https://github.com/Peetchy/line-mr-for-win/releases)
 
 ---
@@ -17,7 +15,7 @@ It is the Windows counterpart of [LINE MR for Mac](https://github.com/Peetchy/li
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
-- [Keyboard commands](#keyboard-commands--คำสั่งแป้นพิมพ์)
+- [Keyboard commands](#keyboard-commands)
 - [Documentation and languages](#documentation-and-languages)
 - [Privacy and safety](#privacy-and-safety)
 - [Troubleshooting](#troubleshooting)
@@ -74,19 +72,19 @@ To check that it works, press **NVDA+Shift+Control+L** in LINE: NVDA says whethe
 
 **Uninstalling.** Remove LINE MR in NVDA's Add-on Store (installed add-ons). The bridge is a single file, `platformthemes\line_a11y.dll`, in LINE's folder; deleting it, or reinstalling LINE, removes it from LINE.
 
-## Keyboard commands / คำสั่งแป้นพิมพ์
+## Keyboard commands
 
-| Command | Action | การทำงาน |
-|---|---|---|
-| Alt+1 / Alt+2 / Alt+3 | Friends / Chats / Add friends tab | แท็บเพื่อน / แชท / เพิ่มเพื่อน |
-| Alt+C | Move to the chat list (switches to the Chats tab first if needed) | ไปที่รายการแชท (สลับไปแท็บแชทก่อนถ้าจำเป็น) |
-| Alt+L | Move to the chat list or friend list | ไปที่รายการแชทหรือรายชื่อเพื่อน |
-| Alt+F | Move to the search field of the chat list or friend list | ไปที่ช่องค้นหาของรายการแชทหรือรายชื่อเพื่อน |
-| Alt+M | Move to the messages of the open chat (starts at the newest) | ไปที่ข้อความของแชทที่เปิดอยู่ (เริ่มที่ข้อความล่าสุด) |
-| Alt+I | Move to the message input | ไปที่ช่องพิมพ์ข้อความ |
-| NVDA+Alt+1 … 9 | Read a recent message (1 = newest) | อ่านข้อความล่าสุด (1 = ใหม่สุด) |
-| Alt+A / Alt+D in LINE (NVDA+Shift+Control+A / D from any application) | Answer / decline an incoming LINE call; Alt+D in LINE ends the current call | รับสาย / ปฏิเสธสายเรียกเข้าของ LINE (Alt+A / Alt+D ใน LINE, NVDA+Shift+Control+A / D จากทุกโปรแกรม); Alt+D ใน LINE วางสายที่กำลังคุยอยู่ |
-| NVDA+Shift+Control+L | Report whether the bridge is running; press twice to copy a report for the developer | บอกว่าตัวเชื่อมทำงานอยู่หรือไม่ กดสองครั้งเพื่อคัดลอกรายงานสำหรับผู้พัฒนา |
+| Command | Action |
+|---|---|
+| Alt+1 / Alt+2 / Alt+3 | Friends / Chats / Add friends tab |
+| Alt+C | Move to the chat list (switches to the Chats tab first if needed) |
+| Alt+L | Move to the chat list or friend list |
+| Alt+F | Move to the search field of the chat list or friend list |
+| Alt+M | Move to the messages of the open chat (starts at the newest) |
+| Alt+I | Move to the message input |
+| NVDA+Alt+1 … 9 | Read a recent message (1 = newest) |
+| Alt+A / Alt+D in LINE (NVDA+Shift+Control+A / D from any application) | Answer / decline an incoming LINE call; Alt+D in LINE ends the current call |
+| NVDA+Shift+Control+L | Report whether the bridge is running; press twice to copy a report for the developer |
 
 ### In lists and messages
 
