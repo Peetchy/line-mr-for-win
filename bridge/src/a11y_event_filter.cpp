@@ -41,6 +41,7 @@
 #include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QScrollArea>
 #include <QtWidgets/QSplitter>
+#include <QtWidgets/QTextEdit>
 #include <QtWidgets/QWidget>
 
 #include <windows.h>
@@ -943,6 +944,34 @@ void windowShown(QWidget *w)
 	});
 }
 
+// Up / Down in the message input while LINE shows sticker suggestions for the text (StickerSuggester
+// above the input): moves the caret by a line itself (Shift selects). False if no suggestions show or
+// the caret is on the first / last line, so the key goes to the input as usual.
+bool moveCaretPastStickerSuggester(QWidget *input, const QKeyEvent *key)
+{
+	auto *edit = qobject_cast<QTextEdit *>(input);
+	if (!edit)
+		return false;
+	bool suggesting = false;
+	for (QWidget *c : input->window()->findChildren<QWidget *>()) {
+		if (inheritsClass(c, "StickerSuggester") && c->isVisible()) {
+			suggesting = true;
+			break;
+		}
+	}
+	if (!suggesting)
+		return false;
+	const int before = edit->textCursor().position();
+	edit->moveCursor(key->key() == Qt::Key_Up ? QTextCursor::Up : QTextCursor::Down,
+	                 key->modifiers() & Qt::ShiftModifier ? QTextCursor::KeepAnchor : QTextCursor::MoveAnchor);
+	if (edit->textCursor().position() == before)
+		return false;
+	static int logged = 0;
+	if (logged++ < 3)
+		a11yLog("[keyboard] caret moved past LINE's sticker suggestions (key 0x%x)", key->key());
+	return true;
+}
+
 class A11yEventFilter;
 A11yEventFilter *g_filter = nullptr;
 
@@ -1265,6 +1294,11 @@ public:
 				static int logged = 0;
 				if (logged++ < 3)
 					a11yLog("[keyboard] key 0x%x in the message input bypasses LINE's filters", key->key());
+				// While LINE suggests stickers for the line at the caret ("1234", "ขอบคุณ"...), the input
+				// moves focus into the suggestions on Up: reading a text upwards lost focus there. Move
+				// the caret here; only at the first / last line the key goes to LINE.
+				if (moveCaretPastStickerSuggester(w, key))
+					return true;
 				static_cast<QObject *>(w)->event(event);
 				return true;
 			}
