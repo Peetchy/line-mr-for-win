@@ -1,5 +1,17 @@
 # What's new in LINE MR
 
+## Version 0.5.5
+
+### Updates
+- Installed from the NVDA Add-on Store, LINE MR leaves updates to the Store: it no longer checks GitHub, and its settings say so.
+
+### Focus highlight
+- For low-vision users: a yellow frame with a black outline shows which control has the focus in LINE (also chats, messages and menu items). Its colour and width can be changed, or it can be turned off, in NVDA's settings, category LINE MR.
+
+### Fixes
+- With NVDA 2025.4 or older (32-bit NVDA), LINE MR asked again and again to restart LINE although it was working. It now sees that LINE runs with LINE MR.
+- In the message input and other text fields, Up/Down read the line shown on screen: a long paragraph that wraps is read line by line instead of whole again at every line, and an empty line reads "blank" instead of the line above it.
+
 ## Version 0.5.4
 
 ### Long messages

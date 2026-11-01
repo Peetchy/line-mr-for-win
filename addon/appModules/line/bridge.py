@@ -108,6 +108,15 @@ _version.VerQueryValueW.argtypes = (
 _version.VerQueryValueW.restype = wintypes.BOOL
 _user32.GetDpiForSystem.argtypes = ()
 _user32.GetDpiForSystem.restype = wintypes.UINT
+_kernel32.OpenMutexW.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR)
+_kernel32.OpenMutexW.restype = wintypes.HANDLE
+_EnumWindowsProc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+_user32.EnumWindows.argtypes = (_EnumWindowsProc, wintypes.LPARAM)
+_user32.EnumWindows.restype = wintypes.BOOL
+_user32.GetWindowThreadProcessId.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.DWORD))
+_user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+_user32.GetClassNameW.argtypes = (wintypes.HWND, wintypes.LPWSTR, ctypes.c_int)
+_user32.GetClassNameW.restype = ctypes.c_int
 
 
 class _ShellExecuteInfo(ctypes.Structure):
@@ -189,6 +198,47 @@ def _processModules(pid):
 		return names
 	finally:
 		_kernel32.CloseHandle(handle)
+
+
+def bridgeLoaded(pid):
+	"""Does process `pid` run the bridge?
+
+	The bridge creates the mutex "Local\\lineMR.bridge.<pid>" when it loads. Listing the process's
+	modules fails from a 32-bit NVDA (before 2026.1) for 64-bit LINE (ERROR_PARTIAL_COPY), so the
+	modules are only a fallback, for bridges built before the mutex.
+	"""
+	handle = _kernel32.OpenMutexW(SYNCHRONIZE, False, "Local\\lineMR.bridge.%d" % pid)
+	if handle:
+		_kernel32.CloseHandle(handle)
+		return True
+	return DLL_NAME in _processModules(pid)
+
+
+def _qtWindowShown(pid):
+	"""Has Qt created a window in process `pid`? (Qt's window classes are "Qt<version>QWindow...".)"""
+	found = []
+
+	def visit(hwnd, _lParam):
+		owner = wintypes.DWORD()
+		_user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+		if owner.value == pid:
+			buf = ctypes.create_unicode_buffer(256)
+			if _user32.GetClassNameW(hwnd, buf, len(buf)) and buf.value.startswith("Qt") and "QWindow" in buf.value:
+				found.append(hwnd)
+				return False
+		return True
+
+	_user32.EnumWindows(_EnumWindowsProc(visit), 0)
+	return bool(found)
+
+
+def _qtStarted(pid):
+	"""Has Qt's platform (where the bridge loads, as a platform theme) come up in process `pid`?"""
+	modules = _processModules(pid)
+	if modules:
+		return "qwindows.dll" in modules
+	# A 32-bit NVDA cannot list a 64-bit process's modules: Qt creates its windows after the theme.
+	return _qtWindowShown(pid)
 
 
 def _processImagePath(pid):
@@ -362,7 +412,7 @@ def status(pid=None):
 		return Status.MISSING
 	if not _sameFile(BUNDLED_DLL, target):
 		return Status.OUTDATED
-	if pid and DLL_NAME not in _processModules(pid):
+	if pid and not bridgeLoaded(pid):
 		return Status.BLOCKED if _blockedPath else Status.NOT_LOADED
 	_blockedPath = None
 	return Status.RUNNING
@@ -459,7 +509,7 @@ def callStatus():
 		return CallStatus.NO_CALL
 	pids = _callPids()
 	if pids:
-		return CallStatus.RUNNING if all(DLL_NAME in _processModules(pid) for pid in pids) else CallStatus.NOT_LOADED
+		return CallStatus.RUNNING if all(bridgeLoaded(pid) for pid in pids) else CallStatus.NOT_LOADED
 	if os.path.isfile(BUNDLED_DLL) and all(os.path.isfile(p) and _sameFile(BUNDLED_DLL, p) for p in paths):
 		return CallStatus.READY
 	return CallStatus.MISSING
@@ -615,13 +665,12 @@ def _waitForBridge(timeout=90.0):
 		for name, pid in _lineProcesses():
 			if name != "line.exe":
 				continue
-			modules = _processModules(pid)
-			if DLL_NAME in modules:
+			if bridgeLoaded(pid):
 				return True
-			if "qwindows.dll" in modules:
+			if _qtStarted(pid):
 				# Qt has loaded its platform plugin; it asks for platform themes right after.
 				time.sleep(3)
-				return DLL_NAME in _processModules(pid)
+				return bridgeLoaded(pid)
 	return None
 
 
@@ -884,7 +933,7 @@ def diagnostics(pid=None):
 	directory = lineDir(pid)
 	lines = [
 		"LINE MR %s" % addon.version,
-		"NVDA %s" % buildVersion.version,
+		"NVDA %s (%d-bit)" % (buildVersion.version, ctypes.sizeof(ctypes.c_void_p) * 8),
 		"Windows %s" % winVersion.getWinVer(),
 		"Display scale %d%%" % _displayScale(),
 		"Smart App Control: %s" % ("on" if smartAppControlOn() else "off or evaluation"),
@@ -916,7 +965,7 @@ def diagnostics(pid=None):
 		"Safe mode: %s" % ("yes" if inSafeMode() else "no"),
 		"LINE processes: %s" % (
 			", ".join(
-				"%s %d%s" % (name, p, " (bridge loaded)" if DLL_NAME in _processModules(p) else "")
+				"%s %d%s" % (name, p, " (bridge loaded)" if bridgeLoaded(p) else "")
 				for name, p in _lineProcesses()
 			) or "none"
 		),

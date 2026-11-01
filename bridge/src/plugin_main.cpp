@@ -12,6 +12,7 @@
 #include "a11y_log.h"
 #include "accessible_widgets.h"
 #include "call_install.h"
+#include "focus_highlight.h"
 #include "text_capture.h"
 
 #include <QtCore/QCoreApplication>
@@ -27,6 +28,7 @@
 #include <dbghelp.h>
 
 #include <atomic>
+#include <cwchar>
 
 namespace line_a11y {
 namespace {
@@ -55,6 +57,17 @@ void pinSelf()
 	HMODULE self = nullptr;
 	GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
 	                   reinterpret_cast<LPCWSTR>(&pinSelf), &self);
+}
+
+// Tells the add-on that the bridge runs in this process: it opens "Local\lineMR.bridge.<pid>".
+// Listing a process's modules does not work from a 32-bit NVDA (before 2026.1) for 64-bit LINE.
+// The handle stays open until the process ends, which removes the mutex.
+void announceLoaded()
+{
+	wchar_t name[64];
+	swprintf_s(name, L"Local\\lineMR.bridge.%lu", GetCurrentProcessId());
+	if (!CreateMutexW(nullptr, FALSE, name))
+		a11yLog("[plugin] could not create the loaded marker (error %lu)", GetLastError());
 }
 
 // Crash guard: a marker file exists while LINE runs with the bridge and is removed when LINE
@@ -139,6 +152,7 @@ void startHelperBridge(QCoreApplication *app)
 	enforceAccessibilityHandler("startBridge");
 	installCrashDumpWriter();
 	installEventFilter(app);
+	startFocusHighlight(app);
 	if (helperProcessName() == QLatin1StringView("linecall"))
 		startEndCallListener(app);
 	startHelperDiagnostics(app);
@@ -163,6 +177,7 @@ void startBridge()
 	checkPreviousSessions(app);
 	installCrashDumpWriter();
 	installEventFilter(app);
+	startFocusHighlight(app);
 	startDiagnostics(app);
 	startCallBridgeSync(app);
 	a11yLog("[bridge] started on %s (accessibility %s)", app->metaObject()->className(),
@@ -175,6 +190,7 @@ void bootstrap()
 	if (!g_bootstrapped.compare_exchange_strong(expected, true))
 		return;
 	pinSelf();
+	announceLoaded();
 	a11yLog("[plugin] line_a11y loaded into %s (pid %lu), Qt runtime %s, data dir %s",
 	        qUtf8Printable(hostExecutable()), GetCurrentProcessId(), qVersion(),
 	        qUtf8Printable(bridgeDirectory()));

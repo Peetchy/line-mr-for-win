@@ -15,9 +15,13 @@ After a LINE update the bridge may have to be installed again; LINE MR notices a
 
 ## Updating LINE MR
 
-When NVDA starts, LINE MR checks GitHub for a newer release. If there is one, a dialog offers **Update now**, **Later** or **Skip this version**. Update now downloads the new version and hands it to NVDA, which asks you to confirm the installation and then to restart NVDA. To turn the check off or check right away: NVDA menu, Preferences, Settings, category "LINE MR". The command "Checks for a newer version of LINE MR" (no key by default) can be given a key in Input gestures.
+When NVDA starts, LINE MR checks GitHub for a newer release. If there is one, a dialog offers **Update now**, **Later** or **Skip this version**. Update now downloads the new version and hands it to NVDA, which asks you to confirm the installation and then to restart NVDA. To turn the check off or check right away: NVDA menu, Preferences, Settings, category "LINE MR". The command "Checks for a newer version of LINE MR" (no key by default) can be given a key in Input gestures. If you installed LINE MR from the NVDA Add-on Store, the Store offers the updates and LINE MR does not check GitHub.
 
 The same category has a **What's new** button: it lists what changed in each version, in a window you read like a web page (H moves to the next version).
+
+## Focus highlight
+
+For low-vision users, LINE MR draws a yellow frame with a black outline around the control that has the focus in LINE, its call windows and its photo viewer: the button, field, chat, message or menu item NVDA reads. It follows the keyboard, also through the chat list, the messages and menus, and is hidden while another application is in front. To turn it off or change its colour (yellow, orange, red, green, blue, white) and width: NVDA menu, Preferences, Settings, category "LINE MR". LINE applies the change within a second, also when NVDA is not running.
 
 ## What works now
 

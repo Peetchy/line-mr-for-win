@@ -30,7 +30,7 @@ class AppModule(CallCommandsAppModule):
 
 	def _checkBridge(self):
 		try:
-			if bridge.DLL_NAME in bridge._processModules(self.processID):
+			if bridge.bridgeLoaded(self.processID):
 				return
 			bridge.repairHelperBridges()
 		except Exception:

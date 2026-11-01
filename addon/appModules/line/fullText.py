@@ -32,6 +32,14 @@ def _automationId(obj):
 		return ""
 
 
+def hasLineData(obj):
+	"""Does the bridge report the lines this text field draws (LineAccessibleInput of a text area)?"""
+	try:
+		return (obj.UIAElement.CurrentHelpText or "").startswith(_HELP_PREFIX)
+	except Exception:
+		return False
+
+
 def chooseOverlayClasses(obj, clsList):
 	if _automationId(obj) == AUTOMATION_ID:
 		clsList.insert(0, FullTextView)
@@ -80,7 +88,7 @@ class FullTextInfo(OffsetsTextInfo):
 
 
 class FullTextView(UIA):
-	"""The bridge's text view over LINE's full-text window."""
+	"""The bridge's text view over LINE's full-text window; also LINE's text areas (qtText.py)."""
 
 	TextInfo = FullTextInfo
 

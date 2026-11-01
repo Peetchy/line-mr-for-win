@@ -258,3 +258,43 @@ msgstr "มีอะไรใหม่ใน LINE MR"
 #. Translators: Reported when the add-on's list of changes is missing.
 msgid "The list of changes was not found."
 msgstr "ไม่พบรายการการเปลี่ยนแปลง"
+
+msgid "LINE MR was installed from the NVDA Add-on Store, which offers its updates."
+msgstr "ติดตั้ง LINE MR มาจาก Add-on Store ของ NVDA ซึ่งจะแจ้งอัปเดตให้เอง"
+
+#. Translators: A colour of the focus highlight in LINE.
+msgid "Yellow"
+msgstr "เหลือง"
+
+#. Translators: A colour of the focus highlight in LINE.
+msgid "Orange"
+msgstr "ส้ม"
+
+#. Translators: A colour of the focus highlight in LINE.
+msgid "Red"
+msgstr "แดง"
+
+#. Translators: A colour of the focus highlight in LINE.
+msgid "Green"
+msgstr "เขียว"
+
+#. Translators: A colour of the focus highlight in LINE.
+msgid "Blue"
+msgstr "น้ำเงิน"
+
+#. Translators: A colour of the focus highlight in LINE.
+msgid "White"
+msgstr "ขาว"
+
+#. Translators: Check box in the add-on's settings: a coloured frame shows which control in
+#. LINE has the focus (for low-vision users).
+msgid "&Highlight the focused control in LINE"
+msgstr "ไฮไลต์ตัวควบคุมที่โฟกัสอยู่ใน LINE (&H)"
+
+#. Translators: Label of the list of colours of the focus highlight in the add-on's settings.
+msgid "Highlight &colour:"
+msgstr "สีไฮไลต์ (&C):"
+
+#. Translators: Label of the width of the focus highlight frame in the add-on's settings.
+msgid "Highlight &width:"
+msgstr "ความหนาไฮไลต์ (&W):"

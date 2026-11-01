@@ -6,6 +6,7 @@
 #include "accessible_list.h"
 #include "accessible_quick.h"
 #include "accessible_widgets.h"
+#include "focus_highlight.h"
 #include "full_text_view.h"
 #include "line_introspect.h"
 #include "qt_signal_utils.h"
@@ -1649,6 +1650,7 @@ void bridgeUpdateHandler(QAccessibleEvent *event)
 		if (o && o->isWidgetType() && g_filter->suppressFocusOn(static_cast<QWidget *>(o)))
 			return;
 	}
+	noteAccessibleEvent(event);
 	if (QPlatformIntegration *pi = QGuiApplicationPrivate::platformIntegration()) {
 		if (QPlatformAccessibility *pa = pi->accessibility())
 			pa->notifyAccessibilityUpdate(event);

@@ -134,7 +134,9 @@ public:
 	QAccessible::State state() const override;
 	QStringList actionNames() const override;
 	void doAction(const QString &actionName) override;
-	using LineAccessibleWidget::text;
+	// Help (UIA HelpText) of a text area: "lineMR-lines:<generation>:<offsets>", where the lines it
+	// draws start (wrapped lines too), for the add-on: Qt's UI Automation knows only line breaks.
+	QString text(QAccessible::Text t) const override;
 
 	// The hint LcText / clear buttons inside a text field are not separate elements.
 	int childCount() const override;

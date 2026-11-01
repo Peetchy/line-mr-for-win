@@ -258,3 +258,43 @@ msgstr "LINE MR 新功能"
 #. Translators: Reported when the add-on's list of changes is missing.
 msgid "The list of changes was not found."
 msgstr "找不到更改列表。"
+
+msgid "LINE MR was installed from the NVDA Add-on Store, which offers its updates."
+msgstr "LINE MR 是从 NVDA 插件商店安装的，更新由插件商店提供。"
+
+#. Translators: A colour of the focus highlight in LINE.
+msgid "Yellow"
+msgstr "黄色"
+
+#. Translators: A colour of the focus highlight in LINE.
+msgid "Orange"
+msgstr "橙色"
+
+#. Translators: A colour of the focus highlight in LINE.
+msgid "Red"
+msgstr "红色"
+
+#. Translators: A colour of the focus highlight in LINE.
+msgid "Green"
+msgstr "绿色"
+
+#. Translators: A colour of the focus highlight in LINE.
+msgid "Blue"
+msgstr "蓝色"
+
+#. Translators: A colour of the focus highlight in LINE.
+msgid "White"
+msgstr "白色"
+
+#. Translators: Check box in the add-on's settings: a coloured frame shows which control in
+#. LINE has the focus (for low-vision users).
+msgid "&Highlight the focused control in LINE"
+msgstr "在 LINE 中突出显示获得焦点的控件(&H)"
+
+#. Translators: Label of the list of colours of the focus highlight in the add-on's settings.
+msgid "Highlight &colour:"
+msgstr "突出显示颜色(&C):"
+
+#. Translators: Label of the width of the focus highlight frame in the add-on's settings.
+msgid "Highlight &width:"
+msgstr "突出显示宽度(&W):"

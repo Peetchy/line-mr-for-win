@@ -4,6 +4,7 @@
 # installed version; if it is newer, a dialog offers to update now, later or to skip that version.
 # The download is handed to NVDA's own installer (gui.addonGui.handleRemoteAddonInstall, as when an
 # .nvda-addon file is opened): NVDA asks for confirmation, installs and offers to restart.
+# Also holds the add-on's category in NVDA's settings (updates, the focus highlight in LINE, What's new).
 
 import hashlib
 import json
@@ -19,7 +20,7 @@ import globalPluginHandler
 import gui
 import ui
 import wx
-from gui import guiHelper, settingsDialogs
+from gui import guiHelper, nvdaControls, settingsDialogs
 from logHandler import log
 from scriptHandler import script
 
@@ -37,7 +38,21 @@ CONFIG_SECTION = "lineMR"
 config.conf.spec[CONFIG_SECTION] = {
 	"checkForUpdates": "boolean(default=true)",
 	"skippedVersion": "string(default='')",
+	"highlightFocus": "boolean(default=true)",
+	"highlightColor": "string(default='yellow')",
+	"highlightWidth": "integer(default=4, min=1, max=12)",
 }
+
+
+def _applyHighlightSettings():
+	"""Passes the focus highlight settings to the bridge (appModules/line/highlight.py)."""
+	try:
+		from appModules.line import highlight
+
+		conf = config.conf[CONFIG_SECTION]
+		highlight.writeSettings(conf["highlightFocus"], conf["highlightColor"], conf["highlightWidth"])
+	except Exception:
+		log.error("LINE MR: cannot write the focus highlight settings", exc_info=True)
 
 
 def _versionKey(version):
@@ -100,6 +115,10 @@ class _Checker:
 	def check(self, manual):
 		"""Looks for a newer release in the background; `manual` also reports "up to date" and errors."""
 		if self._busy:
+			return
+		if _installedFromStore():
+			if manual:
+				wx.CallAfter(ui.message, _storeMessage())
 			return
 		self._busy = True
 		threading.Thread(target=self._check, args=(manual,), name="lineMR.updateCheck", daemon=True).start()
@@ -175,6 +194,11 @@ class _Checker:
 _checker = _Checker()
 
 
+def _storeMessage():
+	# Translators: Reported instead of an update check when NVDA's Add-on Store manages the add-on.
+	return _("LINE MR was installed from the NVDA Add-on Store, which offers its updates.")
+
+
 def _changesPath():
 	"""The add-on's "What's new" page in NVDA's language (zh_TW, zh, ...), else English."""
 	try:
@@ -210,26 +234,66 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 
 	def makeSettings(self, settingsSizer):
 		helper = guiHelper.BoxSizerHelper(self, sizer=settingsSizer)
-		self.checkForUpdates = helper.addItem(
-			# Translators: Check box in the add-on's settings.
-			wx.CheckBox(self, label=_("Check for LINE MR &updates when NVDA starts"))
+		self.checkForUpdates = None
+		if _installedFromStore():
+			helper.addItem(wx.StaticText(self, label=_storeMessage()))
+		else:
+			self.checkForUpdates = helper.addItem(
+				# Translators: Check box in the add-on's settings.
+				wx.CheckBox(self, label=_("Check for LINE MR &updates when NVDA starts"))
+			)
+			self.checkForUpdates.SetValue(config.conf[CONFIG_SECTION]["checkForUpdates"])
+			# Translators: Button in the add-on's settings.
+			checkNow = helper.addItem(wx.Button(self, label=_("&Check for updates now")))
+			checkNow.Bind(wx.EVT_BUTTON, lambda evt: _checker.check(manual=True))
+		from appModules.line import highlight
+
+		conf = config.conf[CONFIG_SECTION]
+		self.highlightFocus = helper.addItem(
+			# Translators: Check box in the add-on's settings: a coloured frame shows which control in
+			# LINE has the focus (for low-vision users).
+			wx.CheckBox(self, label=_("&Highlight the focused control in LINE"))
 		)
-		self.checkForUpdates.SetValue(config.conf[CONFIG_SECTION]["checkForUpdates"])
-		# Translators: Button in the add-on's settings.
-		checkNow = helper.addItem(wx.Button(self, label=_("&Check for updates now")))
-		checkNow.Bind(wx.EVT_BUTTON, lambda evt: _checker.check(manual=True))
+		self.highlightFocus.SetValue(conf["highlightFocus"])
+		self._highlightColors = [key for key, _label, _value in highlight.COLORS]
+		self.highlightColor = helper.addLabeledControl(
+			# Translators: Label of the list of colours of the focus highlight in the add-on's settings.
+			_("Highlight &colour:"),
+			wx.Choice,
+			choices=[label for _key, label, _value in highlight.COLORS],
+		)
+		color = conf["highlightColor"]
+		self.highlightColor.SetSelection(
+			self._highlightColors.index(color) if color in self._highlightColors else 0
+		)
+		self.highlightWidth = helper.addLabeledControl(
+			# Translators: Label of the width of the focus highlight frame in the add-on's settings.
+			_("Highlight &width:"),
+			nvdaControls.SelectOnFocusSpinCtrl,
+			min=highlight.MIN_WIDTH,
+			max=highlight.MAX_WIDTH,
+			initial=conf["highlightWidth"],
+		)
 		# Translators: Button in the add-on's settings: shows what changed in each version.
 		whatsNew = helper.addItem(wx.Button(self, label=_("&What's new")))
 		whatsNew.Bind(wx.EVT_BUTTON, lambda evt: showWhatsNew())
 
 	def onSave(self):
-		config.conf[CONFIG_SECTION]["checkForUpdates"] = self.checkForUpdates.GetValue()
+		conf = config.conf[CONFIG_SECTION]
+		if self.checkForUpdates:
+			conf["checkForUpdates"] = self.checkForUpdates.GetValue()
+		conf["highlightFocus"] = self.highlightFocus.GetValue()
+		conf["highlightColor"] = self._highlightColors[max(0, self.highlightColor.GetSelection())]
+		conf["highlightWidth"] = self.highlightWidth.GetValue()
+		_applyHighlightSettings()
 
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self):
 		super().__init__()
 		settingsDialogs.NVDASettingsDialog.categoryClasses.append(LineMRSettingsPanel)
+		# The bridge's defaults are the add-on's; a changed setting (or another NVDA profile) is passed on.
+		_applyHighlightSettings()
 		self._timer = None
 		if config.conf[CONFIG_SECTION]["checkForUpdates"] and not _installedFromStore():
 			self._timer = wx.CallLater(STARTUP_DELAY_MS, _checker.check, False)

@@ -39,6 +39,10 @@ _user32.IsWindowVisible.argtypes = (wintypes.HWND,)
 _user32.IsWindowVisible.restype = wintypes.BOOL
 _user32.GetWindowThreadProcessId.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.DWORD))
 _user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+_user32.GetClassNameW.argtypes = (wintypes.HWND, wintypes.LPWSTR, ctypes.c_int)
+_user32.GetClassNameW.restype = ctypes.c_int
+#: The bridge's focus highlight (a frame window in each LINE process; not one of LINE's windows).
+_FOCUS_FRAME_CLASS = "lineMR_focus_highlight"
 _kernel32 = ctypes.WinDLL("kernel32")
 _kernel32.OpenEventW.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR)
 _kernel32.OpenEventW.restype = wintypes.HANDLE
@@ -51,6 +55,11 @@ _EVENT_MODIFY_STATE = 0x0002
 #: Signalled to make the bridge in LineCall.exe end the call shown (also the video call window, whose
 #: buttons are hidden while the mouse is elsewhere).
 END_CALL_EVENT_NAME = r"Local\lineMR.endCall"
+
+
+def _isFocusFrame(hwnd):
+	buf = ctypes.create_unicode_buffer(64)
+	return _user32.GetClassNameW(hwnd, buf, len(buf)) and buf.value == _FOCUS_FRAME_CLASS
 
 
 def _visibleWindows(appNames, first=False):
@@ -67,7 +76,7 @@ def _visibleWindows(appNames, first=False):
 					names[pid.value] = appModuleHandler.getAppNameFromProcessID(pid.value)
 				except Exception:
 					names[pid.value] = ""
-			if names[pid.value] in appNames:
+			if names[pid.value] in appNames and not _isFocusFrame(hwnd):
 				found.append(hwnd)
 				if first:
 					return False

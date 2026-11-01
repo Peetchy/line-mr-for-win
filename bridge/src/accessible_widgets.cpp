@@ -21,6 +21,8 @@
 #include <QtGui/QMouseEvent>
 #include <QtGui/QTextCursor>
 #include <QtGui/QTextDocument>
+#include <QtGui/QTextLayout>
+#include <QtGui/QTextObject>
 #include <QtGui/QTextDocumentFragment>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QApplication>
@@ -1534,6 +1536,29 @@ QString LineAccessibleInput::computeDescription() const
 QString LineAccessibleInput::computeValue() const
 {
 	return exposedText();
+}
+
+QString LineAccessibleInput::text(QAccessible::Text t) const
+{
+	QTextEdit *te = t == QAccessible::Help ? textEdit() : nullptr;
+	if (!te)
+		return LineAccessibleWidget::text(t);
+	// Offsets are document positions, as in plainText(). A block not laid out yet is one line.
+	QTextDocument *doc = te->document();
+	QStringList starts;
+	for (QTextBlock block = doc->begin(); block.isValid(); block = block.next()) {
+		const QTextLayout *layout = block.layout();
+		const int lines = layout ? layout->lineCount() : 0;
+		if (lines == 0)
+			starts.append(QString::number(block.position()));
+		for (int i = 0; i < lines; ++i)
+			starts.append(QString::number(block.position() + layout->lineAt(i).textStart()));
+	}
+	// Edits and a new width (wrapping) change the lines.
+	return QStringLiteral("lineMR-lines:%1.%2:%3")
+	    .arg(doc->revision())
+	    .arg(te->viewport()->width())
+	    .arg(starts.join(QLatin1Char(',')));
 }
 
 bool LineAccessibleInput::isPressable() const

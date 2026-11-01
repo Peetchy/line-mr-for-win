@@ -13,11 +13,12 @@ import core
 import scriptHandler
 import ui
 from logHandler import log
+from NVDAObjects import NVDAObject
 from NVDAObjects.behaviors import Dialog
 from NVDAObjects.UIA import UIA
 from scriptHandler import script
 
-from . import bridge, chatSearch, elements, fullText
+from . import bridge, chatSearch, elements, fullText, qtText
 from .calls import CallCommandsAppModule
 
 addonHandler.initTranslation()
@@ -50,6 +51,13 @@ class ShadowWindow(UIA):
 	isFocusable = False
 
 
+class FocusFrame(NVDAObject):
+	"""The bridge's focus highlight (a native, click-through window around the focused control)."""
+
+	presentationType = NVDAObject.presType_unavailable
+	isFocusable = False
+
+
 class LayoutGroup(UIA):
 	"""A nameless LINE container: skipped in simple review and not announced as an ancestor."""
 
@@ -60,6 +68,9 @@ class LayoutGroup(UIA):
 			return super().presentationType
 		return self.presType_layout
 
+
+#: Window class of the bridge's focus highlight (bridge/src/focus_highlight.cpp).
+FOCUS_FRAME_CLASS = "lineMR_focus_highlight"
 
 #: LINE windows that work like dialogs: their texts are read when focus enters them (and by NVDA+B).
 DIALOG_WINDOW_CLASSES = frozenset({
@@ -82,6 +93,9 @@ class DialogWindow(Dialog):
 
 def chooseOverlayClasses(obj, clsList):
 	"""Overlay classes for LINE's UIA objects (also used for LineCall.exe, see appModules/linecall.py)."""
+	if getattr(obj, "windowClassName", "") == FOCUS_FRAME_CLASS:
+		clsList.insert(0, FocusFrame)
+		return
 	if not isinstance(obj, UIA):
 		return
 	className = _uiaClassName(obj)
@@ -103,6 +117,8 @@ def chooseOverlayClasses(obj, clsList):
 		className in LAYOUT_CLASSES or className.endswith("Panel")
 	):
 		clsList.insert(0, LayoutGroup)
+	if obj.role == controlTypes.Role.EDITABLETEXT:
+		qtText.chooseOverlayClasses(obj, clsList)
 
 
 class AppModule(CallCommandsAppModule):
