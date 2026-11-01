@@ -298,15 +298,3 @@ msgstr "強調表示の色(&C):"
 #. Translators: Label of the width of the focus highlight frame in the add-on's settings.
 msgid "Highlight &width:"
 msgstr "強調表示の太さ(&W):"
-
-#. Translators: Describes the command that moves to the stickers or emoji LINE suggests above the message input.
-msgid "Moves to the stickers or emoji LINE suggests for the word before the caret"
-msgstr "カーソル前の語に LINE がおすすめするスタンプや絵文字に移動します"
-
-#. Translators: Reported when LINE shows no sticker or emoji suggestions.
-msgid "No sticker or emoji suggestions."
-msgstr "おすすめのスタンプや絵文字はありません。"
-
-#. Translators: Spoken when LINE suggests stickers or emoji for the word typed in the message input.
-msgid "Sticker or emoji suggestions. Press NVDA+Shift+H to choose."
-msgstr "スタンプや絵文字のおすすめがあります。NVDA+Shift+H で選びます。"

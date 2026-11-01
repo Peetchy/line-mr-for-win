@@ -40,8 +40,6 @@ _WAIT_OBJECT_0 = 0
 
 CALL_EVENT_NAME = r"Local\lineMR.incomingCall"
 CALL_TEXT_FILE = os.path.join(os.environ.get("LOCALAPPDATA", ""), "LineMR", "incoming-call.txt")
-#: Signalled by the bridge when LINE shows sticker / emoji suggestions while the user types a message.
-SUGGESTIONS_EVENT_NAME = r"Local\lineMR.suggestions"
 
 
 def _calls():
@@ -74,65 +72,29 @@ def _speakIncomingCall():
 	ui.message(f"{text}. {hint}", speechPriority=Spri.NOW)
 
 
-def _speakSuggestions():
-	try:
-		if not _calls().lineInFront():
-			return
-	except Exception:
-		log.debugWarning("LINE MR: cannot tell whether LINE is in front", exc_info=True)
-		return
-	# After the line NVDA reads at the caret, not instead of it.
-	# Translators: Spoken when LINE suggests stickers or emoji for the word typed in the message input.
-	ui.message(_("Sticker or emoji suggestions. Press NVDA+Shift+H to choose."))
+class _CallListener(threading.Thread):
+	"""Waits for the bridge's incoming-call event and speaks the call on NVDA's main thread."""
 
-
-class _EventListener(threading.Thread):
-	"""Waits for a named event the bridge signals and calls `signalled()` on this thread."""
-
-	def __init__(self, threadName, eventName):
-		super().__init__(name=threadName, daemon=True)
+	def __init__(self):
+		super().__init__(name="lineMR.callListener", daemon=True)
 		self._stopping = False
-		self._eventName = eventName
-		self._event = _kernel32.CreateEventW(None, False, False, eventName)
-
-	def signalled(self):
-		raise NotImplementedError
+		self._event = _kernel32.CreateEventW(None, False, False, CALL_EVENT_NAME)
+		#: Called on this thread when a call comes in.
+		self.onCall = None
 
 	def run(self):
 		if not self._event:
-			log.error("LINE MR: cannot create the event %s", self._eventName)
+			log.error("LINE MR: cannot create the incoming-call event")
 			return
 		while not self._stopping:
 			if _kernel32.WaitForSingleObject(self._event, 1000) == _WAIT_OBJECT_0 and not self._stopping:
-				self.signalled()
+				if self.onCall:
+					self.onCall()
+				queueHandler.queueFunction(queueHandler.eventQueue, _speakIncomingCall)
 		_kernel32.CloseHandle(self._event)
 
 	def stop(self):
 		self._stopping = True
-
-
-class _CallListener(_EventListener):
-	"""Speaks an incoming call on NVDA's main thread."""
-
-	def __init__(self):
-		super().__init__("lineMR.callListener", CALL_EVENT_NAME)
-		#: Called on this thread when a call comes in.
-		self.onCall = None
-
-	def signalled(self):
-		if self.onCall:
-			self.onCall()
-		queueHandler.queueFunction(queueHandler.eventQueue, _speakIncomingCall)
-
-
-class _SuggestionListener(_EventListener):
-	"""Says that LINE suggests stickers or emoji (NVDA+Shift+H in LINE moves there)."""
-
-	def __init__(self):
-		super().__init__("lineMR.suggestionListener", SUGGESTIONS_EVENT_NAME)
-
-	def signalled(self):
-		queueHandler.queueFunction(queueHandler.eventQueue, _speakSuggestions)
 
 
 def _repairHelperBridges():
@@ -160,15 +122,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			# NVDA may have opened a new audio session since the last check.
 			self._listener.onCall = self._volumeKeeper.poke
 		self._listener.start()
-		self._suggestionListener = _SuggestionListener()
-		self._suggestionListener.start()
 		# LINE downloads and updates its helper processes (LineCall.exe, LineMediaPlayer.exe) on its
 		# own; give every version the bridge before a call comes in or a photo is opened.
 		threading.Thread(target=_repairHelperBridges, name="lineMR.helperBridgeRepair", daemon=True).start()
 
 	def terminate(self):
 		self._listener.stop()
-		self._suggestionListener.stop()
 		if self._volumeKeeper:
 			self._volumeKeeper.stop()
 		super().terminate()

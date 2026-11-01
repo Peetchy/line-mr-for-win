@@ -96,67 +96,6 @@ QString stickerName(const QWidget *w)
 	return name;
 }
 
-namespace {
-
-// The suggestions (LcImages of cache category "suggest", 50x50, five to a row) in reading order. The
-// settings gear is the one without a placeholder picture.
-QList<QWidget *> stickerSuggestions(const QWidget *suggester)
-{
-	QList<QWidget *> items;
-	for (QWidget *c : suggester->findChildren<QWidget *>()) {
-		if (c->isVisible() && inheritsClass(c, "LcImage") && c->property("cacheCategory").toString() == QLatin1StringView("suggest"))
-			items << c;
-	}
-	std::sort(items.begin(), items.end(), [suggester](QWidget *a, QWidget *b) {
-		const QPoint pa = a->mapTo(suggester->window(), QPoint()), pb = b->mapTo(suggester->window(), QPoint());
-		return pa.y() != pb.y() ? pa.y() < pb.y() : pa.x() < pb.x();
-	});
-	return items;
-}
-
-bool isSuggestionSettings(const QWidget *w)
-{
-	return w->property("defaultSource").toString().isEmpty();
-}
-
-} // namespace
-
-QString stickerSuggestionName(const QWidget *w)
-{
-	if (!inheritsClass(w, "LcImage") || w->property("cacheCategory").toString() != QLatin1StringView("suggest"))
-		return QString();
-	const QWidget *suggester = ancestorInheriting(w, "StickerSuggester");
-	if (!suggester)
-		return QString();
-	if (isSuggestionSettings(w))
-		return label("Suggestion settings");
-	QList<QWidget *> stickers = stickerSuggestions(suggester);
-	stickers.removeIf([](const QWidget *c) { return isSuggestionSettings(c); });
-	const qsizetype index = stickers.indexOf(w);
-	if (index < 0)
-		return QString();
-	return label("Suggestion %1 of %2").arg(index + 1).arg(stickers.size());
-}
-
-QWidget *selectedStickerSuggestion(const QWidget *suggester)
-{
-	// LINE dims all but the selected one ("opacity" is the dimming: 0.6, the selected 0); with
-	// none selected they are all alike.
-	QWidget *selected = nullptr;
-	qreal lowest = 0, highest = 0;
-	bool first = true;
-	for (QWidget *c : stickerSuggestions(suggester)) {
-		const qreal dim = c->property("opacity").toReal();
-		if (first || dim < lowest) {
-			lowest = dim;
-			selected = c;
-		}
-		highest = first ? dim : qMax(highest, dim);
-		first = false;
-	}
-	return highest > lowest ? selected : nullptr;
-}
-
 // A colour swatch: an LcButton without icon or text holding one round LcImage of its size, among
 // at least eight alike (text profile editor, "สร้างโปรไฟล์ข้อความ"). Nothing names the colour, so
 // it is read from the picture.
@@ -387,8 +326,6 @@ QString iconDerivedName(const QWidget *w)
 {
 	if (QString sticker = stickerName(w); !sticker.isEmpty())
 		return sticker;
-	if (QString suggestion = stickerSuggestionName(w); !suggestion.isEmpty())
-		return suggestion;
 	if (QString swatch = colorSwatchName(w); !swatch.isEmpty())
 		return swatch;
 	if (isChatRoomToggle(w))
@@ -566,9 +503,8 @@ WidgetKind classifyWidget(const QWidget *w)
 	        && QLatin1StringView(w->metaObject()->className()).endsWith(QLatin1StringView("DelegateWidget"))))
 		return WidgetKind::Delegate;
 	// The reaction picker's faces have no clicked() (a mouse click chooses them): the bridge marks them.
-	// So are LINE's sticker suggestions above the message input.
 	if (inheritsAnyClass(w, { "LcButton", "LcIconTextButton", "LcRadioButton", "LcCheckBox" }) || isClickableImage(w)
-	    || w->property("_lineA11yReaction").isValid() || !stickerSuggestionName(w).isEmpty()) {
+	    || w->property("_lineA11yReaction").isValid()) {
 		// A frame drawn as a button around a list (Settings > Chats: translation languages) is a
 		// container: a button would hide the list from screen readers.
 		if (w->findChild<QAbstractItemView *>())
@@ -1081,15 +1017,6 @@ QAccessible::State LineAccessibleButton::state() const
 		st.selectable = true;
 		st.selected = true;
 	}
-	// A sticker suggestion LINE selected while its suggestions have keyboard focus (the bridge reports
-	// it focused: NVDA ignores focus events of elements without focus).
-	if (const QWidget *suggester = ancestorInheriting(widget(), "StickerSuggester");
-	    suggester && suggester->hasFocus() && selectedStickerSuggestion(suggester) == widget()) {
-		st.focusable = true;
-		st.focused = true;
-		st.selectable = true;
-		st.selected = true;
-	}
 	return st;
 }
 
@@ -1325,16 +1252,6 @@ void LineAccessibleButton::press()
 				QAccessible::updateAccessibility(&changed);
 			}
 		});
-	}
-	// LINE's suggestions have no clicked(): a mouse click takes one (a LINE emoji replaces the word before
-// the caret; the gear opens settings).
-	if (!stickerSuggestionName(w).isEmpty()) {
-		a11yLog("[suggest] pressed \"%s\"", qUtf8Printable(stickerSuggestionName(w)));
-		QMetaObject::invokeMethod(w, [guard] {
-			if (guard && guard->isVisible())
-				sendMouseClick(guard);
-		}, Qt::QueuedConnection);
-		return;
 	}
 	if (w->property("_lineA11yReaction").isValid()) {
 		a11yLog("[reaction] chose \"%s\" (accessible press)", qUtf8Printable(w->accessibleName()));

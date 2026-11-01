@@ -37,12 +37,6 @@ bool isMessageInput(const QWidget *w);
 QString chatNameFor(const QWidget *w);
 // "Sticker 3" for a sticker (or emoji) in the sticker window's grid, else empty.
 QString stickerName(const QWidget *w);
-// A sticker or LINE emoji LINE suggests above the message input for the word before the caret (in a
-// StickerSuggester; Enter on a number put the emoji in place of the word), or the suggestions' settings
-// gear: "Suggestion 2 of 10". Empty otherwise.
-QString stickerSuggestionName(const QWidget *w);
-// The suggestion LINE has selected with the arrow keys (the others are dimmed), or nullptr.
-QWidget *selectedStickerSuggestion(const QWidget *suggester);
 // Does the chat `w` belongs to show a member count (group, OpenChat), unlike a one-to-one chat?
 bool chatHasMemberCount(const QWidget *w);
 // The chat header's name and member count ("(500)") both open the member list: the name reads

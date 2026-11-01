@@ -503,9 +503,6 @@ QString tagFor(QWidget *w)
 	}
 	if (isMessageInput(w))
 		return QStringLiteral("input_message");
-	// LINE's sticker / emoji suggestions above the message input (the add-on's NVDA+Shift+H).
-	if (inheritsClass(w, "StickerSuggester"))
-		return QStringLiteral("suggestions");
 	// The search boxes above the chat and friend lists (the add-on's Alt+F).
 	if (qobject_cast<const QLineEdit *>(w) && inheritsClass(w, "LcTextField")) {
 		if (ancestorInheriting(w, "MainChatPanel"))
@@ -947,42 +944,10 @@ void windowShown(QWidget *w)
 	});
 }
 
-// LINE's sticker suggestions above the message input take focus as a whole (Up in the input) and
-// select one sticker after another with the arrow keys, dimming the others. Reports the selected one
-// as focused once LINE has handled the key (see LineAccessibleButton::state()).
-void reportStickerSuggestion(QWidget *suggester)
-{
-	if (suggester->accessibleName().isEmpty())
-		suggester->setAccessibleName(label("Sticker and emoji suggestions"));
-	QPointer<QWidget> guard(suggester);
-	QTimer::singleShot(60, suggester, [guard] {
-		if (!guard || !guard->hasFocus())
-			return;
-		QWidget *selected = selectedStickerSuggestion(guard);
-		if (!selected && !guard->property("_lineA11ySuggestionSelecting").toBool()) {
-			// Entered by the add-on's command (UIA SetFocus), not by LINE's Up: nothing is selected, and
-			// LINE's first Right selects the first suggestion.
-			guard->setProperty("_lineA11ySuggestionSelecting", true);
-			QKeyEvent right(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);
-			QCoreApplication::sendEvent(guard, &right);
-			QKeyEvent release(QEvent::KeyRelease, Qt::Key_Right, Qt::NoModifier);
-			QCoreApplication::sendEvent(guard, &release);
-			guard->setProperty("_lineA11ySuggestionSelecting", false);
-			return;
-		}
-		const QString name = selected ? stickerSuggestionName(selected) : QString();
-		if (name.isEmpty() || name == guard->property("_lineA11ySuggestionRead").toString())
-			return;
-		guard->setProperty("_lineA11ySuggestionRead", name);
-		QAccessibleEvent focus(selected, QAccessible::Focus);
-		QAccessible::updateAccessibility(&focus);
-	});
-}
-
 // Up / Down in the message input while LINE shows sticker suggestions for the text (StickerSuggester
 // above the input): moves the caret by a line itself (Shift selects), also nowhere at the first / last
-// line: LINE would move focus into the suggestions (the add-on's NVDA+Shift+H goes there on purpose).
-// False if no suggestions show, so the key goes to the input as usual.
+// line, since LINE would move focus into the suggestions (not made accessible yet). False if no
+// suggestions show, so the key goes to the input as usual.
 bool moveCaretPastStickerSuggester(QWidget *input, const QKeyEvent *key)
 {
 	auto *edit = qobject_cast<QTextEdit *>(input);
@@ -1081,12 +1046,6 @@ public:
 		case QEvent::Show:
 			if (w->isWindow())
 				breadcrumb("show window %s", w->metaObject()->className());
-			if (inheritsClass(w, "StickerSuggester") && w->isActiveWindow()) {
-				if (QWidget *focus = QApplication::focusWidget(); focus && isMessageInput(focus)) {
-					a11yLog("[suggest] suggestions shown while typing");
-					announceSuggestions();
-				}
-			}
 			repairCachedInterface(w);
 			makeFocusableIn(w);
 			tagWidgetsIn(w);
@@ -1170,10 +1129,6 @@ public:
 		case QEvent::FocusIn:
 			if (isVideoWidget(w))
 				videoWidgetFocused(w);
-			if (inheritsClass(w, "StickerSuggester")) {
-				w->setProperty("_lineA11ySuggestionRead", QVariant());
-				reportStickerSuggestion(w);
-			}
 			// Entering the chat or friend list starts at LINE's current row (unless the bridge is
 			// sending focus back while the user browses).
 			if (isLineListView(w) && w != m_browsingList.data()
@@ -1275,17 +1230,6 @@ public:
 			break;
 		case QEvent::KeyPress: {
 			auto *key = static_cast<QKeyEvent *>(event);
-			// LINE's sticker suggestions move their selection on the arrows themselves. Escape there sent
-			// focus to the title bar: back to the message input instead.
-			if (inheritsClass(w, "StickerSuggester") && w->hasFocus()) {
-				if (key->key() == Qt::Key_Escape && key->modifiers() == Qt::NoModifier) {
-					if (QWidget *input = messageInputIn(w->window())) {
-						input->setFocus(Qt::OtherFocusReason);
-						return true;
-					}
-				}
-				reportStickerSuggestion(w);
-			}
 			breadcrumb("key 0x%x in %s", key->key(), w->metaObject()->className());
 			// The video player's keys (Play / Pause, seeking; video_controls.h).
 			if (isVideoWidget(w) && handleVideoKey(w, key))

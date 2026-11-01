@@ -62,17 +62,6 @@ void announceIncomingCall(const QString &text)
 	a11yLog("[announce] incoming call signalled (%d)", int(ok));
 }
 
-void announceSuggestions()
-{
-	static QElapsedTimer last;
-	if (last.isValid() && last.elapsed() < 1500)
-		return;
-	last.start();
-	static const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, L"Local\\lineMR.suggestions");
-	if (event)
-		SetEvent(event);
-}
-
 void startEndCallListener(QObject *context)
 {
 	const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, L"Local\\lineMR.endCall");
