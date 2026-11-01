@@ -279,6 +279,17 @@ class AppModule(CallCommandsAppModule):
 		self._focus(("input_message",), _("No chat is open."))
 
 	@script(
+		# Translators: Describes the command that moves to the stickers or emoji LINE suggests above the message input.
+		description=_("Moves to the stickers or emoji LINE suggests for the word before the caret"),
+		category=SCRIPT_CATEGORY,
+		gesture="kb:NVDA+shift+h",
+	)
+	def script_focusSuggestions(self, gesture):
+		# The arrow keys move between them, Enter takes one, Escape returns to the message input.
+		# Translators: Reported when LINE shows no sticker or emoji suggestions.
+		self._focus(("suggestions",), _("No sticker or emoji suggestions."))
+
+	@script(
 		# Translators: Describes the commands that read recent messages (1 is the newest).
 		description=_("Reads a recent message of the open chat: 1 is the newest, 9 the ninth newest"),
 		category=SCRIPT_CATEGORY,

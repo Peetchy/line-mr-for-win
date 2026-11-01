@@ -298,3 +298,15 @@ msgstr "醒目顯示色彩(&C):"
 #. Translators: Label of the width of the focus highlight frame in the add-on's settings.
 msgid "Highlight &width:"
 msgstr "醒目顯示寬度(&W):"
+
+#. Translators: Describes the command that moves to the stickers or emoji LINE suggests above the message input.
+msgid "Moves to the stickers or emoji LINE suggests for the word before the caret"
+msgstr "移到 LINE 為游標前的詞推薦的貼圖或表情貼"
+
+#. Translators: Reported when LINE shows no sticker or emoji suggestions.
+msgid "No sticker or emoji suggestions."
+msgstr "沒有推薦的貼圖或表情貼。"
+
+#. Translators: Spoken when LINE suggests stickers or emoji for the word typed in the message input.
+msgid "Sticker or emoji suggestions. Press NVDA+Shift+H to choose."
+msgstr "有推薦的貼圖或表情貼。按 NVDA+Shift+H 選擇。"

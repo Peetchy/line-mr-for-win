@@ -298,3 +298,15 @@ msgstr "สีไฮไลต์ (&C):"
 #. Translators: Label of the width of the focus highlight frame in the add-on's settings.
 msgid "Highlight &width:"
 msgstr "ความหนาไฮไลต์ (&W):"
+
+#. Translators: Describes the command that moves to the stickers or emoji LINE suggests above the message input.
+msgid "Moves to the stickers or emoji LINE suggests for the word before the caret"
+msgstr "ไปที่สติกเกอร์หรืออิโมจิที่ LINE แนะนำสำหรับคำก่อนเคอร์เซอร์"
+
+#. Translators: Reported when LINE shows no sticker or emoji suggestions.
+msgid "No sticker or emoji suggestions."
+msgstr "ไม่มีสติกเกอร์หรืออิโมจิแนะนำ"
+
+#. Translators: Spoken when LINE suggests stickers or emoji for the word typed in the message input.
+msgid "Sticker or emoji suggestions. Press NVDA+Shift+H to choose."
+msgstr "มีสติกเกอร์หรืออิโมจิแนะนำ กด NVDA+Shift+H เพื่อเลือก"

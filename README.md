@@ -84,6 +84,7 @@ To check that it works, press **NVDA+Shift+Control+L** in LINE: NVDA says whethe
 | Alt+F | Move to the search field of the chat list or friend list | ไปที่ช่องค้นหาของรายการแชทหรือรายชื่อเพื่อน |
 | Alt+M | Move to the messages of the open chat (starts at the newest) | ไปที่ข้อความของแชทที่เปิดอยู่ (เริ่มที่ข้อความล่าสุด) |
 | Alt+I | Move to the message input | ไปที่ช่องพิมพ์ข้อความ |
+| NVDA+Shift+H | Move to LINE's sticker / emoji suggestions (Escape returns) | ไปที่สติกเกอร์หรืออิโมจิที่ LINE แนะนำ (Escape กลับ) |
 | NVDA+Alt+1 … 9 | Read a recent message (1 = newest) | อ่านข้อความล่าสุด (1 = ใหม่สุด) |
 | Alt+A / Alt+D in LINE (NVDA+Shift+Control+A / D from any application) | Answer / decline an incoming LINE call; Alt+D in LINE ends the current call | รับสาย / ปฏิเสธสายเรียกเข้าของ LINE (Alt+A / Alt+D ใน LINE, NVDA+Shift+Control+A / D จากทุกโปรแกรม); Alt+D ใน LINE วางสายที่กำลังคุยอยู่ |
 | NVDA+Shift+Control+L | Report whether the bridge is running; press twice to copy a report for the developer | บอกว่าตัวเชื่อมทำงานอยู่หรือไม่ กดสองครั้งเพื่อคัดลอกรายงานสำหรับผู้พัฒนา |

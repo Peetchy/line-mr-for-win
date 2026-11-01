@@ -18,6 +18,11 @@ void announce(QWidget *w, const QString &text, bool evenIfInactive = false);
 // (NVDA does not speak UI Automation notifications from background windows).
 void announceIncomingCall(const QString &text);
 
+// Tells the NVDA add-on that LINE shows sticker / emoji suggestions above the message input the user
+// is typing in: signals the event "Local\lineMR.suggestions" (the add-on says so and names its
+// command that moves there). At most once in 1.5 s.
+void announceSuggestions();
+
 // LineCall.exe: the add-on's End call command (Alt+D) signals the event "Local\lineMR.endCall";
 // the call shown is then ended like its End call button does (the voice call window's, or the video
 // call window's, whose controls are hidden while the mouse is elsewhere).

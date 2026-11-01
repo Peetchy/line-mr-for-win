@@ -503,6 +503,9 @@ QString tagFor(QWidget *w)
 	}
 	if (isMessageInput(w))
 		return QStringLiteral("input_message");
+	// LINE's sticker / emoji suggestions above the message input (the add-on's NVDA+Shift+H).
+	if (inheritsClass(w, "StickerSuggester"))
+		return QStringLiteral("suggestions");
 	// The search boxes above the chat and friend lists (the add-on's Alt+F).
 	if (qobject_cast<const QLineEdit *>(w) && inheritsClass(w, "LcTextField")) {
 		if (ancestorInheriting(w, "MainChatPanel"))
@@ -956,6 +959,17 @@ void reportStickerSuggestion(QWidget *suggester)
 		if (!guard || !guard->hasFocus())
 			return;
 		QWidget *selected = selectedStickerSuggestion(guard);
+		if (!selected && !guard->property("_lineA11ySuggestionSelecting").toBool()) {
+			// Entered by the add-on's command (UIA SetFocus), not by LINE's Up: nothing is selected, and
+			// LINE's first Right selects the first suggestion.
+			guard->setProperty("_lineA11ySuggestionSelecting", true);
+			QKeyEvent right(QEvent::KeyPress, Qt::Key_Right, Qt::NoModifier);
+			QCoreApplication::sendEvent(guard, &right);
+			QKeyEvent release(QEvent::KeyRelease, Qt::Key_Right, Qt::NoModifier);
+			QCoreApplication::sendEvent(guard, &release);
+			guard->setProperty("_lineA11ySuggestionSelecting", false);
+			return;
+		}
 		const QString name = selected ? stickerSuggestionName(selected) : QString();
 		if (name.isEmpty() || name == guard->property("_lineA11ySuggestionRead").toString())
 			return;
@@ -966,8 +980,9 @@ void reportStickerSuggestion(QWidget *suggester)
 }
 
 // Up / Down in the message input while LINE shows sticker suggestions for the text (StickerSuggester
-// above the input): moves the caret by a line itself (Shift selects). False if no suggestions show or
-// the caret is on the first / last line, so the key goes to the input as usual.
+// above the input): moves the caret by a line itself (Shift selects), also nowhere at the first / last
+// line: LINE would move focus into the suggestions (the add-on's NVDA+Shift+H goes there on purpose).
+// False if no suggestions show, so the key goes to the input as usual.
 bool moveCaretPastStickerSuggester(QWidget *input, const QKeyEvent *key)
 {
 	auto *edit = qobject_cast<QTextEdit *>(input);
@@ -982,11 +997,8 @@ bool moveCaretPastStickerSuggester(QWidget *input, const QKeyEvent *key)
 	}
 	if (!suggesting)
 		return false;
-	const int before = edit->textCursor().position();
 	edit->moveCursor(key->key() == Qt::Key_Up ? QTextCursor::Up : QTextCursor::Down,
 	                 key->modifiers() & Qt::ShiftModifier ? QTextCursor::KeepAnchor : QTextCursor::MoveAnchor);
-	if (edit->textCursor().position() == before)
-		return false;
 	static int logged = 0;
 	if (logged++ < 3)
 		a11yLog("[keyboard] caret moved past LINE's sticker suggestions (key 0x%x)", key->key());
@@ -1069,6 +1081,12 @@ public:
 		case QEvent::Show:
 			if (w->isWindow())
 				breadcrumb("show window %s", w->metaObject()->className());
+			if (inheritsClass(w, "StickerSuggester") && w->isActiveWindow()) {
+				if (QWidget *focus = QApplication::focusWidget(); focus && isMessageInput(focus)) {
+					a11yLog("[suggest] suggestions shown while typing");
+					announceSuggestions();
+				}
+			}
 			repairCachedInterface(w);
 			makeFocusableIn(w);
 			tagWidgetsIn(w);

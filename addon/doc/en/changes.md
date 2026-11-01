@@ -9,7 +9,7 @@
 - For low-vision users: a yellow frame with a black outline shows which control has the focus in LINE (also chats, messages and menu items). Its colour and width can be changed, or it can be turned off, in NVDA's settings, category LINE MR.
 
 ### Sticker and emoji suggestions
-- LINE's suggestions above the message input (for example number emoji after typing "1234") are read: "Sticker and emoji suggestions", then "Suggestion 2 of 10" as the arrow keys move. Up on the first line of the message input enters them, Enter takes the selected one (a LINE emoji replaces the word before the caret), Escape returns to the message input.
+- LINE's suggestions above the message input (for example number emoji after typing "1234") are read: "Sticker and emoji suggestions", then "Suggestion 2 of 10" as the arrow keys move. LINE MR says when suggestions appear; NVDA+Shift+H moves there, Enter takes the selected one (a LINE emoji replaces the word before the caret), Escape returns to the message input where you were.
 
 ### Fixes
 - With NVDA 2025.4 or older (32-bit NVDA), LINE MR asked again and again to restart LINE although it was working. It now sees that LINE runs with LINE MR.
