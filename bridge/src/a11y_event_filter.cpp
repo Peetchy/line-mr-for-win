@@ -944,6 +944,27 @@ void windowShown(QWidget *w)
 	});
 }
 
+// LINE's sticker suggestions above the message input take focus as a whole (Up in the input) and
+// select one sticker after another with the arrow keys, dimming the others. Reports the selected one
+// as focused once LINE has handled the key (see LineAccessibleButton::state()).
+void reportStickerSuggestion(QWidget *suggester)
+{
+	if (suggester->accessibleName().isEmpty())
+		suggester->setAccessibleName(label("Sticker and emoji suggestions"));
+	QPointer<QWidget> guard(suggester);
+	QTimer::singleShot(60, suggester, [guard] {
+		if (!guard || !guard->hasFocus())
+			return;
+		QWidget *selected = selectedStickerSuggestion(guard);
+		const QString name = selected ? stickerSuggestionName(selected) : QString();
+		if (name.isEmpty() || name == guard->property("_lineA11ySuggestionRead").toString())
+			return;
+		guard->setProperty("_lineA11ySuggestionRead", name);
+		QAccessibleEvent focus(selected, QAccessible::Focus);
+		QAccessible::updateAccessibility(&focus);
+	});
+}
+
 // Up / Down in the message input while LINE shows sticker suggestions for the text (StickerSuggester
 // above the input): moves the caret by a line itself (Shift selects). False if no suggestions show or
 // the caret is on the first / last line, so the key goes to the input as usual.
@@ -1131,6 +1152,10 @@ public:
 		case QEvent::FocusIn:
 			if (isVideoWidget(w))
 				videoWidgetFocused(w);
+			if (inheritsClass(w, "StickerSuggester")) {
+				w->setProperty("_lineA11ySuggestionRead", QVariant());
+				reportStickerSuggestion(w);
+			}
 			// Entering the chat or friend list starts at LINE's current row (unless the bridge is
 			// sending focus back while the user browses).
 			if (isLineListView(w) && w != m_browsingList.data()
@@ -1232,6 +1257,17 @@ public:
 			break;
 		case QEvent::KeyPress: {
 			auto *key = static_cast<QKeyEvent *>(event);
+			// LINE's sticker suggestions move their selection on the arrows themselves. Escape there sent
+			// focus to the title bar: back to the message input instead.
+			if (inheritsClass(w, "StickerSuggester") && w->hasFocus()) {
+				if (key->key() == Qt::Key_Escape && key->modifiers() == Qt::NoModifier) {
+					if (QWidget *input = messageInputIn(w->window())) {
+						input->setFocus(Qt::OtherFocusReason);
+						return true;
+					}
+				}
+				reportStickerSuggestion(w);
+			}
 			breadcrumb("key 0x%x in %s", key->key(), w->metaObject()->className());
 			// The video player's keys (Play / Pause, seeking; video_controls.h).
 			if (isVideoWidget(w) && handleVideoKey(w, key))
