@@ -1900,7 +1900,9 @@ bool LineAccessibleList::stepRow(int key)
 	}
 	// At an edge, actually reach the scroll limit (EnsureVisible can leave a spacer or
 	// part of a tall row off screen). Do not makeCurrent(): it scrolls back to the anchor.
-	if (target == current && ancestorInheriting(v, "ChatMessageView")) {
+	// Only older history is loaded this way: at the newest message, Down reads it again at once
+	// (below), so the user knows it is the last one.
+	if (target == current && step < 0 && ancestorInheriting(v, "ChatMessageView")) {
 		const QPersistentModelIndex anchor(v->currentIndex());
 		// LINE only loaded history when a wheel movement CROSSED the edge: a wheel
 		// sent while already at zero was accepted but did nothing. Re-arm that transition
@@ -1945,6 +1947,11 @@ void LineAccessibleList::continueEdgeStep(quint64 request, int key, QPersistentM
 				list->stepRow(key);
 				return;
 			}
+		}
+		if (attempts <= 1) {
+			// Nothing older (the start of the chat): read the message again, as at any other edge.
+			list->makeCurrent(anchor.row());
+			return;
 		}
 		// Probing blank spacer rows must not undo the edge scroll either.
 		if (QScrollBar *bar = listView->verticalScrollBar())
