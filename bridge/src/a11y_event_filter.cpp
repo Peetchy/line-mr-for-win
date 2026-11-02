@@ -617,6 +617,8 @@ QPointer<QWidget> g_windowAfterMenu;
 QPointer<QQuickWindow> g_quickWindowAfterMenu;
 // The pressed menu item was one of a set of options (Sort: Time received / Unread).
 bool g_menuOptionPressed = false;
+// A chat opened with Enter intentionally transfers focus to its editor.
+QElapsedTimer g_editorFocusTimer;
 
 bool menuPressIsRecent()
 {
@@ -714,6 +716,19 @@ QWidget *messageInputIn(QWidget *window)
 			return w;
 	}
 	return nullptr;
+}
+
+void focusMessageEditor(QPointer<QWidget> window, int attempts = 8)
+{
+	if (!window || !window->isVisible() || !window->isActiveWindow())
+		return;
+	if (QWidget *input = messageInputIn(window); input && input->isEnabled()) {
+		input->setFocus(Qt::OtherFocusReason);
+		a11yLog("[compose-focus] editor focus=%d", input->hasFocus());
+		return;
+	}
+	if (attempts > 0)
+		QTimer::singleShot(100, window, [window, attempts] { focusMessageEditor(window, attempts - 1); });
 }
 
 // Inside the chat shown on the right: its message view, header or message input (which LINE
@@ -1172,6 +1187,9 @@ public:
 			}
 			// Arrowing through the chat list opens each chat, and once it has loaded (up to a few
 			// seconds later) LINE moves focus into the chat: keep the user in the list instead.
+			// Enter may pass through the message list before the editor gets focus.
+			if (isMessageInput(w) && g_editorFocusTimer.isValid() && g_editorFocusTimer.elapsed() < 2000)
+				m_browsingList = nullptr;
 			if (m_browsingList && m_browsingList->isVisible() && w != m_browsingList.data() && isInOpenChat(w)
 			    && m_listKeyTimer.isValid() && m_listKeyTimer.elapsed() < 5000) {
 				static int logged = 0;
@@ -1454,12 +1472,16 @@ public:
 					// Enter: open the chat under the cursor, go to it and start typing.
 					if (list && list->openCursorRow()) {
 						m_browsingList = nullptr;
-						QPointer<QWidget> listView = w;
-						QTimer::singleShot(0, this, [listView] {
-							if (!listView || !listView->hasFocus())
+						// LINE may already have moved from the chat list into the messages.
+						// That is an intermediate focus, not a reason to skip composing.
+						g_editorFocusTimer.start();
+						QPointer<QWidget> chatWindow = w->window();
+						QTimer::singleShot(0, this, [chatWindow] {
+							if (!chatWindow)
 								return;
-							if (QWidget *input = messageInputIn(listView->window()))
-								input->setFocus(Qt::OtherFocusReason);
+							QWidget *focus = QApplication::focusWidget();
+							if (focus && focus->window() == chatWindow && (isLineListView(focus) || isMessageInput(focus)))
+								focusMessageEditor(chatWindow);
 						});
 						return true;
 					}
