@@ -6,6 +6,7 @@
 #include "a11y_log.h"
 #include "line_introspect.h"
 #include "voice_bubble.h"
+#include "message_direction.h"
 #include "qt_signal_utils.h"
 #include "text_capture.h"
 
@@ -19,6 +20,7 @@
 #include <QtCore/QPointer>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSet>
+#include <QtCore/QSettings>
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
 #include <QtGui/QClipboard>
@@ -40,6 +42,18 @@ constexpr int kItemDataRole = Qt::UserRole + 1; // MultipleSectionListModel / Lc
 constexpr const char *kCurrentIndexSignal = "currentIndexChanged()";
 // Painted row texts are reused this long (NVDA asks for a name several times per focus change).
 constexpr qint64 kRowTextTtlMs = 1500;
+
+bool directChatSenderNamesEnabled()
+{
+	static QElapsedTimer checked;
+	static bool enabled = false;
+	if (!checked.isValid() || checked.elapsed() >= 1000) {
+		checked.start();
+		QSettings ini(bridgeDirectory() + QStringLiteral("message-settings.ini"), QSettings::IniFormat);
+		enabled = ini.value(QStringLiteral("messages/directChatSenderNames"), false).toBool();
+	}
+	return enabled;
+}
 
 // The bridge interface of `view`, looked up whenever it is needed. Never keep an interface's id
 // from its constructor: QAccessible::uniqueId() there registers the interface in Qt's cache before
@@ -704,7 +718,8 @@ QRectF senderPicture(const CaptureResult &cap);
 
 // A chat message row: sender, content, then time and read receipt (which LINE draws beside the
 // bubble). Sent messages are drawn on the right and have no sender name.
-QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, bool *skipped)
+QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, bool *skipped,
+                       const QString &directSender = QString())
 {
 	const CaptureResult cap = captureRegionText(viewport, rowRect);
 	*skipped = cap.skipped;
@@ -753,6 +768,12 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	// LINE draws read receipts only beside the user's own messages: in a row with the sender's
 	// picture, "Read" / "已讀" is what the sender wrote.
 	const bool received = !senderPicture(cap).isEmpty();
+	const MessageDirection direction = bubbleDirection(cap);
+	// Only a confirmed incoming bubble gets the chat header's name. Dates, notices, sent
+	// messages and group messages must never be attributed to that header.
+	const QString prefix = !directSender.isEmpty() && direction != MessageDirection::Outgoing
+	    && (received || direction == MessageDirection::Incoming)
+	    ? directSender + QStringLiteral(", ") : QString();
 	// The number of people who reacted, drawn right of the reaction faces under the bubble.
 	QString reactionCount;
 	QRectF faces;
@@ -796,8 +817,8 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	const char *kind = messageKind(cap, rowRect, fileSize, &lengthBubble);
 	if (content.isEmpty() && trailing.isEmpty()) {
 		if (kind)
-			return label(kind);
-		return cap.pixmaps > 0 || photoMenu ? label("Photo or sticker") : QString();
+			return prefix + label(kind);
+		return cap.pixmaps > 0 || photoMenu ? prefix + label("Photo or sticker") : QString();
 	}
 	// Date separators and notices are a single centred line without a time (as are tall pictures
 	// whose time is out of view: those have a kind).
@@ -806,7 +827,8 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 		// (While the mouse is over a message LINE draws its reaction button instead of the time.)
 		if (!reactions.isEmpty())
 			content << reactions;
-		return content.join(QLatin1StringView(", "));
+		return (direction == MessageDirection::Outgoing ? label("You") + QStringLiteral(", ") : prefix)
+		    + content.join(QLatin1StringView(", "));
 	}
 	// A call's or voice message's length ("06:26") is drawn inside its bubble; the time it was sent
 	// beside it.
@@ -833,6 +855,8 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 		own = pictureX > rowRect.width() * 0.35;
 	}
 	// The type comes after the sender's name, before what the message shows (file name, length).
+	if (direction != MessageDirection::Unknown)
+		own = direction == MessageDirection::Outgoing;
 	if (kind) {
 		const qsizetype at = sender && !own ? 1 : 0;
 		content.insert(at, label(kind));
@@ -845,7 +869,7 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 		content.prepend(label("You"));
 	if (!reactions.isEmpty())
 		content << reactions;
-	return (content + trailing).join(QLatin1StringView(", "));
+	return (own ? QString() : prefix) + (content + trailing).join(QLatin1StringView(", "));
 }
 
 // Sticker / emoji package names in package order, read from "My stickers" and kept in
@@ -1162,11 +1186,11 @@ QRectF senderPicture(const CaptureResult &cap)
 	return QRectF();
 }
 
-enum class RowSide { Empty, Received, Other };
 
 // Who a message row is from, by where LINE drew it: received messages start at the left (after the
 // sender's picture), the user's own end at the right (often with a read receipt), notices and dates
 // are centred.
+enum class RowSide { Empty, Received, Other };
 RowSide rowSide(const CaptureResult &cap, const QRect &rowRect)
 {
 	const qreal width = rowRect.width();
@@ -1717,6 +1741,13 @@ QString LineAccessibleList::paintedRowText(int row, QObject *data) const
 	QAbstractItemView *v = view();
 	if (!v || !v->model())
 		return QString();
+	QString directSender;
+	if (ancestorInheriting(v, "ChatMessageView") && directChatSenderNamesEnabled() && !chatHasMemberCount(v))
+		directSender = chatNameFor(v);
+	if (m_directChatSender != directSender) {
+		m_directChatSender = directSender;
+		m_painted.clear(); // toggling the setting or switching chats must not reuse the old name
+	}
 	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
 	const quintptr key = data ? quintptr(data) : quintptr(row) + 1;
 	const qint64 now = clock().elapsed();
@@ -1736,7 +1767,7 @@ QString LineAccessibleList::paintedRowText(int row, QObject *data) const
 	QString text = inheritsClass(v->window(), "ChatSearchResultWindow")
 	    ? searchResultRowText(v->viewport(), r, &skipped)
 	    : isPostList(v) ? postRowText(v->viewport(), r, &skipped)
-	                    : line_a11y::paintedRowText(v->viewport(), r, messages, &skipped);
+	                    : line_a11y::paintedRowText(v->viewport(), r, messages, &skipped, directSender);
 	if (skipped) {
 		// LINE was painting: answer with what we knew and read the row again shortly; NVDA
 		// hears about the real text through a name change.

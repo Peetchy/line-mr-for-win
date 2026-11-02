@@ -164,6 +164,7 @@ private:
 		QPointer<QObject> object; // the row's data object the text belongs to
 	};
 	mutable QHash<quintptr, PaintedText> m_painted;
+	mutable QString m_directChatSender;
 	mutable bool m_prunePending = false;
 	QList<QMetaObject::Connection> m_connections;
 	QList<QMetaObject::Connection> m_modelConnections;

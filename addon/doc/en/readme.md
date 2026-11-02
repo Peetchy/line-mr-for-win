@@ -95,3 +95,7 @@ The bridge is `line_a11y.dll`, a Qt platform-theme plugin placed in `%LOCALAPPDA
 Logs: `%LOCALAPPDATA%\LineMR\logs\bridge.log`.
 
 LINE MR is an independent project and is not affiliated with or endorsed by LY Corporation / LINE.
+
+## One-to-one chat sender names
+
+In NVDA Settings > LINE MR, enable **Show the sender's name in one-to-one chats** to include the chat partner's name before received messages. This uses the current chat header; group messages keep their existing sender names. The option is off by default. Apply or OK takes effect within about a second; turn it off to restore the original presentation. LINE's visual message bubbles are unchanged.

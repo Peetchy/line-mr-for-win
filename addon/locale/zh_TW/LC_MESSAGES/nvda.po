@@ -298,3 +298,7 @@ msgstr "醒目顯示色彩(&C):"
 #. Translators: Label of the width of the focus highlight frame in the add-on's settings.
 msgid "Highlight &width:"
 msgstr "醒目顯示寬度(&W):"
+
+#. Includes the partner's name before incoming messages in one-to-one chats.
+msgid "Show the sender's &name in one-to-one chats"
+msgstr "在單獨對話中顯示對方姓名(&N)"
