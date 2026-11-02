@@ -1257,6 +1257,18 @@ public:
 				g_editorFocusTimer.invalidate();
 			const bool backtab = key->key() == Qt::Key_Backtab
 			    || (key->key() == Qt::Key_Tab && (key->modifiers() & Qt::ShiftModifier));
+			// Pair this with editor Backtab below; LINE's dynamic native Tab chain may
+			// otherwise put sticker/attachment buttons between messages and the editor.
+			if (key->key() == Qt::Key_Tab && !backtab
+			    && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))
+			    && w->hasFocus() && isMessageList(w)) {
+				if (QWidget *input = messageInputIn(w->window()); input && input->isEnabled()) {
+					m_browsingList = nullptr;
+					input->setFocus(Qt::TabFocusReason);
+					a11yLog("[navigation] messages tab to editor focus=%d", input->hasFocus());
+					return true;
+				}
+			}
 			if (backtab && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))
 			    && w->hasFocus() && isMessageInput(w)) {
 				QWidget *messages = nullptr;
