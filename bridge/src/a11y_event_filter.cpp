@@ -1485,10 +1485,23 @@ public:
 						});
 						return true;
 					}
+					// The current chat may be hidden: its input is not visible until LINE
+					// handles Enter. Treat this fallback as the same composing intent.
+					m_browsingList = nullptr;
+					g_editorFocusTimer.start();
 					if (QWidget *input = messageInputIn(w->window())) {
 						input->setFocus(Qt::OtherFocusReason);
 						return true;
 					}
+					const QPointer<QWidget> chatWindow = w->window();
+					QTimer::singleShot(0, this, [chatWindow] {
+						if (!chatWindow)
+							return;
+						QWidget *focus = QApplication::focusWidget();
+						if (focus && focus->window() == chatWindow && (isLineListView(focus) || isMessageInput(focus)))
+							focusMessageEditor(chatWindow);
+					});
+					// Let LINE handle this Enter to reopen the chat, then focus its editor.
 				}
 			}
 			if (w->property(kMadeFocusableProperty).toBool() && w->hasFocus() && isActivationKey(key)) {
