@@ -720,6 +720,9 @@ QWidget *messageInputIn(QWidget *window)
 
 void focusMessageEditor(QPointer<QWidget> window, int attempts = 8)
 {
+	// Explicit navigation cancels any pending composing-focus retry.
+	if (!g_editorFocusTimer.isValid() || g_editorFocusTimer.elapsed() >= 2000)
+		return;
 	if (!window || !window->isVisible() || !window->isActiveWindow())
 		return;
 	if (QWidget *input = messageInputIn(window); input && input->isEnabled()) {
@@ -1204,6 +1207,7 @@ public:
 			}
 			break;
 		case QEvent::MouseButtonPress:
+			g_editorFocusTimer.invalidate();
 			m_browsingList = nullptr; // the user went somewhere on purpose
 			// A click opens a chat itself: the chat list cursor follows LINE's current row again.
 			if (QWidget *view = isLineListView(w) ? w : w->parentWidget(); view && isLineListView(view)) {
@@ -1248,6 +1252,27 @@ public:
 			break;
 		case QEvent::KeyPress: {
 			auto *key = static_cast<QKeyEvent *>(event);
+			const bool tabKey = key->key() == Qt::Key_Tab || key->key() == Qt::Key_Backtab;
+			if (tabKey || key->key() == Qt::Key_Escape)
+				g_editorFocusTimer.invalidate();
+			const bool backtab = key->key() == Qt::Key_Backtab
+			    || (key->key() == Qt::Key_Tab && (key->modifiers() & Qt::ShiftModifier));
+			if (backtab && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))
+			    && w->hasFocus() && isMessageInput(w)) {
+				QWidget *messages = nullptr;
+				for (QWidget *candidate : w->window()->findChildren<QWidget *>()) {
+					if (!isMessageList(candidate) || !candidate->isVisible() || !candidate->isEnabled())
+						continue;
+					if (messages) { messages = nullptr; break; } // ambiguous: leave native navigation alone
+					messages = candidate;
+				}
+				if (messages) {
+					m_browsingList = nullptr;
+					messages->setFocus(Qt::BacktabFocusReason);
+					a11yLog("[navigation] editor backtab to messages focus=%d", messages->hasFocus());
+					return true;
+				}
+			}
 			breadcrumb("key 0x%x in %s", key->key(), w->metaObject()->className());
 			// The video player's keys (Play / Pause, seeking; video_controls.h).
 			if (isVideoWidget(w) && handleVideoKey(w, key))
