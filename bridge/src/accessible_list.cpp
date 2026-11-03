@@ -1,4 +1,5 @@
 #include "accessible_list.h"
+#include "native_message_text.h"
 #include "accessible_widgets.h"
 
 #include "a11y_announce.h"
@@ -1403,6 +1404,23 @@ public:
 		const QModelIndex idx = index();
 		if (!idx.isValid())
 			return QString();
+		// Keep this bridge row, its focus/selection and every action intact. Only
+		// prefer LINE's own text for the main chat's message model. Search, Notes,
+		// pickers and the native @ popup are outside this experiment.
+		if (inheritsClass(m_view->model(), "ChatMessageModel")
+		    && ancestorInheriting(m_view, "ChatMessageView")
+		    && !ancestorInheriting(m_view, "SearchDetailPanel")) {
+			const QVariant value = idx.data(Qt::AccessibleTextRole);
+			const QString native = nativeMessageText(value);
+			static int logged = 0;
+			if (logged++ < 16)
+				a11yLog("[message-text] source=%s row=%d rawChars=%d plainChars=%d",
+				        native.isEmpty() ? "bridge-fallback" : "native-role11", m_row,
+				        value.metaType().id() == QMetaType::QString ? int(value.toString().size()) : -1,
+				        int(native.size()));
+			if (!native.isEmpty())
+				return native;
+		}
 		QObject *data = idx.data(kItemDataRole).value<QObject *>();
 		if (QString text = dataObjectText(data); !text.isEmpty()) {
 			if (inheritsClass(data, "ChatData") && ancestorInheriting(m_view, "MainChatPanel"))
