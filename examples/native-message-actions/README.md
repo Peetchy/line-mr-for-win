@@ -29,4 +29,4 @@ Run `python tests/test_actions.py` for 13 offline test methods. They cover scope
 
 Run `python build.py` to create `dist/lineNativeActions-0.1.0-test.nvda-addon`. No Qt SDK is needed. For an isolated experiment, keep LINE MR disabled and its bridge unloaded; otherwise results are not a native-only comparison. This example does not change those settings for you.
 
-The source is provided for discussion and adaptation rather than merging as a production replacement. See [the proposal](../../proposals/native-accessibility-shortcuts.zh_TW.md). GPL v2; see `addon/COPYING.txt`.
+The source is provided for discussion and adaptation rather than merging as a production replacement. See [the proposal](../../proposals/native-accessibility-shortcuts.md). GPL v2; see `addon/COPYING.txt`.
