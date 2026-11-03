@@ -1,5 +1,7 @@
 # Native message-action shortcuts — experimental reference
 
+This earlier standalone experiment is retained as an optional reference. The current proposal retains the bridge and selectively delegates supported native features; see [the native mention experiment](../native-mentions/README.md).
+
 This independent NVDA add-on explores using LINE's native accessibility with three remappable commands:
 
 | Default gesture | Command |

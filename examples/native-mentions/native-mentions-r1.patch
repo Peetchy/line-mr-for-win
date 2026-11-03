@@ -1,0 +1,128 @@
+--- a/bridge/src/a11y_event_filter.cpp
++++ b/bridge/src/a11y_event_filter.cpp
+@@ -143,7 +143,7 @@
+ bool isMessageList(const QWidget *w)
+ {
+ 	return isLineListView(w) && ancestorInheriting(w, "ChatMessageView") && !ancestorInheriting(w, "SearchDetailPanel")
+-	    && !ancestorInheriting(w, "LcListView");
++	    && !ancestorInheriting(w, "LcListView") && !isNativeMentionWidget(w);
+ }
+ 
+ // The chat's search bar shows a result ("41/42"): LINE has made the matching message its current row.
+@@ -316,6 +316,8 @@
+ 
+ bool makeFocusable(QWidget *w)
+ {
++	if (isNativeMentionWidget(w))
++		return false;
+ 	// The chat header's member count: the chat name stop says it (and opens the same member list).
+ 	// Checked again later: the text can turn into a count after the widget was made focusable.
+ 	if (isChatHeaderMemberCount(w)) {
+@@ -371,9 +373,11 @@
+ 
+ void collectTabStops(QWidget *w, QList<QWidget *> &content, QList<QWidget *> &titleBar, bool inTitleBar)
+ {
++	if (isNativeMentionWidget(w))
++		return;
+ 	inTitleBar = inTitleBar || inheritsClass(w, "LcTitleBar");
+ 	for (QWidget *c : childWidgetsInOrder(w)) {
+-		if (c->isWindow())
++		if (c->isWindow() || isNativeMentionWidget(c))
+ 			continue;
+ 		QList<QWidget *> &stops = inTitleBar ? titleBar : content;
+ 		const qsizetype first = stops.size();
+@@ -558,6 +562,8 @@
+ 
+ void tagWidget(QWidget *w)
+ {
++	if (isNativeMentionWidget(w))
++		return;
+ 	labelComboBox(w);
+ 	// The text profile editor's colour swatches sit in a scroll area that would be a nameless stop.
+ 	if (inheritsClass(w, "LcScrollArea") && inheritsClass(w->window(), "CustomProfileEditorWindow"))
+@@ -1060,6 +1066,8 @@
+ 	// it back right away): such focus changes are not announced.
+ 	bool suppressFocusOn(const QWidget *w) const
+ 	{
++		if (isNativeMentionWidget(w) || (isMessageInput(w) && nativeMentionVisible(w)))
++			return false;
+ 		return m_browsingList && w != m_browsingList.data() && m_listKeyTimer.isValid()
+ 		    && m_listKeyTimer.elapsed() < 5000 && isInOpenChat(w);
+ 	}
+@@ -1114,6 +1122,23 @@
+ 			return false;
+ 		}
+ 		auto *w = static_cast<QWidget *>(watched);
++		// Let LINE handle its mention popup, including selection and accessibility
++		// events. It is not a message list despite living inside ChatMessageView.
++		// While the popup is visible, the editor's keys must reach LINE's filters
++		// (return false), not be dispatched straight to QTextEdit::event().
++		if (isNativeMentionWidget(w)
++		    || ((event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease)
++		        && isMessageInput(w) && nativeMentionVisible(w))) {
++			if ((event->type() == QEvent::Show && w->isVisible()) || event->type() == QEvent::FocusIn
++			    || event->type() == QEvent::KeyPress) {
++				m_browsingList = nullptr;
++				g_editorFocusTimer.invalidate();
++			}
++			static int logged = 0;
++			if (event->type() == QEvent::KeyPress && logged++ < 12)
++				a11yLog("[mention-native] key 0x%x passed to LINE", static_cast<QKeyEvent *>(event)->key());
++			return false;
++		}
+ 		switch (event->type()) {
+ 		case QEvent::Polish:
+ 			repairCachedInterface(w);
+--- a/bridge/src/accessible_widgets.cpp
++++ b/bridge/src/accessible_widgets.cpp
+@@ -485,7 +485,7 @@
+ 
+ WidgetKind classifyWidget(const QWidget *w)
+ {
+-	if (!w)
++	if (!w || isNativeMentionWidget(w))
+ 		return WidgetKind::None;
+ 	if (isInputClass(w))
+ 		return WidgetKind::Input;
+--- a/bridge/src/line_introspect.h
++++ b/bridge/src/line_introspect.h
+@@ -30,6 +30,10 @@
+ bool inheritsAnyClass(const QObject *object, std::initializer_list<const char *> classNames);
+ // Nearest ancestor (excluding `w`) whose class or superclass is `className`.
+ QWidget *ancestorInheriting(const QWidget *w, const char *className);
++// LINE's @-mention popup and all its children retain their native accessibility.
++bool isNativeMentionWidget(const QWidget *w);
++// A visible mention popup belonging to this editor's chat panel (not another chat).
++bool nativeMentionVisible(const QWidget *input);
+ 
+ // --- Properties -----------------------------------------------------------------------------
+ 
+--- a/bridge/src/line_introspect.cpp
++++ b/bridge/src/line_introspect.cpp
+@@ -642,6 +642,26 @@
+ 
+ // ---- Class helpers -----------------------------------------------------------------------------
+ 
++bool isNativeMentionWidget(const QWidget *w)
++{
++	return w && (inheritsClass(w, "UserMentionSuggester") || ancestorInheriting(w, "UserMentionSuggester"));
++}
++
++bool nativeMentionVisible(const QWidget *input)
++{
++	if (!input)
++		return false;
++	QWidget *panel = ancestorInheriting(input, "ChatMessagePanel");
++	if (!panel)
++		return false;
++	for (QWidget *candidate : panel->findChildren<QWidget *>()) {
++		if (inheritsClass(candidate, "UserMentionSuggester") && candidate->isVisible()
++		    && ancestorInheriting(candidate, "ChatMessagePanel") == panel)
++			return true;
++	}
++	return false;
++}
++
+ bool inheritsClass(const QMetaObject *mo, const char *className)
+ {
+ 	for (; mo; mo = mo->superClass()) {

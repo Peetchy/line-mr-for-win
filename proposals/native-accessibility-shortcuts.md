@@ -1,28 +1,38 @@
-# Proposal: prioritize LINE's native accessibility while retaining convenience shortcuts
+# Proposal: retain the bridge and progressively delegate supported features to native LINE
 
-Thank you for your continued work on LINE accessibility.
+Thank you for your continued work on LINE accessibility. After further testing, I believe the bridge is mature and worth retaining. Native accessibility has improved, so we may be able to let LINE handle selected interactions while keeping the bridge's established assistance elsewhere.
 
-After disabling LINE MR and the bridge copies used by LINE and its call/media processes, then fully restarting LINE, I found its native accessibility better than expected. The native interface exposed the chat list, message text, message editor, and time, read-receipt and quoted-reply information for some messages.
+## Suggested direction
 
-This does not establish that native accessibility is complete. I would like to suggest a development direction: use native accessibility wherever it is adequate, concentrate the add-on on user-requested conveniences, and retain bridge support where native functionality remains insufficient.
+Keep the bridge as the foundation for convenient operation. For each feature that native LINE now handles adequately, verify its behavior and selectively stop overriding that feature. This can be incremental; it does not require choosing between a fully native interface and a fully bridged interface.
 
-## Features worth retaining
+- **@ mentions:** a first concrete example. The attached source patch leaves LINE's mention suggestions and their interaction native. The user tested selecting a member and typing keywords to filter the member list successfully with the bridge still enabled.
+- **Message reading:** a candidate for a separate experiment. Native message presentation may improve the distinction between read receipts, quoted messages and replies. This PR does not implement native message reading or establish that all message types and navigation cases work.
+- **Calls, Notes and OpenChats:** leave existing bridge behavior in place for now, regardless of whether native support has changed. Revisit a feature if its entry point breaks or a specific problem requires a change. Native call behavior has not been comprehensively tested.
+- **Convenience shortcuts:** retain useful commands such as focusing the chat list or message editor. In the tested environment, native Ctrl+1/Ctrl+2 can switch tabs, but repeating the shortcut on the selected tab does not always return focus to its list.
 
-1. Keep convenient shortcuts such as Alt+C to focus the chat list and Alt+I to focus the message editor. Explicit, user-triggered focus commands remain useful in daily use.
-2. In my current environment, native Ctrl+1 and Ctrl+2 switch to the Friends and Chats tabs. However, pressing the shortcut again when already on that tab does not always return focus to its list. Alt+C therefore remains useful even with native tab-switching shortcuts. Other versions and computers have not been verified.
-3. Answering, rejecting and ending calls have not yet been tested in a native-only environment. I am not proposing removal of existing call assistance or claiming that native accessibility replaces it.
-4. Keep shortcuts for Reply, Delete from this device and Unsend. The attached small, bridge-free add-on demonstrates one possible way to operate the native message menu.
+## Native @ mention reference
 
-## Reference implementation
+See [examples/native-mentions](../examples/native-mentions/README.md) for the source patch and its integration notes.
 
-Source is in [examples/native-message-actions](../examples/native-message-actions/README.md). This independent experimental add-on provides commands that can be remapped in NVDA's Input Gestures dialog:
+The observed `UserMentionSuggester` contains an `LcListView` inside `ChatMessageView`. The bridge classified that suggestion list as messages and assigned it the message-list tag. It also intercepted editor Up/Down keys before LINE's own filtering could handle the suggestions.
 
-- Alt+R: reply to the current message.
-- Delete: delete the current message from this device.
-- Shift+Delete: unsend the current message.
+The experiment excludes the mention subtree from bridge accessibility replacement, message-list classification, tagging, focus-policy changes and Tab ordering. When a mention popup is visible in the editor's own chat panel, editor keys are left to LINE's normal event filters. Mention interactions also release the bridge's browsing/focus guard. Other chat windows and ordinary editor operation remain outside that popup-specific condition.
 
-It does not install or repair DLLs, capture drawing operations, override Enter/Tab/Shift+Tab navigation, or confirm deletion/unsend dialogs. It locates the native message menu only when the user invokes a command. Native Alt+C and Alt+I implementations are not included in this example; they remain requested conveniences in this proposal.
+No new settings switch was added for this experiment. Message rendering was left unchanged.
 
-The user has reported Unsend working. Reply previously opened the menu but did not activate the action even though the UIA call returned. The latest example waits for modifier release before opening the menu and permits one guarded Enter only if the original Reply button remains focused in the same menu. That final Reply change has not yet received user validation. Delete has not been end-to-end tested on a real message. Thirteen offline test methods are included; mocked tests do not establish that every native action works in practice.
+### Test result and limits
 
-This is a strategy proposal with reference source, not a request to immediately replace the existing architecture. I hope we can first discuss whether native accessibility plus user-triggered shortcuts fits the project, then verify which areas still require the bridge. This PR does not change the original project's version or existing functionality.
+The user reported that @ selection works and that entering keywords successfully filters the member list. This was tested in one Windows/NVDA environment with a Traditional Chinese LINE interface and the bridge enabled. It is not a claim of testing Thai labels, every LINE version, independent windows, or every group type.
+
+The experimental bridge compiled with Qt 6.6.3/MSVC Release. NVDA import/syntax checks and six existing message-action dispatcher tests passed. Those tests do not automate mention selection; the interaction result comes from the user's live test. The reference patch targets a local combined test baseline, including pending focus/navigation changes, and is not wired into this PR's production build.
+
+## Possible future customization
+
+A future bridge option could let users customize **control navigation order** to suit their workflow. This means keyboard navigation order, not rearranging the visual layout or rewriting messages. It is an idea for discussion, not implemented functionality or a prerequisite for the mention change. The relationship between native focus behavior and an optional user-defined order would need separate design and testing.
+
+## Scope of this PR
+
+This draft offers a development strategy and reference source for maintainer review. It does not replace the architecture, enable native message reading, alter calls/Notes/OpenChats, add navigation-order settings, or change LINE MR's version or release workflow.
+
+The earlier [standalone native-message-actions example](../examples/native-message-actions/README.md) remains an optional reference, not a recommendation to abandon the bridge. Its own test limitations are documented there. No private logs, chat content, screenshots, diagnostic dumps or binaries are included.
