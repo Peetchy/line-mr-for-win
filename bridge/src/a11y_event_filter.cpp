@@ -636,10 +636,18 @@ QPointer<QWidget> g_windowAfterMenu;
 QPointer<QQuickWindow> g_quickWindowAfterMenu;
 // The pressed menu item was one of a set of options (Sort: Time received / Unread).
 bool g_menuOptionPressed = false;
-// "Reply" was pressed: the message input gets focus after the menu closes, and for 2 s focus
-// moving there is not LINE pulling the user out of the list they browse.
+// "Reply" was pressed: the message input gets focus after the menu closes.
 bool g_replyMenuPressed = false;
-QElapsedTimer g_replyFocusTimer;
+// Enter in the chat list or "Reply": for 3 s the user is going to the message input. Focus moving
+// there is not LINE pulling the user out of a list, and LINE moving focus into the messages (once
+// the chat has loaded) is sent on to the input. Tab, Escape, a click or an accessibility action
+// cancel it.
+QElapsedTimer g_editorFocusTimer;
+
+bool editorFocusPending()
+{
+	return g_editorFocusTimer.isValid() && g_editorFocusTimer.elapsed() < 3000;
+}
 
 bool menuPressIsRecent()
 {
@@ -739,11 +747,12 @@ QWidget *messageInputIn(QWidget *window)
 	return nullptr;
 }
 
-// While replying, Tab / Shift+Tab go message list, Go to the original message, Cancel reply,
-// message input, then the message bar's buttons. LINE moves focus in the open chat itself on Tab
-// (the bar's buttons went straight to the input), so the bridge does it. Null when `w` is not one
-// of these or the move leaves them (Shift+Tab from the list).
-QWidget *replyBarTabTarget(QWidget *w, bool backward)
+// In the open chat Tab / Shift+Tab go message list, (while replying) Go to the original message
+// and Cancel reply, message input, then the message bar's buttons. LINE moves focus in the open
+// chat itself on Tab (the reply bar's buttons went straight to the input, and its changing order
+// could put the message bar's buttons between the messages and the input), so the bridge does it.
+// Null when `w` is not one of these or the move leaves them (Shift+Tab from the list).
+QWidget *chatTabTarget(QWidget *w, bool backward)
 {
 	QWidget *bar = nullptr;
 	for (QWidget *candidate : w->window()->findChildren<QWidget *>()) {
@@ -752,8 +761,6 @@ QWidget *replyBarTabTarget(QWidget *w, bool backward)
 			break;
 		}
 	}
-	if (!bar)
-		return nullptr;
 	QList<QWidget *> stops;
 	for (QWidget *view : w->window()->findChildren<QWidget *>()) {
 		if (isMessageList(view) && view->isVisible()) {
@@ -761,21 +768,23 @@ QWidget *replyBarTabTarget(QWidget *w, bool backward)
 			break;
 		}
 	}
-	for (QObject *child : bar->children()) {
+	for (QObject *child : bar ? bar->children() : QObjectList()) {
 		auto *stop = qobject_cast<QWidget *>(child);
 		if (stop && stop->isVisible() && stop->isEnabled() && (stop->focusPolicy() & Qt::TabFocus))
 			stops << stop;
 	}
-	if (QWidget *input = messageInputIn(w->window()))
+	if (QWidget *input = messageInputIn(w->window()); input && input->isEnabled())
 		stops << input;
+	if (stops.isEmpty() || !isMessageList(stops.first()) || !isMessageInput(stops.last()))
+		return nullptr; // not a chat with both
+	QWidget *input = stops.last();
 	const qsizetype at = stops.indexOf(w);
 	// After the input: the message bar's buttons (Stickers ...), as without the reply bar. LINE's
 	// own Tab from the input went back to Cancel reply, and Shift+Tab from Stickers skipped the input.
-	QWidget *input = !stops.isEmpty() && isMessageInput(stops.last()) ? stops.last() : nullptr;
 	QWidget *afterInput = nullptr;
-	for (QWidget *c = input ? input->nextInFocusChain() : nullptr; c && c != input; c = c->nextInFocusChain()) {
+	for (QWidget *c = input->nextInFocusChain(); c && c != input; c = c->nextInFocusChain()) {
 		if (c->window() == w->window() && c->isVisible() && c->isEnabled() && (c->focusPolicy() & Qt::TabFocus)
-		    && !input->isAncestorOf(c) && !bar->isAncestorOf(c)) {
+		    && !input->isAncestorOf(c) && !(bar && bar->isAncestorOf(c)) && c != stops.first()) {
 			afterInput = c;
 			break;
 		}
@@ -790,17 +799,20 @@ QWidget *replyBarTabTarget(QWidget *w, bool backward)
 	return stops.at(next);
 }
 
-void focusReplyEditor(QPointer<QWidget> window, int attempts = 8)
+// Enter in the chat list / Reply: focus the message input, waiting up to 0.8 s for it to appear.
+void focusMessageEditor(QPointer<QWidget> window, int attempts = 8)
 {
-	if (!window || !window->isVisible() || !window->isActiveWindow())
+	if (!editorFocusPending() || !window || !window->isVisible() || !window->isActiveWindow())
 		return;
 	if (QWidget *input = messageInputIn(window); input && input->isEnabled()) {
 		input->setFocus(Qt::OtherFocusReason);
-		a11yLog("[message-command] reply editor focus=%d", input->hasFocus());
+		static int logged = 0;
+		if (logged++ < 10)
+			a11yLog("[keyboard] to the message input, focus=%d", input->hasFocus());
 		return;
 	}
 	if (attempts > 0)
-		QTimer::singleShot(100, window, [window, attempts] { focusReplyEditor(window, attempts - 1); });
+		QTimer::singleShot(100, window, [window, attempts] { focusMessageEditor(window, attempts - 1); });
 }
 
 // Inside the chat shown on the right: its message view, header or message input (which LINE
@@ -1062,7 +1074,12 @@ A11yEventFilter *g_filter = nullptr;
 
 class A11yEventFilter : public QObject {
 public:
-	void endBrowsing() { m_browsingList = nullptr; }
+	// An accessibility action (UIA SetFocus / Invoke, e.g. Alt+M): the user goes there on purpose.
+	void endBrowsing()
+	{
+		m_browsingList = nullptr;
+		g_editorFocusTimer.invalidate();
+	}
 	bool browsing(const QWidget *list) const
 	{
 		return list && m_browsingList.data() == list && m_listKeyTimer.isValid() && m_listKeyTimer.elapsed() < 5000;
@@ -1237,6 +1254,16 @@ public:
 						list->focusEdgeRow(false);
 				});
 			}
+			// Enter in the chat list / Reply: LINE moves focus into the messages once the chat has
+			// loaded (or the closed menu gives it back): on to the message input.
+			if (const Qt::FocusReason reason = static_cast<QFocusEvent *>(event)->reason();
+			    isMessageList(w) && editorFocusPending() && reason != Qt::TabFocusReason
+			    && reason != Qt::BacktabFocusReason && reason != Qt::MouseFocusReason) {
+				m_browsingList = nullptr;
+				const QPointer<QWidget> window(w->window());
+				QTimer::singleShot(0, this, [window] { focusMessageEditor(window); });
+				break;
+			}
 			if (isMessageList(w)) {
 				// Entering the messages (Tab, Shift+Tab, Alt+M) starts at the newest one; coming back
 				// (focus sent back by the bridge, menu closed, window activated, click) keeps the place.
@@ -1262,9 +1289,8 @@ public:
 			}
 			// Arrowing through the chat list opens each chat, and once it has loaded (up to a few
 			// seconds later) LINE moves focus into the chat: keep the user in the list instead.
-			// Closing Reply's menu may first restore the list, which re-arms browsing.
-			// The following focus transfer into the editor is intentional, not LINE stealing focus.
-			if (isMessageInput(w) && g_replyFocusTimer.isValid() && g_replyFocusTimer.elapsed() < 2000)
+			// Going to the message input on purpose (Enter, Reply) is not LINE stealing focus.
+			if (isMessageInput(w) && editorFocusPending())
 				m_browsingList = nullptr;
 			if (m_browsingList && m_browsingList->isVisible() && w != m_browsingList.data() && isInOpenChat(w)
 			    && m_listKeyTimer.isValid() && m_listKeyTimer.elapsed() < 5000) {
@@ -1281,6 +1307,8 @@ public:
 			break;
 		case QEvent::MouseButtonPress:
 			m_browsingList = nullptr; // the user went somewhere on purpose
+			if (event->spontaneous()) // not the bridge's own clicks (opening a chat, menu items)
+				g_editorFocusTimer.invalidate();
 			// A click opens a chat itself: the chat list cursor follows LINE's current row again.
 			if (QWidget *view = isLineListView(w) ? w : w->parentWidget(); view && isLineListView(view)) {
 				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(view)))
@@ -1325,10 +1353,12 @@ public:
 		case QEvent::KeyPress: {
 			auto *key = static_cast<QKeyEvent *>(event);
 			breadcrumb("key 0x%x in %s", key->key(), w->metaObject()->className());
+			if (key->key() == Qt::Key_Tab || key->key() == Qt::Key_Backtab || key->key() == Qt::Key_Escape)
+				g_editorFocusTimer.invalidate(); // the user goes elsewhere
 			if ((key->key() == Qt::Key_Tab || key->key() == Qt::Key_Backtab)
 			    && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))) {
 				const bool backward = key->key() == Qt::Key_Backtab || (key->modifiers() & Qt::ShiftModifier);
-				if (QWidget *target = replyBarTabTarget(w, backward)) {
+				if (QWidget *target = chatTabTarget(w, backward)) {
 					m_browsingList = nullptr; // the user leaves the list on purpose
 					target->setFocus(backward ? Qt::BacktabFocusReason : Qt::TabFocusReason);
 					return true;
@@ -1565,22 +1595,22 @@ public:
 						}
 						break;
 					}
-					// Enter: open the chat under the cursor, go to it and start typing.
-					if (list && list->openCursorRow()) {
-						m_browsingList = nullptr;
-						QPointer<QWidget> listView = w;
-						QTimer::singleShot(0, this, [listView] {
-							if (!listView || !listView->hasFocus())
-								return;
-							if (QWidget *input = messageInputIn(listView->window()))
-								input->setFocus(Qt::OtherFocusReason);
-						});
+					// Enter: open the chat under the cursor, go to it and start typing. LINE moves focus
+					// into the messages once the chat has loaded: FocusIn sends it on to the input.
+					const bool opened = list && list->openCursorRow();
+					m_browsingList = nullptr;
+					g_editorFocusTimer.start();
+					const QPointer<QWidget> window(w->window());
+					if (opened) {
+						QTimer::singleShot(0, this, [window] { focusMessageEditor(window); });
 						return true;
 					}
 					if (QWidget *input = messageInputIn(w->window())) {
 						input->setFocus(Qt::OtherFocusReason);
 						return true;
 					}
+					// The open chat is hidden (no input): LINE's Enter shows it, then the input.
+					QTimer::singleShot(0, this, [window] { focusMessageEditor(window); });
 				}
 			}
 			if (w->property(kMadeFocusableProperty).toBool() && w->hasFocus() && isActivationKey(key)) {
@@ -1680,7 +1710,7 @@ private:
 			target->setFocus(Qt::PopupFocusReason);
 			if (reply) {
 				const QPointer<QWidget> replyWindow(window);
-				QTimer::singleShot(200, window, [replyWindow] { focusReplyEditor(replyWindow); });
+				QTimer::singleShot(200, window, [replyWindow] { focusMessageEditor(replyWindow); });
 			}
 			static int logged = 0;
 			if (logged++ < 5)
@@ -1850,10 +1880,10 @@ void noteMenuPress(QWidget *item, const char *how)
 	g_replyMenuPressed = QStringList { QStringLiteral("Reply"), QStringLiteral("回覆"), QStringLiteral("回复"),
 	                                  QStringLiteral("回復"), QStringLiteral("返信"), QStringLiteral("ตอบกลับ") }.contains(name);
 	if (g_replyMenuPressed) {
-		g_replyFocusTimer.start();
 		endListBrowsing(); // Reply intentionally moves from message navigation to composing.
+		g_editorFocusTimer.start();
 	} else {
-		g_replyFocusTimer.invalidate();
+		g_editorFocusTimer.invalidate();
 	}
 	a11yLog("[menu] pressed \"%s\" (%s)", iface ? qUtf8Printable(iface->text(QAccessible::Name)) : "", how);
 }

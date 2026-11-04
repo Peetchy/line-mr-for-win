@@ -7,6 +7,7 @@
 - Choosing Reply in a message's menu moves to the message input (contributed by wengweng0312).
 - While replying, the bar above the message input is reachable: Shift+Tab from the message input goes to Cancel reply and Go to the original message. Cancel reply returns to the message input.
 - New option in NVDA's settings, category LINE MR: "Show the sender's name in one-to-one chats" reads the other person's name before their messages (off by default). Your own long messages that LINE draws without a time are read as yours (contributed by wengweng0312).
+- Enter in the chat list stays in the opened chat's message input: LINE sometimes moved focus into the messages once the chat had loaded. In an open chat, Tab always goes messages, message input, then the buttons below it.
 
 ## Version 0.5.5
 
