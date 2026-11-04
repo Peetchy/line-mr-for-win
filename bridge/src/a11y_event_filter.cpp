@@ -617,6 +617,8 @@ QPointer<QWidget> g_windowAfterMenu;
 QPointer<QQuickWindow> g_quickWindowAfterMenu;
 // The pressed menu item was one of a set of options (Sort: Time received / Unread).
 bool g_menuOptionPressed = false;
+bool g_replyMenuPressed = false;
+QElapsedTimer g_replyFocusTimer;
 
 bool menuPressIsRecent()
 {
@@ -714,6 +716,19 @@ QWidget *messageInputIn(QWidget *window)
 			return w;
 	}
 	return nullptr;
+}
+
+void focusReplyEditor(QPointer<QWidget> window, int attempts = 8)
+{
+	if (!window || !window->isVisible() || !window->isActiveWindow())
+		return;
+	if (QWidget *input = messageInputIn(window); input && input->isEnabled()) {
+		input->setFocus(Qt::OtherFocusReason);
+		a11yLog("[message-command] reply editor focus=%d", input->hasFocus());
+		return;
+	}
+	if (attempts > 0)
+		QTimer::singleShot(100, window, [window, attempts] { focusReplyEditor(window, attempts - 1); });
 }
 
 // Inside the chat shown on the right: its message view, header or message input (which LINE
@@ -1172,6 +1187,10 @@ public:
 			}
 			// Arrowing through the chat list opens each chat, and once it has loaded (up to a few
 			// seconds later) LINE moves focus into the chat: keep the user in the list instead.
+			// Closing Reply's menu may first restore the list, which re-arms browsing.
+			// The following focus transfer into the editor is intentional, not LINE stealing focus.
+			if (isMessageInput(w) && g_replyFocusTimer.isValid() && g_replyFocusTimer.elapsed() < 2000)
+				m_browsingList = nullptr;
 			if (m_browsingList && m_browsingList->isVisible() && w != m_browsingList.data() && isInOpenChat(w)
 			    && m_listKeyTimer.isValid() && m_listKeyTimer.elapsed() < 5000) {
 				static int logged = 0;
@@ -1322,6 +1341,17 @@ public:
 			if (w->hasFocus() && w->objectName() == QLatin1StringView("lineMR_fulltext")
 			    && key->key() != Qt::Key_Tab && key->key() != Qt::Key_Backtab && key->key() != Qt::Key_Escape) {
 				static_cast<QObject *>(w)->event(event);
+				return true;
+			}
+			// Private transport keys, not user gesture bindings: NVDA scripts expose the
+			// remappable Alt+R/Delete/Shift+Delete commands and only send these from messages.
+			const auto commandModifiers = Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier;
+			if (isMessageList(w) && key->modifiers() == commandModifiers
+			    && key->key() >= Qt::Key_F9 && key->key() <= Qt::Key_F11) {
+				if (!key->isAutoRepeat()) {
+					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
+						list->openMessageCommand(key->key() - Qt::Key_F9);
+				}
 				return true;
 			}
 			if (!isLineListView(w) || !isListNavigationKey(key->key()))
@@ -1530,12 +1560,14 @@ private:
 	void menuHidden()
 	{
 		m_menu = nullptr;
+		const bool reply = g_replyMenuPressed;
+		g_replyMenuPressed = false;
 		QPointer<QWidget> back = m_menuReturnFocus;
 		m_menuReturnFocus = nullptr;
 		// The menu is a window of its own: give the keyboard back to the window it was opened from,
 		// to the widget the chosen item focused there (e.g. "Reply" focuses the message input) or
 		// else to where the menu was opened.
-		QTimer::singleShot(0, this, [back] {
+		QTimer::singleShot(0, this, [back, reply] {
 			if (!back || !back->isVisible())
 				return;
 			// The chosen item opened a window (a confirmation): it keeps the keyboard.
@@ -1562,6 +1594,10 @@ private:
 			if (!window->isActiveWindow())
 				window->activateWindow();
 			target->setFocus(Qt::PopupFocusReason);
+			if (reply) {
+				const QPointer<QWidget> replyWindow(window);
+				QTimer::singleShot(200, window, [replyWindow] { focusReplyEditor(replyWindow); });
+			}
 			static int logged = 0;
 			if (logged++ < 5)
 				a11yLog("[menu] closed; focus to %s", target->metaObject()->className());
@@ -1726,6 +1762,15 @@ void noteMenuPress(QWidget *item, const char *how)
 	g_quickWindowAfterMenu = nullptr;
 	QAccessibleInterface *iface = item ? QAccessible::queryAccessibleInterface(item) : nullptr;
 	g_menuOptionPressed = iface && iface->state().checkable;
+	const QString name = iface ? cleanText(iface->text(QAccessible::Name)).remove(u'&').trimmed() : QString();
+	g_replyMenuPressed = QStringList { QStringLiteral("Reply"), QStringLiteral("回覆"), QStringLiteral("回复"),
+	                                  QStringLiteral("回復"), QStringLiteral("返信"), QStringLiteral("ตอบกลับ") }.contains(name);
+	if (g_replyMenuPressed) {
+		g_replyFocusTimer.start();
+		endListBrowsing(); // Reply intentionally moves from message navigation to composing.
+	} else {
+		g_replyFocusTimer.invalidate();
+	}
 	a11yLog("[menu] pressed \"%s\" (%s)", iface ? qUtf8Printable(iface->text(QAccessible::Name)) : "", how);
 }
 
