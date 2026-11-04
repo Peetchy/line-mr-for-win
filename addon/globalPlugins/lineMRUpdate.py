@@ -39,20 +39,22 @@ config.conf.spec[CONFIG_SECTION] = {
 	"checkForUpdates": "boolean(default=true)",
 	"skippedVersion": "string(default='')",
 	"highlightFocus": "boolean(default=true)",
+	"directChatSenderNames": "boolean(default=false)",
 	"highlightColor": "string(default='yellow')",
 	"highlightWidth": "integer(default=4, min=1, max=12)",
 }
 
 
 def _applyHighlightSettings():
-	"""Passes the focus highlight settings to the bridge (appModules/line/highlight.py)."""
+	"""Passes the focus highlight and message presentation settings to the bridge."""
 	try:
-		from appModules.line import highlight
+		from appModules.line import highlight, messageSettings
 
 		conf = config.conf[CONFIG_SECTION]
 		highlight.writeSettings(conf["highlightFocus"], conf["highlightColor"], conf["highlightWidth"])
+		messageSettings.writeSettings(conf["directChatSenderNames"])
 	except Exception:
-		log.error("LINE MR: cannot write the focus highlight settings", exc_info=True)
+		log.error("LINE MR: cannot write the bridge presentation settings", exc_info=True)
 
 
 def _versionKey(version):
@@ -249,6 +251,11 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		from appModules.line import highlight
 
 		conf = config.conf[CONFIG_SECTION]
+		self.directChatSenderNames = helper.addItem(
+			# Translators: Includes the other person's name before received messages in one-to-one chats.
+			wx.CheckBox(self, label=_("Show the sender's &name in one-to-one chats"))
+		)
+		self.directChatSenderNames.SetValue(conf["directChatSenderNames"])
 		self.highlightFocus = helper.addItem(
 			# Translators: Check box in the add-on's settings: a coloured frame shows which control in
 			# LINE has the focus (for low-vision users).
@@ -283,6 +290,7 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		if self.checkForUpdates:
 			conf["checkForUpdates"] = self.checkForUpdates.GetValue()
 		conf["highlightFocus"] = self.highlightFocus.GetValue()
+		conf["directChatSenderNames"] = self.directChatSenderNames.GetValue()
 		conf["highlightColor"] = self._highlightColors[max(0, self.highlightColor.GetSelection())]
 		conf["highlightWidth"] = self.highlightWidth.GetValue()
 		_applyHighlightSettings()

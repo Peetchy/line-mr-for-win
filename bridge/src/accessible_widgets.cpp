@@ -618,9 +618,10 @@ QStringList chatHeaderTexts(const QWidget *w)
 		if (!child->isWidgetType() || !static_cast<QWidget *>(child)->isVisible())
 			continue;
 		// The header is the first visible child.
-		for (QObject *item : child->children()) {
-			auto *text = qobject_cast<QWidget *>(item);
-			if (text && text->isVisible() && inheritsClass(text, "LcText"))
+		// Some LINE versions wrap the name and member count in a clickable LcButton.
+		// Search inside this header only, including those nested texts; never the messages.
+		for (QWidget *text : static_cast<QWidget *>(child)->findChildren<QWidget *>()) {
+			if (text->isVisible() && inheritsClass(text, "LcText"))
 				if (const QString t = extractLcTextString(text); !t.isEmpty())
 					texts << t;
 		}

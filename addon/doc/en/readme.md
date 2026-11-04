@@ -102,3 +102,7 @@ LINE MR is an independent project and is not affiliated with or endorsed by LY C
 In the message list, Alt+R replies to the selected message and moves to its editor, Delete invokes deletion from this device, and Shift+Delete invokes Unsend. Reassign these commands in NVDA Preferences > Input Gestures > LINE MR. Outside the message list the original keys pass through, including text editing in the message input.
 
 The commands invoke LINE's existing menu items and leave native confirmation dialogs to the user. Missing or disabled commands are not replaced by another operation. Choosing Reply from the Applications/Shift+F10 message menu also moves focus to the editor.
+
+## One-to-one chat sender names
+
+In NVDA Settings > LINE MR, enable **Show the sender's name in one-to-one chats** to include the chat partner's name before received messages. This uses the current chat header; group messages keep their existing sender names. The option is off by default. Apply or OK takes effect within about a second; turn it off to restore the original presentation. LINE's visual message bubbles are unchanged.

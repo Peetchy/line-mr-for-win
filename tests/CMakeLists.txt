@@ -10,3 +10,8 @@ if(MSVC)
     target_compile_options(test_voice_bubble PRIVATE /utf-8)
 endif()
 add_test(NAME voice_bubble COMMAND test_voice_bubble)
+
+add_executable(test_message_direction test_message_direction.cpp)
+target_include_directories(test_message_direction PRIVATE ../bridge/src)
+target_link_libraries(test_message_direction PRIVATE Qt6::Core Qt6::Gui)
+add_test(NAME message_direction COMMAND test_message_direction)

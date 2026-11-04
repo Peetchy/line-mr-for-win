@@ -313,3 +313,7 @@ msgstr "透過 LINE 選單刪除此裝置上的選取訊息"
 #. Message context-menu shortcut.
 msgid "Unsends the selected message using LINE's menu"
 msgstr "透過 LINE 選單收回選取的訊息"
+
+#. Includes the partner's name before incoming messages in one-to-one chats.
+msgid "Show the sender's &name in one-to-one chats"
+msgstr "在單獨對話中顯示對方姓名(&N)"
