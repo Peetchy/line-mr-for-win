@@ -716,6 +716,26 @@ QString postRowText(QWidget *viewport, const QRect &rowRect, bool *skipped)
 
 QRectF senderPicture(const CaptureResult &cap);
 
+// LINE draws the time right of a received bubble and left of the user's own one (finding 66):
+// a time that starts at or after the end of the row's text, with no read receipt, is a received
+// message even where the bubble's tail is not drawn (later messages of a run).
+bool timeAfterText(const CaptureResult &cap)
+{
+	qreal textRight = -1, timeLeft = -1;
+	for (const CapturedText &it : cap.items) {
+		const QString t = cleanText(it.text);
+		if (t.isEmpty() || isPhotoMenu(t))
+			continue;
+		if (isReceipt(t))
+			return false;
+		if (isTimeOrReceipt(t))
+			timeLeft = timeLeft < 0 ? it.pos.x() : qMin(timeLeft, it.pos.x());
+		else
+			textRight = qMax(textRight, it.pos.x() + it.width);
+	}
+	return textRight >= 0 && timeLeft >= textRight - 2;
+}
+
 // A chat message row: sender, content, then time and read receipt (which LINE draws beside the
 // bubble). Sent messages are drawn on the right and have no sender name.
 QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, bool *skipped,
@@ -769,10 +789,10 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	// picture, "Read" / "已讀" is what the sender wrote.
 	const bool received = !senderPicture(cap).isEmpty();
 	const MessageDirection direction = bubbleDirection(cap);
-	// Only a confirmed incoming bubble gets the chat header's name. Dates, notices, sent
-	// messages and group messages must never be attributed to that header.
+	// Only a confirmed incoming message (picture, bubble tail or time after the text) gets the chat
+	// header's name. Dates, notices, sent messages and group messages must never get it.
 	const QString prefix = !directSender.isEmpty() && direction != MessageDirection::Outgoing
-	    && (received || direction == MessageDirection::Incoming)
+	    && (received || direction == MessageDirection::Incoming || timeAfterText(cap))
 	    ? directSender + QStringLiteral(", ") : QString();
 	// The number of people who reacted, drawn right of the reaction faces under the bubble.
 	QString reactionCount;
