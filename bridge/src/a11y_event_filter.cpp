@@ -267,7 +267,10 @@ constexpr const char *kMadeFocusableProperty = "_lineA11yFocusable";
 // Controls LINE only lets the mouse reach: buttons, checkboxes, clickable images and texts.
 bool wantsKeyboardFocus(QWidget *w)
 {
-	if (w->isWindow() || w->focusPolicy() != Qt::NoFocus)
+	// The reply bar's Cancel reply button takes focus on a click only (Qt::ClickFocus).
+	const bool clickOnly = w->focusPolicy() == Qt::ClickFocus && w->parentWidget()
+	    && inheritsClass(w->parentWidget(), "MessageReplyLayer");
+	if (w->isWindow() || (w->focusPolicy() != Qt::NoFocus && !clickOnly))
 		return false;
 	if (classifyWidget(w) == WidgetKind::Button || classifyWidget(w) == WidgetKind::List)
 		return true;
@@ -330,8 +333,9 @@ bool makeFocusable(QWidget *w)
 	// The sticker window's hover copy of a sticker (a click on it sends): the sticker is the stop.
 	if (inheritsClass(w, "AnimatedSticker") && inheritsClass(w->window(), "StickerWindow"))
 		return false;
-	// TabFocus only: clicking does not move focus, so mouse users see no difference.
-	w->setFocusPolicy(Qt::TabFocus);
+	// TabFocus only: clicking does not move focus, so mouse users see no difference (a control that
+	// took focus on a click keeps doing so).
+	w->setFocusPolicy(Qt::FocusPolicy(w->focusPolicy() | Qt::TabFocus));
 	w->setProperty(kMadeFocusableProperty, true);
 	return true;
 }
@@ -386,10 +390,12 @@ void collectTabStops(QWidget *w, QList<QWidget *> &content, QList<QWidget *> &ti
 		if (inheritsClass(c, "MessageInputPanel"))
 			std::reverse(stops.begin() + first, stops.end());
 		// The open chat's note banner and the buttons over the messages come before the message
-		// list, which leads on to the message input (user request).
+		// list, which leads on to the message input (user request). The reply bar (Go to the
+		// original message, Cancel reply) sits between the list and the input it belongs to.
 		if (inheritsClass(c, "ChatMessageView"))
 			std::stable_partition(stops.begin() + first, stops.end(), [](QWidget *stop) {
-				return !isLineListView(stop) || ancestorInheriting(stop, "LcListView");
+				return (!isLineListView(stop) || ancestorInheriting(stop, "LcListView"))
+				    && !ancestorInheriting(stop, "MessageReplyLayer");
 			});
 		// The chat list panel: its buttons (show / hide, create chat, the ad) first, then Sort right
 		// before the search field, and the chat list, which leads on to the open chat (user requests).
@@ -468,6 +474,19 @@ void orderTabStops(QWidget *window)
 		const qsizetype at = search - content.begin();
 		for (qsizetype i = 0; i < folders.size(); ++i)
 			content.insert(at + i, folders.at(i));
+	}
+	// While replying: the message list, the reply bar (Go to the original message, Cancel reply),
+	// then the message input it belongs to.
+	auto lastReplyStop = std::find_if(content.rbegin(), content.rend(), [](QWidget *stop) {
+		return ancestorInheriting(stop, "MessageReplyLayer") != nullptr;
+	});
+	auto input = std::find_if(content.begin(), content.end(), [](QWidget *stop) { return isMessageInput(stop); });
+	if (lastReplyStop != content.rend() && input != content.end()) {
+		QWidget *field = *input;
+		QWidget *replyStop = *lastReplyStop;
+		content.erase(input);
+		const qsizetype after = content.indexOf(replyStop);
+		content.insert(after + 1, field);
 	}
 	const QList<QWidget *> order = content + titleBar;
 	for (qsizetype i = 1; i < order.size(); ++i)
@@ -718,6 +737,57 @@ QWidget *messageInputIn(QWidget *window)
 			return w;
 	}
 	return nullptr;
+}
+
+// While replying, Tab / Shift+Tab go message list, Go to the original message, Cancel reply,
+// message input, then the message bar's buttons. LINE moves focus in the open chat itself on Tab
+// (the bar's buttons went straight to the input), so the bridge does it. Null when `w` is not one
+// of these or the move leaves them (Shift+Tab from the list).
+QWidget *replyBarTabTarget(QWidget *w, bool backward)
+{
+	QWidget *bar = nullptr;
+	for (QWidget *candidate : w->window()->findChildren<QWidget *>()) {
+		if (inheritsClass(candidate, "MessageReplyLayer") && candidate->isVisible()) {
+			bar = candidate;
+			break;
+		}
+	}
+	if (!bar)
+		return nullptr;
+	QList<QWidget *> stops;
+	for (QWidget *view : w->window()->findChildren<QWidget *>()) {
+		if (isMessageList(view) && view->isVisible()) {
+			stops << view;
+			break;
+		}
+	}
+	for (QObject *child : bar->children()) {
+		auto *stop = qobject_cast<QWidget *>(child);
+		if (stop && stop->isVisible() && stop->isEnabled() && (stop->focusPolicy() & Qt::TabFocus))
+			stops << stop;
+	}
+	if (QWidget *input = messageInputIn(w->window()))
+		stops << input;
+	const qsizetype at = stops.indexOf(w);
+	// After the input: the message bar's buttons (Stickers ...), as without the reply bar. LINE's
+	// own Tab from the input went back to Cancel reply, and Shift+Tab from Stickers skipped the input.
+	QWidget *input = !stops.isEmpty() && isMessageInput(stops.last()) ? stops.last() : nullptr;
+	QWidget *afterInput = nullptr;
+	for (QWidget *c = input ? input->nextInFocusChain() : nullptr; c && c != input; c = c->nextInFocusChain()) {
+		if (c->window() == w->window() && c->isVisible() && c->isEnabled() && (c->focusPolicy() & Qt::TabFocus)
+		    && !input->isAncestorOf(c) && !bar->isAncestorOf(c)) {
+			afterInput = c;
+			break;
+		}
+	}
+	if (w == input && !backward)
+		return afterInput;
+	if (w == afterInput && backward)
+		return input;
+	const qsizetype next = backward ? at - 1 : at + 1;
+	if (at < 0 || next < 0 || next >= stops.size())
+		return nullptr;
+	return stops.at(next);
 }
 
 void focusReplyEditor(QPointer<QWidget> window, int attempts = 8)
@@ -1065,6 +1135,9 @@ public:
 				breadcrumb("show window %s", w->metaObject()->className());
 			repairCachedInterface(w);
 			makeFocusableIn(w);
+			// Its stops were made focusable the first time; the order may have changed since.
+			if (inheritsClass(w, "MessageReplyLayer"))
+				orderTabStops(w->window());
 			tagWidgetsIn(w);
 			if (w->isWindow() && !isContextMenu(w) && menuPressIsRecent()) {
 				a11yLog("[menu] after the press: %s shown, active=%d, title \"%s\"", w->metaObject()->className(),
@@ -1252,6 +1325,15 @@ public:
 		case QEvent::KeyPress: {
 			auto *key = static_cast<QKeyEvent *>(event);
 			breadcrumb("key 0x%x in %s", key->key(), w->metaObject()->className());
+			if ((key->key() == Qt::Key_Tab || key->key() == Qt::Key_Backtab)
+			    && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))) {
+				const bool backward = key->key() == Qt::Key_Backtab || (key->modifiers() & Qt::ShiftModifier);
+				if (QWidget *target = replyBarTabTarget(w, backward)) {
+					m_browsingList = nullptr; // the user leaves the list on purpose
+					target->setFocus(backward ? Qt::BacktabFocusReason : Qt::TabFocusReason);
+					return true;
+				}
+			}
 			// The video player's keys (Play / Pause, seeking; video_controls.h).
 			if (isVideoWidget(w) && handleVideoKey(w, key))
 				return true;

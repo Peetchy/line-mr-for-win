@@ -265,6 +265,15 @@ void writeDump(const QString &fileName, const QWidgetList &windows)
 		    << QString::number(int(w->windowFlags()), 16) << (w->isActiveWindow() ? " active" : "") << '\n';
 		bool first = true;
 		dumpWidget(out, w, 0, first);
+		// Qt's focus chain: the visible Tab stops in the order Tab visits them.
+		out << "--- tab chain\n";
+		for (QWidget *c = w->nextInFocusChain(); c && c != w; c = c->nextInFocusChain()) {
+			if ((c->focusPolicy() & Qt::TabFocus) && c->isVisible() && c->isEnabled() && c->window() == w) {
+				QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(c);
+				out << "  " << c->metaObject()->className() << " \""
+				    << (iface ? iface->text(QAccessible::Name) : QString()) << "\"\n";
+			}
+		}
 		out << "--- accessible tree\n";
 		dumpAccessible(out, QAccessible::queryAccessibleInterface(w), 0);
 		out << '\n';

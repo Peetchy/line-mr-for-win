@@ -534,6 +534,11 @@ QAccessibleInterface *lineAccessibleFactory(const QString &key, QObject *object)
 		return iface;
 	if (helperProcessName() == QLatin1StringView("linemediaplayer") && inheritsClass(w, "QQuickWidget"))
 		return new LineAccessibleQuickWidget(w);
+	// The bar above the message input while replying ("Reply to Peet's message ..."): LINE's own
+	// interface for it has no children, so its Cancel reply button was out of reach. Qt's plain
+	// widget interface keeps LINE's name and exposes the buttons.
+	if (inheritsClass(w, "MessageReplyLayer"))
+		return new QAccessibleWidget(w, QAccessible::Grouping);
 	const WidgetKind kind = classifyWidget(w);
 	if (kind != WidgetKind::None) {
 		static QSet<QByteArray> loggedClasses;
@@ -1063,6 +1068,18 @@ QString LineAccessibleButton::computeName() const
 	QWidget *w = widget();
 	if (QString name = explicitAccessibleName(w); !name.isEmpty())
 		return name;
+	// The reply bar's full-width button (under the sender and the quoted text) scrolls the chat to
+	// the message being replied to.
+	if (QWidget *bar = w->parentWidget(); bar && inheritsClass(bar, "MessageReplyLayer") && iconSource(w).isEmpty()) {
+		QStringList texts;
+		for (QObject *child : bar->children()) {
+			if (child->isWidgetType() && inheritsClass(child, "LcText") && !static_cast<QWidget *>(child)->isHidden()) {
+				if (const QString text = widgetText(static_cast<QWidget *>(child)); !text.isEmpty())
+					texts << text;
+			}
+		}
+		return label("Go to the original message: %1").arg(texts.join(QLatin1StringView(", ")));
+	}
 	if (QString text = stringProp(w, "text"); !text.isEmpty())
 		return text;
 	if (QString children = collectVisibleChildTexts(w, QStringLiteral(" ")); !children.isEmpty())
@@ -1231,6 +1248,22 @@ void LineAccessibleButton::press()
 {
 	QWidget *w = widget();
 	QPointer<QWidget> guard(w);
+	// Cancel reply: LINE hides the bar and Qt moves focus to the next control (Stickers); the user
+	// was about to type, so the message input gets it.
+	if (QWidget *bar = w->parentWidget(); bar && inheritsClass(bar, "MessageReplyLayer")
+	    && iconSource(w).contains(QLatin1StringView("reply-layer-close"))) {
+		QPointer<QWidget> window(w->window());
+		QTimer::singleShot(150, window, [window] {
+			if (!window)
+				return;
+			for (QWidget *input : window->findChildren<QWidget *>()) {
+				if (isMessageInput(input) && input->isVisible()) {
+					input->setFocus(Qt::OtherFocusReason);
+					break;
+				}
+			}
+		});
+	}
 	// The text profile editor's colours: LINE redraws the mark of the chosen one.
 	if (isColorChoice(w)) {
 		QTimer::singleShot(400, w, [guard] {
