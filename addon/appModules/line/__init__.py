@@ -18,7 +18,7 @@ from NVDAObjects.behaviors import Dialog
 from NVDAObjects.UIA import UIA
 from scriptHandler import script
 
-from . import bridge, chatSearch, elements, fullText, qtText, messageActions
+from . import bridge, chatSearch, elements, fullText, messageActions, qtText
 from .calls import CallCommandsAppModule
 
 addonHandler.initTranslation()
@@ -278,18 +278,32 @@ class AppModule(CallCommandsAppModule):
 	def script_focusInput(self, gesture):
 		self._focus(("input_message",), _("No chat is open."))
 
-	@script(description=_("Replies to the selected message and moves to the message editor"),
-	        category=SCRIPT_CATEGORY, gesture="kb:alt+r")
+	@script(
+		# Translators: Describes the command that replies to the message NVDA read last.
+		description=_("Replies to the selected message and moves to the message input"),
+		category=SCRIPT_CATEGORY,
+		gesture="kb:alt+r",
+	)
 	def script_replyMessage(self, gesture):
 		messageActions.run(self, "reply", gesture)
 
-	@script(description=_("Deletes the selected message from this device using LINE's menu"),
-	        category=SCRIPT_CATEGORY, gesture="kb:delete")
+	@script(
+		# Translators: Describes the command that deletes the selected message (LINE deletes it
+		# only on this computer).
+		description=_("Deletes the selected message (Delete in LINE's message menu)"),
+		category=SCRIPT_CATEGORY,
+		gesture="kb:delete",
+	)
 	def script_deleteMessage(self, gesture):
 		messageActions.run(self, "delete", gesture)
 
-	@script(description=_("Unsends the selected message using LINE's menu"),
-	        category=SCRIPT_CATEGORY, gesture="kb:shift+delete")
+	@script(
+		# Translators: Describes the command that unsends the selected message (removes it for
+		# everyone in the chat).
+		description=_("Unsends the selected message (Unsend in LINE's message menu)"),
+		category=SCRIPT_CATEGORY,
+		gesture="kb:shift+delete",
+	)
 	def script_unsendMessage(self, gesture):
 		messageActions.run(self, "unsend", gesture)
 

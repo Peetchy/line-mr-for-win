@@ -298,3 +298,21 @@ msgstr "สีไฮไลต์ (&C):"
 #. Translators: Label of the width of the focus highlight frame in the add-on's settings.
 msgid "Highlight &width:"
 msgstr "ความหนาไฮไลต์ (&W):"
+
+#. Translators: Describes the command that replies to the message NVDA read last.
+msgid "Replies to the selected message and moves to the message input"
+msgstr "ตอบกลับข้อความที่เลือก แล้วไปที่ช่องพิมพ์ข้อความ"
+
+#. Translators: Describes the command that deletes the selected message (LINE deletes it
+#. only on this computer).
+msgid "Deletes the selected message (Delete in LINE's message menu)"
+msgstr "ลบข้อความที่เลือก (\"ลบ\" ในเมนูข้อความของ LINE)"
+
+#. Translators: Describes the command that unsends the selected message (removes it for
+#. everyone in the chat).
+msgid "Unsends the selected message (Unsend in LINE's message menu)"
+msgstr "ยกเลิกข้อความที่เลือก (\"ยกเลิกข้อความ\" ในเมนูข้อความของ LINE)"
+
+#. Translators: Includes the other person's name before received messages in one-to-one chats.
+msgid "Show the sender's &name in one-to-one chats"
+msgstr "แสดงชื่อผู้ส่งในแชทหนึ่งต่อหนึ่ง (&N)"

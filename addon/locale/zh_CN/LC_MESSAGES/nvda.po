@@ -298,3 +298,21 @@ msgstr "突出显示颜色(&C):"
 #. Translators: Label of the width of the focus highlight frame in the add-on's settings.
 msgid "Highlight &width:"
 msgstr "突出显示宽度(&W):"
+
+#. Translators: Describes the command that replies to the message NVDA read last.
+msgid "Replies to the selected message and moves to the message input"
+msgstr "回复所选消息并移到消息输入框"
+
+#. Translators: Describes the command that deletes the selected message (LINE deletes it
+#. only on this computer).
+msgid "Deletes the selected message (Delete in LINE's message menu)"
+msgstr "删除所选消息(LINE 消息菜单中的“删除”)"
+
+#. Translators: Describes the command that unsends the selected message (removes it for
+#. everyone in the chat).
+msgid "Unsends the selected message (Unsend in LINE's message menu)"
+msgstr "撤回所选消息(LINE 消息菜单中的“撤回”)"
+
+#. Translators: Includes the other person's name before received messages in one-to-one chats.
+msgid "Show the sender's &name in one-to-one chats"
+msgstr "在一对一聊天中显示对方姓名(&N)"

@@ -69,7 +69,6 @@ struct LabelTranslations {
 };
 
 const LabelTranslations kLabels[] = {
-	{ "This message action is not available.", "ข้อความนี้ใช้คำสั่งนี้ไม่ได้", "このメッセージではこの操作は使用できません。", "此消息无法使用此功能。", "此訊息無法使用此功能。" },
 	{ "Show password", "แสดงรหัสผ่าน", "パスワードを表示", "显示密码", "顯示密碼" },
 	{ "Hide password", "ซ่อนรหัสผ่าน", "パスワードを非表示", "隐藏密码", "隱藏密碼" },
 	{ "Refresh QR code", "รีเฟรชคิวอาร์โค้ด", "QRコードを更新", "刷新二维码", "重新整理 QR 碼" },

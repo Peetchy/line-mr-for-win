@@ -298,3 +298,21 @@ msgstr "強調表示の色(&C):"
 #. Translators: Label of the width of the focus highlight frame in the add-on's settings.
 msgid "Highlight &width:"
 msgstr "強調表示の太さ(&W):"
+
+#. Translators: Describes the command that replies to the message NVDA read last.
+msgid "Replies to the selected message and moves to the message input"
+msgstr "選択したメッセージに返信し、メッセージ入力欄へ移動します"
+
+#. Translators: Describes the command that deletes the selected message (LINE deletes it
+#. only on this computer).
+msgid "Deletes the selected message (Delete in LINE's message menu)"
+msgstr "選択したメッセージを削除します(LINE のメッセージ メニューの「削除」)"
+
+#. Translators: Describes the command that unsends the selected message (removes it for
+#. everyone in the chat).
+msgid "Unsends the selected message (Unsend in LINE's message menu)"
+msgstr "選択したメッセージの送信を取り消します(LINE のメッセージ メニューの「送信取消」)"
+
+#. Translators: Includes the other person's name before received messages in one-to-one chats.
+msgid "Show the sender's &name in one-to-one chats"
+msgstr "1 対 1 のトークで送信者の名前を表示(&N)"

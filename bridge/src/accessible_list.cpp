@@ -1186,11 +1186,11 @@ QRectF senderPicture(const CaptureResult &cap)
 	return QRectF();
 }
 
+enum class RowSide { Empty, Received, Other };
 
 // Who a message row is from, by where LINE drew it: received messages start at the left (after the
 // sender's picture), the user's own end at the right (often with a read receipt), notices and dates
 // are centred.
-enum class RowSide { Empty, Received, Other };
 RowSide rowSide(const CaptureResult &cap, const QRect &rowRect)
 {
 	const qreal width = rowRect.width();
@@ -3326,8 +3326,8 @@ QWidget *takePendingMenuChoice(const QList<QWidget *> &items)
 				return item;
 			}
 		}
+		// Not offered for this message (Unsend on someone else's): the menu stays open for the user.
 		a11yLog("[message-command] command unavailable for this row");
-		announce(source, label("This message action is not available."));
 		return nullptr;
 	}
 	if (g_menuChoice.texts.isEmpty() || !g_menuChoice.at.isValid() || g_menuChoice.at.elapsed() > 5000)

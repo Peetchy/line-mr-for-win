@@ -29,7 +29,7 @@ It is the Windows counterpart of [LINE MR for Mac](https://github.com/Peetchy/li
 **Reading**
 - Names for LINE's unlabelled buttons, text fields, checkboxes, tabs and menus. The names follow LINE's own language (English, Thai, Japanese, Simplified or Traditional Chinese).
 - Chat list: each chat reads its name, member count, last message, time and unread count. The open chat reads "Selected" and pinned chats read "Pinned".
-- Messages: who sent each message, its text, time and read receipt. Messages without text say what they are: photo, album, video, sticker, voice message (with its length), file, location, call, link and reactions.
+- Messages: who sent each message, its text, time and read receipt. Optionally, one-to-one chats read the other person's name too. Messages without text say what they are: photo, album, video, sticker, voice message (with its length), file, location, call, link and reactions.
 - Long messages ("See more") read line by line like a document, with line feeds only where the writer made them.
 
 **Keyboard**
@@ -82,6 +82,7 @@ To check that it works, press **NVDA+Shift+Control+L** in LINE: NVDA says whethe
 | Alt+F | Move to the search field of the chat list or friend list |
 | Alt+M | Move to the messages of the open chat (starts at the newest) |
 | Alt+I | Move to the message input |
+| Alt+R / Delete / Shift+Delete | In the messages: reply to (and move to the input), delete or unsend the selected message |
 | NVDA+Alt+1 … 9 | Read a recent message (1 = newest) |
 | Alt+A / Alt+D in LINE (NVDA+Shift+Control+A / D from any application) | Answer / decline an incoming LINE call; Alt+D in LINE ends the current call |
 | NVDA+Shift+Control+L | Report whether the bridge is running; press twice to copy a report for the developer |
@@ -91,7 +92,7 @@ To check that it works, press **NVDA+Shift+Control+L** in LINE: NVDA says whethe
 | Where | Keys |
 |---|---|
 | Chat list, friend list | Up/Down, Page Up/Page Down, Home/End browse without opening a chat; Enter opens it; Applications key or Shift+F10 opens the chat's menu |
-| Messages | Up/Down one message; Page Up/Page Down about a screen; Home the oldest loaded message (again: load older ones); End the newest; Enter or Space opens a link, photo, video, file, voice message or long text; Applications key or Shift+F10 the message's menu; Tab / Shift+Tab back into the chat returns to the message read last |
+| Messages | Up/Down one message; Page Up/Page Down about a screen; Home the oldest loaded message (again: load older ones); End the newest; Enter or Space opens a link, photo, video, file, voice message or long text; Applications key or Shift+F10 the message's menu; Tab / Shift+Tab back into the chat returns to the message read last; Alt+R reply, Delete delete, Shift+Delete unsend |
 | Message menu | "React": Left/Right choose a reaction, Enter gives it ("Remove reaction" once you reacted); in groups "Show <name>'s profile" |
 | Chat search field | Enter searches; Up/Down go to older / newer matches; LINE MR reads the result; Alt+M moves to it |
 | Stickers and emoji | The first Enter selects one and plays LINE's preview; the second Enter sends it |

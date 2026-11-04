@@ -617,6 +617,8 @@ QPointer<QWidget> g_windowAfterMenu;
 QPointer<QQuickWindow> g_quickWindowAfterMenu;
 // The pressed menu item was one of a set of options (Sort: Time received / Unread).
 bool g_menuOptionPressed = false;
+// "Reply" was pressed: the message input gets focus after the menu closes, and for 2 s focus
+// moving there is not LINE pulling the user out of the list they browse.
 bool g_replyMenuPressed = false;
 QElapsedTimer g_replyFocusTimer;
 

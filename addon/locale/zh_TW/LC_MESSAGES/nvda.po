@@ -299,21 +299,20 @@ msgstr "醒目顯示色彩(&C):"
 msgid "Highlight &width:"
 msgstr "醒目顯示寬度(&W):"
 
+#. Translators: Describes the command that replies to the message NVDA read last.
+msgid "Replies to the selected message and moves to the message input"
+msgstr "回覆選取的訊息並移到訊息輸入框"
 
-#. Message context-menu shortcut.
-msgid "Replies to the selected message and moves to the message editor"
-msgstr "回覆選取的訊息並移至訊息編輯框"
+#. Translators: Describes the command that deletes the selected message (LINE deletes it
+#. only on this computer).
+msgid "Deletes the selected message (Delete in LINE's message menu)"
+msgstr "刪除選取的訊息(LINE 訊息功能表中的「刪除」)"
 
+#. Translators: Describes the command that unsends the selected message (removes it for
+#. everyone in the chat).
+msgid "Unsends the selected message (Unsend in LINE's message menu)"
+msgstr "收回選取的訊息(LINE 訊息功能表中的「收回」)"
 
-#. Message context-menu shortcut.
-msgid "Deletes the selected message from this device using LINE's menu"
-msgstr "透過 LINE 選單刪除此裝置上的選取訊息"
-
-
-#. Message context-menu shortcut.
-msgid "Unsends the selected message using LINE's menu"
-msgstr "透過 LINE 選單收回選取的訊息"
-
-#. Includes the partner's name before incoming messages in one-to-one chats.
+#. Translators: Includes the other person's name before received messages in one-to-one chats.
 msgid "Show the sender's &name in one-to-one chats"
 msgstr "在單獨對話中顯示對方姓名(&N)"

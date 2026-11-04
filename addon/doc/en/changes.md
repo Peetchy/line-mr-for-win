@@ -1,5 +1,12 @@
 # What's new in LINE MR
 
+## Version 0.5.6
+
+### Messages
+- In the messages, Alt+R replies to the selected message and moves to the message input, Delete deletes it and Shift+Delete unsends it (the items of LINE's message menu; LINE's own confirmation is left to you). Elsewhere these keys work as usual; they can be changed in NVDA's Input gestures (contributed by wengweng0312).
+- Choosing Reply in a message's menu moves to the message input (contributed by wengweng0312).
+- New option in NVDA's settings, category LINE MR: "Show the sender's name in one-to-one chats" reads the other person's name before their messages (off by default). Your own long messages that LINE draws without a time are read as yours (contributed by wengweng0312).
+
 ## Version 0.5.5
 
 ### Updates
