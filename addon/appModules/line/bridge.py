@@ -1026,13 +1026,15 @@ def _versionText(version):
 
 
 def _lineLanguage():
-	try:
-		with open(os.path.join(_localAppData(), "LINE", "Data", "installLang.ini"), encoding="utf-8-sig") as f:
-			for line in f:
-				if line.strip().lower().startswith("installlang="):
-					return line.split("=", 1)[1].strip()
-	except OSError:
-		pass
+	"""LINE's UI language: the one chosen in LINE's settings (LINE.ini), else the installer's."""
+	for name, key in (("LINE.ini", "language="), ("installLang.ini", "installlang=")):
+		try:
+			with open(os.path.join(_localAppData(), "LINE", "Data", name), encoding="utf-8-sig") as f:
+				for line in f:
+					if line.strip().lower().startswith(key):
+						return line.split("=", 1)[1].strip()
+		except OSError:
+			pass
 	return "unknown"
 
 

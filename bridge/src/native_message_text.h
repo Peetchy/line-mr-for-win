@@ -25,7 +25,12 @@ inline QString nativeMessageText(const QVariant &value)
 	if (text.contains(markup) || text.contains(entity))
 		text = QTextDocumentFragment::fromHtml(text).toPlainText();
 	text.replace(QChar::ObjectReplacementCharacter, u' ');
-	return text.simplified();
+	text = text.simplified();
+	// A forwarded video's file name is a content hash ("3B1141DE...5C.mp4"): noise when read.
+	static const QRegularExpression hashName(QStringLiteral("^[0-9A-Fa-f]{24,}\\.[A-Za-z0-9]{2,5}$"));
+	QStringList fields = text.split(QStringLiteral(", "));
+	fields.removeIf([](const QString &field) { return hashName.match(field).hasMatch(); });
+	return fields.join(QStringLiteral(", "));
 }
 
 // What the bridge read from the drawn row, for what LINE's own text leaves out. Labels are already

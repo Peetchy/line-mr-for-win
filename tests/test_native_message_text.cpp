@@ -33,6 +33,11 @@ int main(int argc, char **argv)
 	expect(nativeMessageText(QVariant()), QString(), "invalid role falls back");
 	expect(nativeMessageText(QVariant(42)), QString(), "non-string role falls back");
 
+	expect(nativeMessageText(QString::fromUtf8("ข้อความวิดีโอ, ความยาววิดีโอ 241 วินาที, 3B1141DE80FFFB1A72DB815C7274C77B90777D5C.mp4, 7.57 น.")),
+	       QString::fromUtf8("ข้อความวิดีโอ, ความยาววิดีโอ 241 วินาที, 7.57 น."), "hash file name dropped");
+	expect(nativeMessageText(QString::fromUtf8("ไฟล์, WCAG Training.pdf, 20.38 น.")),
+	       QString::fromUtf8("ไฟล์, WCAG Training.pdf, 20.38 น."), "real file name kept");
+
 	// What LINE 26.6 (Thai) gave, with the bridge's parts.
 	using line_a11y::withMessageParts;
 	const QString you = QString::fromUtf8("คุณ");

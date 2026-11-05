@@ -312,10 +312,12 @@ QHash<QString, QString> labelsFor(UiLanguage language)
 
 UiLanguage computeUiLanguage()
 {
-	// LINE sets its own UI language (independent of Windows); the installer records it.
-	const QString ini = QDir::fromNativeSeparators(qEnvironmentVariable("LOCALAPPDATA"))
-		+ QStringLiteral("/LINE/Data/installLang.ini");
-	QString lang = QSettings(ini, QSettings::IniFormat).value(QStringLiteral("General/installLang")).toString();
+	// LINE sets its own UI language (independent of Windows): LINE.ini holds the one chosen in LINE's
+	// settings ("en-US", "th"), installLang.ini only the installer's.
+	const QString data = QDir::fromNativeSeparators(qEnvironmentVariable("LOCALAPPDATA")) + QStringLiteral("/LINE/Data/");
+	QString lang = QSettings(data + QStringLiteral("LINE.ini"), QSettings::IniFormat).value(QStringLiteral("global/language")).toString();
+	if (lang.isEmpty())
+		lang = QSettings(data + QStringLiteral("installLang.ini"), QSettings::IniFormat).value(QStringLiteral("General/installLang")).toString();
 	if (lang.isEmpty())
 		lang = QLocale().name(); // "th_TH", "zh_TW"
 	lang = lang.toLower();
