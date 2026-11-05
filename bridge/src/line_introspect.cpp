@@ -245,6 +245,8 @@ const LabelTranslations kLabels[] = {
 	  "%1，已选择，再按一次即发送", "%1，已選取，再按一次即傳送" },
 	{ "Recently used", "ใช้ล่าสุด", "最近使用", "最近使用", "最近使用" },
 	{ "Package %1", "แพ็กเกจ %1", "パッケージ %1", "套装 %1", "套裝 %1" },
+	{ "1 second", "1 วินาที", "1秒", "1秒", "1秒" },
+	{ "%1 seconds", "%1 วินาที", "%1秒", "%1秒", "%1秒" },
 	{ "LINE emoji", "อีโมจิ LINE", "LINE絵文字", "LINE 表情", "LINE 表情貼" },
 	{ "File", "ไฟล์", "ファイル", "文件", "檔案" },
 	{ "Call message", "การโทร", "通話", "通话", "通話" },
@@ -1133,6 +1135,16 @@ UiLanguage uiLanguage()
 		return l;
 	}();
 	return language;
+}
+
+QString spokenDuration(const QString &clock)
+{
+	static const QRegularExpression pattern(QStringLiteral("^(?:(\\d{1,2}):)?(\\d{1,2}):(\\d{2})$"));
+	const QRegularExpressionMatch m = pattern.match(clock.trimmed());
+	if (!m.hasMatch())
+		return clock;
+	const int seconds = m.captured(1).toInt() * 3600 + m.captured(2).toInt() * 60 + m.captured(3).toInt();
+	return seconds == 1 ? label("1 second") : label("%1 seconds").arg(seconds);
 }
 
 QString label(const char *english)

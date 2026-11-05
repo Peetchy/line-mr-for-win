@@ -12,7 +12,7 @@
 - New option in NVDA's settings, category LINE MR: "Show the sender's name in one-to-one chats" reads the other person's name before their messages (off by default). Your own long messages that LINE draws without a time are read as yours (contributed by wengweng0312).
 - Enter in the chat list stays in the opened chat's message input: LINE sometimes moved focus into the messages once the chat had loaded. In an open chat, Tab always goes messages, message input, then the buttons below it.
 - @ mentions in group chats: after typing @, Up/Down read the members LINE suggests, typing filters them and Enter chooses one. Before, the arrows did nothing there (contributed by wengweng0312). In the message input a chosen member reads "@name" (before, NVDA read nothing for it).
-- Messages read LINE's own text (LINE 26.6 and later): the sender and time on every message, whole replies ("X replied to Y's message ...") and full file names, also for messages not on screen. LINE MR adds what LINE leaves out: "You" before your own messages, stickers and calls, and reactions (contributed by wengweng0312).
+- Messages read LINE's own text (LINE 26.6 and later): the sender and time on every message, whole replies ("X replied to Y's message ...") and full file names, also for messages not on screen. LINE MR adds what LINE leaves out: "You" before your own messages, stickers and calls, and reactions (contributed by wengweng0312). Lengths of calls, voice messages and videos read in seconds like LINE's own text ("7 seconds" instead of "00:07").
 
 ## Version 0.5.5
 

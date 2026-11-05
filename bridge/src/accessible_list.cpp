@@ -324,13 +324,13 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 	auto onPicture = [&cap, &isPicture, &textInside](const QRectF &icon) {
 		for (const PaintedImage &pi : cap.images) {
 			if (isPicture(pi.rect) && pi.rect.contains(icon) && (pi.clipped || !pi.alpha || !textInside(pi.rect)))
-				return true;
+				return pi.rect;
 		}
 		for (const PaintedShape &s : cap.shapes) {
 			if (isPicture(s.rect) && s.rect.contains(icon) && !textInside(s.rect))
-				return true;
+				return s.rect;
 		}
-		return false;
+		return QRectF();
 	};
 	auto isAvatar = [](const PaintedImage &pi) {
 		return pi.rect.width() >= 30 && pi.rect.width() <= 45 && pi.rect.height() <= 45 && pi.rect.left() < 20;
@@ -352,8 +352,10 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 		if (icon.icon.startsWith(QLatin1StringView("sticker")) && inTextBubble(icon.rect))
 			continue;
 		const bool play = icon.icon == QLatin1StringView("voice") || icon.icon == QLatin1StringView("video");
-		if (play && icon.rect.width() >= 20 && onPicture(icon.rect))
+		if (const QRectF picture = play && icon.rect.width() >= 20 ? onPicture(icon.rect) : QRectF(); !picture.isEmpty()) {
+			*lengthBubble = picture; // the length LINE draws on the thumbnail
 			return "Video";
+		}
 		if (play)
 			voice = voice ? voice : &icon;
 		else if (icon.icon == QLatin1StringView("file"))
@@ -407,6 +409,7 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 	};
 	int photos = 0, emoji = 0;
 	bool video = false, sticker = false;
+	QRectF videoPicture;
 	for (const PaintedImage &pi : cap.images) {
 		const QRectF &r = pi.rect;
 		if (isAvatar(pi) || !inRow(r))
@@ -437,15 +440,20 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 		const bool large = r.width() >= 100 || r.height() >= 100;
 		if (large && (pi.clipped || !pi.alpha)) {
 			++photos;
-			video = video || centredIcon(r, 24, 48);
+			if (!video && centredIcon(r, 24, 48)) {
+				video = true;
+				videoPicture = r;
+			}
 		} else if (large && pi.clearCorners) {
 			sticker = true;
 		} else if (pi.clearCorners && !pi.clipped) {
 			++emoji;
 		}
 	}
-	if (video)
+	if (video) {
+		*lengthBubble = videoPicture;
 		return "Video";
+	}
 	if (photos > 1)
 		return "Photos";
 	if (photos == 1)
@@ -894,7 +902,7 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 		const qsizetype at = sender && !own ? 1 : 0;
 		content.insert(at, label(kind));
 		for (qsizetype i = 0; i < lengthText.size(); ++i)
-			content.insert(at + 1 + i, lengthText[i]);
+			content.insert(at + 1 + i, spokenDuration(lengthText[i]));
 		found.kind = label(kind);
 		found.lengths = lengthText;
 	}
@@ -1882,7 +1890,7 @@ QString LineAccessibleList::withNativeText(const QModelIndex &idx, const QString
 	const QString native = nativeMessageText(idx.data(Qt::AccessibleTextRole));
 	if (native.isEmpty())
 		return painted;
-	const QString text = withMessageParts(native, parts, label("You"));
+	const QString text = withMessageParts(native, parts, label("You"), spokenDuration);
 	static int logged = 0;
 	if (logged++ < 8)
 		a11yLog("[message-text] row %d: LINE's text (%d chars)%s", idx.row(), int(native.size()),

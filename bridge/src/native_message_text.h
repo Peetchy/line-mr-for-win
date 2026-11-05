@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include <QtCore/QMetaType>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QString>
@@ -46,20 +48,25 @@ struct MessageRowParts {
 
 // LINE's text with the bridge's parts: "You" before the user's own messages (LINE says nothing),
 // the kind where LINE's text has no body (a sticker is ", 15.29") or only a length (a call is
-// "00:07, 20.49"), the reactions at the end.
-inline QString withMessageParts(QString text, const MessageRowParts &parts, const QString &you)
+// "00:07, 20.49"), the reactions at the end. `duration` says a length as LINE does ("7 seconds").
+inline QString withMessageParts(QString text, const MessageRowParts &parts, const QString &you,
+                                const std::function<QString(const QString &)> &duration = {})
 {
 	if (!parts.captured)
 		return text;
+	const auto spoken = [&duration](const QString &length) { return duration ? duration(length) : length; };
 	if (!parts.kind.isEmpty()) {
 		QStringList fields = text.split(QStringLiteral(", "));
 		if (const qsizetype empty = fields.indexOf(QString()); empty >= 0) {
 			fields[empty] = parts.kind;
 			for (qsizetype i = 0; i < parts.lengths.size(); ++i)
-				fields.insert(empty + 1 + i, parts.lengths.at(i));
-		} else if (!parts.lengths.isEmpty() && !fields.contains(parts.kind)) {
-			if (const qsizetype at = fields.indexOf(parts.lengths.first()); at >= 0)
-				fields.insert(at, parts.kind);
+				fields.insert(empty + 1 + i, spoken(parts.lengths.at(i)));
+		} else if (!parts.lengths.isEmpty()) {
+			if (const qsizetype at = fields.indexOf(parts.lengths.first()); at >= 0) {
+				fields[at] = spoken(fields.at(at));
+				if (!fields.contains(parts.kind))
+					fields.insert(at, parts.kind);
+			}
 		}
 		text = fields.join(QStringLiteral(", "));
 	}

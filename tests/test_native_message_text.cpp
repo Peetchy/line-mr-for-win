@@ -72,6 +72,20 @@ int main(int argc, char **argv)
 	call.reactions = QString::fromUtf8("ความรู้สึก: ถูกใจ");
 	expect(withMessageParts(QString::fromUtf8("00:07, 20.49 น."), call, you),
 	       QString::fromUtf8("การโทร, 00:07, 20.49 น., ความรู้สึก: ถูกใจ"), "call: LINE gives only the length");
+	const auto seconds = [](const QString &clock) {
+		return clock == QStringLiteral("00:07") ? QString::fromUtf8("7 วินาที") : clock;
+	};
+	expect(withMessageParts(QString::fromUtf8("00:07, 20.49 น."), call, you, seconds),
+	       QString::fromUtf8("การโทร, 7 วินาที, 20.49 น., ความรู้สึก: ถูกใจ"), "call length in seconds");
+	MessageRowParts voiceClock = voice;
+	voiceClock.lengths = QStringList { QStringLiteral("00:07") };
+	expect(withMessageParts(QString::fromUtf8(", 9.00 น."), voiceClock, you, seconds),
+	       QString::fromUtf8("ข้อความเสียง, 7 วินาที, 9.00 น."), "voice length in seconds");
+	MessageRowParts video = received;
+	video.kind = QString::fromUtf8("วิดีโอ");
+	video.lengths = QStringList { QStringLiteral("04:01") };
+	expect(withMessageParts(QString::fromUtf8("ข้อความวิดีโอ, ความยาววิดีโอ 241 วินาที, 15.02 น."), video, you, seconds),
+	       QString::fromUtf8("ข้อความวิดีโอ, ความยาววิดีโอ 241 วินาที, 15.02 น."), "LINE's video length kept");
 	MessageRowParts voiceNamed = voice;
 	expect(withMessageParts(QString::fromUtf8("ข้อความเสียง, ข้อความเสียงยาว 7 วินาที, 10.15 น."), voiceNamed, you),
 	       QString::fromUtf8("ข้อความเสียง, ข้อความเสียงยาว 7 วินาที, 10.15 น."), "voice: LINE names it");
