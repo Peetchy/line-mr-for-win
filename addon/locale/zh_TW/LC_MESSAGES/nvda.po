@@ -316,3 +316,47 @@ msgstr "收回選取的訊息(LINE 訊息功能表中的「收回」)"
 #. Translators: Includes the other person's name before received messages in one-to-one chats.
 msgid "Show the sender's &name in one-to-one chats"
 msgstr "在單獨對話中顯示對方姓名(&N)"
+
+#. Translators: Reported when the user disconnected the bridge in NVDA's settings.
+msgid "LINE MR bridge is disconnected: LINE runs as it is, without LINE MR's changes. To connect it again, open NVDA's settings, category LINE MR."
+msgstr "LINE MR 橋接元件已中斷連線:LINE 照原樣執行,沒有 LINE MR 的變更。要重新連線,請開啟 NVDA 設定的「LINE MR」類別。"
+
+#. Translators: Spoken before Windows asks for administrator rights to remove the bridge.
+msgid "LINE is installed for all users. Windows will ask for permission to remove the bridge."
+msgstr "LINE 是為所有使用者安裝的。Windows 會要求刪除橋接元件的權限。"
+
+#. Translators: Shown when the bridge could not be removed from LINE's folder. {path}: the file, {error}: the reason.
+msgid "Could not remove the LINE MR bridge from {path}.\n{error}"
+msgstr "無法從 {path} 刪除 LINE MR 橋接元件。\n{error}"
+
+#. Translators: Reported while LINE restarts after the bridge was disconnected.
+msgid "LINE MR bridge disconnected. LINE is restarting without it."
+msgstr "已中斷 LINE MR 橋接元件。LINE 正在不帶橋接元件重新啟動。"
+
+#. Translators: Reported after the bridge was disconnected while LINE was not running.
+msgid "LINE MR bridge disconnected."
+msgstr "已中斷 LINE MR 橋接元件。"
+
+#. Translators: Label of the bridge's state in the add-on's settings (read-only text).
+msgid "&Bridge:"
+msgstr "橋接元件(&B):"
+
+#. Translators: Button in the add-on's settings: removes the bridge from LINE (LINE restarts).
+msgid "&Disconnect bridge"
+msgstr "中斷橋接元件(&D)"
+
+#. Translators: Button in the add-on's settings: installs the bridge in LINE (LINE restarts).
+msgid "C&onnect bridge"
+msgstr "連線橋接元件(&O)"
+
+#. Translators: Question before the bridge is removed from LINE.
+msgid "Disconnect the LINE MR bridge? LINE will be closed and started again without it (a call in progress ends). LINE MR then stops naming LINE's controls and reading messages, until you connect the bridge again here."
+msgstr "中斷 LINE MR 橋接元件嗎?LINE 將關閉並在不帶橋接元件的情況下重新啟動(進行中的通話會結束)。之後 LINE MR 不再為 LINE 的控制項命名和讀出訊息,直到你在這裡重新連線橋接元件。"
+
+#. Translators: Question before the bridge is installed in LINE.
+msgid "Connect the LINE MR bridge? LINE will be closed and started again (a call in progress ends)."
+msgstr "連線 LINE MR 橋接元件嗎?LINE 將關閉並重新啟動(進行中的通話會結束)。"
+
+#. Translators: Shown in the add-on's settings while LINE restarts.
+msgid "Restarting LINE..."
+msgstr "正在重新啟動 LINE..."

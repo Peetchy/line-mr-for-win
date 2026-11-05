@@ -281,9 +281,72 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			max=highlight.MAX_WIDTH,
 			initial=conf["highlightWidth"],
 		)
+		# Translators: Label of the bridge's state in the add-on's settings (read-only text).
+		self.bridgeState = helper.addLabeledControl(_("&Bridge:"), wx.TextCtrl, style=wx.TE_READONLY)
+		self.bridgeButton = helper.addItem(wx.Button(self))
+		self.bridgeButton.Bind(wx.EVT_BUTTON, self._onBridgeButton)
+		self._refreshBridge()
 		# Translators: Button in the add-on's settings: shows what changed in each version.
 		whatsNew = helper.addItem(wx.Button(self, label=_("&What's new")))
 		whatsNew.Bind(wx.EVT_BUTTON, lambda evt: showWhatsNew())
+
+	def _refreshBridge(self):
+		"""Shows the bridge's state and offers the opposite: Disconnect while it is installed in LINE,
+		Connect otherwise."""
+		if not self:
+			return  # the settings dialog was closed meanwhile
+		from appModules.line import bridge
+
+		pids = bridge._linePids()
+		pid = pids[0] if pids else None
+		try:
+			st = bridge.status(pid)
+			self._bridgeConnected = bridge.bridgeInstalled(pid)
+		except Exception:
+			log.error("LINE MR: bridge status check failed", exc_info=True)
+			return
+		self.bridgeState.SetValue(bridge.describeStatus(st))
+		self.bridgeButton.SetLabel(
+			# Translators: Button in the add-on's settings: removes the bridge from LINE (LINE restarts).
+			_("&Disconnect bridge")
+			if self._bridgeConnected
+			# Translators: Button in the add-on's settings: installs the bridge in LINE (LINE restarts).
+			else _("C&onnect bridge")
+		)
+		self.bridgeButton.Enable(
+			st not in (bridge.Status.NO_LINE, bridge.Status.INCOMPATIBLE, bridge.Status.NOT_BUNDLED)
+		)
+
+	def _onBridgeButton(self, evt):
+		from appModules.line import bridge
+
+		if self._bridgeConnected:
+			# Translators: Question before the bridge is removed from LINE.
+			question = _(
+				"Disconnect the LINE MR bridge? LINE will be closed and started again without it "
+				"(a call in progress ends). LINE MR then stops naming LINE's controls and reading messages, "
+				"until you connect the bridge again here."
+			)
+			work = bridge.disconnectAndRestart
+		else:
+			# Translators: Question before the bridge is installed in LINE.
+			question = _("Connect the LINE MR bridge? LINE will be closed and started again (a call in progress ends).")
+			work = bridge.connectAndRestart
+		# Translators: Title of LINE MR's dialogs.
+		if gui.messageBox(question, _("LINE MR"), wx.YES_NO | wx.ICON_QUESTION, self) != wx.YES:
+			return
+		self.bridgeButton.Disable()
+		# Translators: Shown in the add-on's settings while LINE restarts.
+		self.bridgeState.SetValue(_("Restarting LINE..."))
+
+		def run():
+			try:
+				work()
+			except Exception:
+				log.error("LINE MR: connecting / disconnecting the bridge failed", exc_info=True)
+			wx.CallAfter(self._refreshBridge)
+
+		threading.Thread(target=run, name="lineMR.bridgeConnection", daemon=True).start()
 
 	def onSave(self):
 		conf = config.conf[CONFIG_SECTION]

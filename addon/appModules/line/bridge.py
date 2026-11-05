@@ -45,6 +45,7 @@ class Status(enum.Enum):
 	MISSING = "missing"  # no bridge in LINE's folder (fresh install or LINE update)
 	INCOMPATIBLE = "incompatible"  # LINE uses a Qt version the bridge cannot be loaded into
 	NO_LINE = "noLine"  # LINE for Windows not found
+	DISCONNECTED = "disconnected"  # the user disconnected the bridge (NVDA's settings, LINE MR)
 	NOT_BUNDLED = "notBundled"  # the add-on package lacks the DLL (development build)
 
 
@@ -55,6 +56,29 @@ def _localAppData():
 def bridgeDataDir():
 	"""Where the bridge keeps its logs and crash guard (%LOCALAPPDATA%\\LineMR)."""
 	return os.path.join(_localAppData(), "LineMR")
+
+
+def _disconnectedMarker():
+	return os.path.join(bridgeDataDir(), "bridge-disconnected")
+
+
+def disconnected():
+	"""Has the user disconnected the bridge (LINE runs without it until they connect it again)?
+	Kept as a file, so it holds for every NVDA configuration profile and survives add-on updates."""
+	return os.path.isfile(_disconnectedMarker())
+
+
+def _setDisconnected(value):
+	marker = _disconnectedMarker()
+	try:
+		if value:
+			os.makedirs(os.path.dirname(marker), exist_ok=True)
+			with open(marker, "w", encoding="ascii") as f:
+				f.write("The LINE MR bridge was disconnected in NVDA's settings.\n")
+		elif os.path.exists(marker):
+			os.remove(marker)
+	except OSError:
+		log.error("LINE MR: cannot record the bridge connection setting", exc_info=True)
 
 
 def _sameFile(a, b):
@@ -402,6 +426,8 @@ def status(pid=None):
 	directory = lineDir(pid)
 	if not directory:
 		return Status.NO_LINE
+	if disconnected():
+		return Status.DISCONNECTED
 	if not os.path.isfile(BUNDLED_DLL):
 		return Status.NOT_BUNDLED
 	if not qtSupported(directory):
@@ -482,7 +508,7 @@ def repairHelperBridges():
 	they can be missing when the bridge was installed. No restart is needed: a running helper picks
 	the new bridge up when it next starts. Returns the paths that were (re)installed.
 	"""
-	if not os.path.isfile(BUNDLED_DLL):
+	if not os.path.isfile(BUNDLED_DLL) or disconnected():
 		return []
 	done = []
 	for target in helperDllPaths():
@@ -550,6 +576,11 @@ def describeStatus(st):
 		Status.NO_LINE: _("LINE for Windows was not found."),
 		# Translators: Reported when the add-on package does not contain the bridge.
 		Status.NOT_BUNDLED: _("This LINE MR package does not contain the bridge."),
+		# Translators: Reported when the user disconnected the bridge in NVDA's settings.
+		Status.DISCONNECTED: _(
+			"LINE MR bridge is disconnected: LINE runs as it is, without LINE MR's changes. "
+			"To connect it again, open NVDA's settings, category LINE MR."
+		),
 	}[st]
 
 
@@ -609,6 +640,24 @@ def _writable(directory):
 		return False
 
 
+def _elevatedDelete(targets):
+	"""Deletes with administrator rights (LINE installed for all users); Windows asks the user first."""
+	info = _ShellExecuteInfo()
+	info.cbSize = ctypes.sizeof(info)
+	info.fMask = SEE_MASK_NOCLOSEPROCESS
+	info.lpVerb = "runas"
+	info.lpFile = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "cmd.exe")
+	info.lpParameters = "/c " + " & ".join('del /f /q "{t}"'.format(t=t) for t in targets)
+	info.nShow = SW_HIDE
+	if not _shell32.ShellExecuteExW(ctypes.byref(info)):
+		log.warning("LINE MR: administrator delete not started (error %d)", ctypes.get_last_error())
+		return False
+	if info.hProcess:
+		_kernel32.WaitForSingleObject(info.hProcess, 120000)
+		_kernel32.CloseHandle(info.hProcess)
+	return not any(os.path.exists(t) for t in targets)
+
+
 def _elevatedCopy(source, targets):
 	"""Copies with administrator rights (LINE installed for all users); Windows asks the user first."""
 	commands = [
@@ -638,6 +687,22 @@ def _copyBridge(target):
 		try:
 			os.makedirs(os.path.dirname(target), exist_ok=True)
 			shutil.copyfile(BUNDLED_DLL, target)
+			return None
+		except OSError as e:
+			error = e
+			time.sleep(0.25)  # the DLL can stay locked for a moment after LINE exits
+	return error
+
+
+def _removeBridge(target):
+	"""Deletes an installed bridge; returns the error (OSError) or None."""
+	error = None
+	_removeOldCopies(os.path.dirname(target))
+	for _attempt in range(20):
+		if not os.path.exists(target):
+			return None
+		try:
+			os.remove(target)
 			return None
 		except OSError as e:
 			error = e
@@ -766,6 +831,73 @@ def _installAndRestart():
 		_showMessage(describeBlocked(target))
 
 
+def bridgeInstalled(pid=None):
+	"""Is the bridge in LINE's folder (whether or not the running LINE has loaded it)?"""
+	directory = lineDir(pid)
+	return bool(directory) and not disconnected() and os.path.isfile(installedDllPath(directory))
+
+
+def connectAndRestart():
+	"""The user connects the bridge again (NVDA's settings): installs it and restarts LINE.
+	Runs off the main thread."""
+	_setDisconnected(False)
+	installAndRestart()
+
+
+def disconnectAndRestart():
+	"""The user wants LINE without LINE MR (NVDA's settings): quits LINE, removes the bridge from LINE
+	and its helper processes, and starts LINE again if it was running. Nothing installs it again until
+	the user connects it. Runs off the main thread."""
+	global _installing
+	_installing = True
+	try:
+		_disconnectAndRestart()
+	finally:
+		_installing = False
+
+
+def _disconnectAndRestart():
+	directory = lineDir()  # before LINE quits: the running LINE.exe tells where it is
+	_setDisconnected(True)
+	if not directory:
+		return
+	wasRunning = bool(_linePids())
+	_quitLine()
+	try:
+		os.remove(os.path.join(bridgeDataDir(), "session.running"))  # not a crash
+	except OSError:
+		pass
+	failed = []
+	for target in [installedDllPath(directory)] + helperDllPaths(directory):
+		error = _removeBridge(target)
+		if error is None:
+			log.info("LINE MR: removed the bridge from %s", target)
+		else:
+			failed.append((target, error))
+	if failed and not _writable(directory):
+		# Translators: Spoken before Windows asks for administrator rights to remove the bridge.
+		wx.CallAfter(ui.message, _("LINE is installed for all users. Windows will ask for permission to remove the bridge."))
+		if _elevatedDelete([target for target, _error in failed]):
+			failed = []
+	launcher = _launcher(directory)
+	if wasRunning and launcher:
+		subprocess.Popen([launcher], cwd=os.path.dirname(launcher), close_fds=True)
+	if failed:
+		for target, error in failed:
+			log.error("LINE MR: could not remove the bridge from %s: %s", target, error)
+		# Translators: Shown when the bridge could not be removed from LINE's folder. {path}: the file, {error}: the reason.
+		_showMessage(_("Could not remove the LINE MR bridge from {path}.\n{error}").format(
+			path=failed[0][0], error=failed[0][1]
+		))
+		return
+	if wasRunning:
+		# Translators: Reported while LINE restarts after the bridge was disconnected.
+		wx.CallAfter(ui.message, _("LINE MR bridge disconnected. LINE is restarting without it."))
+	else:
+		# Translators: Reported after the bridge was disconnected while LINE was not running.
+		wx.CallAfter(ui.message, _("LINE MR bridge disconnected."))
+
+
 # Offers come back while the bridge is not running: when LINE starts, and when the user switches to
 # LINE again (closing LINE's window only hides it in the notification area, so a LINE started before
 # the install keeps running without the bridge). Not more often than this, longer after a "No".
@@ -782,7 +914,7 @@ def offerInstall(pid, st, force=False):
 	"""Asks the user whether to install the bridge and restart LINE, or says why LINE MR cannot work.
 	`force` (the status command) asks even if it asked a moment ago."""
 	global _lastOffer, _declined, _dialogOpen
-	if st in (Status.RUNNING, Status.NOT_BUNDLED) or _installing or _dialogOpen:
+	if st in (Status.RUNNING, Status.NOT_BUNDLED, Status.DISCONNECTED) or _installing or _dialogOpen:
 		return
 	if st in (Status.NO_LINE, Status.INCOMPATIBLE):
 		if st in _told and not force:

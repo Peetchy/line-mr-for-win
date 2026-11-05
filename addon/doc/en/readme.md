@@ -19,6 +19,10 @@ When NVDA starts, LINE MR checks GitHub for a newer release. If there is one, a 
 
 The same category has a **What's new** button: it lists what changed in each version, in a window you read like a web page (H moves to the next version).
 
+## Using LINE without LINE MR
+
+To use LINE as it is, without LINE MR's changes (for example to compare, or when LINE's own accessibility is enough for you): NVDA menu, Preferences, Settings, category "LINE MR". The **Bridge** field tells whether the bridge is running, and the button next to it offers the opposite: **Disconnect bridge** removes the bridge from LINE (also from its call window and photo viewer), **Connect bridge** installs it again. Both close LINE and start it again, so a call in progress ends. While the bridge is disconnected, LINE MR does not ask to install it, and NVDA+Shift+Control+L says that it is disconnected.
+
 ## Focus highlight
 
 For low-vision users, LINE MR draws a yellow frame with a black outline around the control that has the focus in LINE, its call windows and its photo viewer: the button, field, chat, message or menu item NVDA reads. It follows the keyboard, also through the chat list, the messages and menus, and is hidden while another application is in front. To turn it off or change its colour (yellow, orange, red, green, blue, white) and width: NVDA menu, Preferences, Settings, category "LINE MR". LINE applies the change within a second, also when NVDA is not running.

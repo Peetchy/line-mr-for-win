@@ -316,3 +316,47 @@ msgstr "ยกเลิกข้อความที่เลือก (\"ย�
 #. Translators: Includes the other person's name before received messages in one-to-one chats.
 msgid "Show the sender's &name in one-to-one chats"
 msgstr "แสดงชื่อผู้ส่งในแชทหนึ่งต่อหนึ่ง (&N)"
+
+#. Translators: Reported when the user disconnected the bridge in NVDA's settings.
+msgid "LINE MR bridge is disconnected: LINE runs as it is, without LINE MR's changes. To connect it again, open NVDA's settings, category LINE MR."
+msgstr "ตัวเชื่อม LINE MR ถูกตัดการเชื่อมต่ออยู่: LINE ทำงานตามปกติโดยไม่มีการปรับของ LINE MR หากต้องการเชื่อมต่ออีกครั้ง ให้เปิดการตั้งค่า NVDA หมวด LINE MR"
+
+#. Translators: Spoken before Windows asks for administrator rights to remove the bridge.
+msgid "LINE is installed for all users. Windows will ask for permission to remove the bridge."
+msgstr "LINE ติดตั้งไว้สำหรับผู้ใช้ทุกคน Windows จะขออนุญาตก่อนลบตัวเชื่อม"
+
+#. Translators: Shown when the bridge could not be removed from LINE's folder. {path}: the file, {error}: the reason.
+msgid "Could not remove the LINE MR bridge from {path}.\n{error}"
+msgstr "ลบตัวเชื่อม LINE MR ออกจาก {path} ไม่ได้\n{error}"
+
+#. Translators: Reported while LINE restarts after the bridge was disconnected.
+msgid "LINE MR bridge disconnected. LINE is restarting without it."
+msgstr "ตัดการเชื่อมต่อตัวเชื่อม LINE MR แล้ว LINE กำลังเริ่มใหม่โดยไม่มีตัวเชื่อม"
+
+#. Translators: Reported after the bridge was disconnected while LINE was not running.
+msgid "LINE MR bridge disconnected."
+msgstr "ตัดการเชื่อมต่อตัวเชื่อม LINE MR แล้ว"
+
+#. Translators: Label of the bridge's state in the add-on's settings (read-only text).
+msgid "&Bridge:"
+msgstr "ตัวเชื่อม (&B):"
+
+#. Translators: Button in the add-on's settings: removes the bridge from LINE (LINE restarts).
+msgid "&Disconnect bridge"
+msgstr "ตัดการเชื่อมต่อตัวเชื่อม (&D)"
+
+#. Translators: Button in the add-on's settings: installs the bridge in LINE (LINE restarts).
+msgid "C&onnect bridge"
+msgstr "เชื่อมต่อตัวเชื่อม (&O)"
+
+#. Translators: Question before the bridge is removed from LINE.
+msgid "Disconnect the LINE MR bridge? LINE will be closed and started again without it (a call in progress ends). LINE MR then stops naming LINE's controls and reading messages, until you connect the bridge again here."
+msgstr "ตัดการเชื่อมต่อตัวเชื่อม LINE MR หรือไม่ LINE จะถูกปิดและเปิดใหม่โดยไม่มีตัวเชื่อม (สายที่กำลังคุยอยู่จะถูกตัด) จากนั้น LINE MR จะหยุดตั้งชื่อปุ่มของ LINE และหยุดอ่านข้อความ จนกว่าคุณจะเชื่อมต่อตัวเชื่อมอีกครั้งที่นี่"
+
+#. Translators: Question before the bridge is installed in LINE.
+msgid "Connect the LINE MR bridge? LINE will be closed and started again (a call in progress ends)."
+msgstr "เชื่อมต่อตัวเชื่อม LINE MR หรือไม่ LINE จะถูกปิดและเปิดใหม่ (สายที่กำลังคุยอยู่จะถูกตัด)"
+
+#. Translators: Shown in the add-on's settings while LINE restarts.
+msgid "Restarting LINE..."
+msgstr "กำลังเริ่ม LINE ใหม่..."

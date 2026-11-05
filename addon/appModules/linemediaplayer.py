@@ -30,7 +30,7 @@ class AppModule(CallCommandsAppModule):
 
 	def _checkBridge(self):
 		try:
-			if bridge.bridgeLoaded(self.processID):
+			if bridge.disconnected() or bridge.bridgeLoaded(self.processID):
 				return
 			bridge.repairHelperBridges()
 		except Exception:

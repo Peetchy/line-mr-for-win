@@ -2,6 +2,9 @@
 
 ## Version 0.5.6
 
+### Settings
+- NVDA's settings, category LINE MR, show whether the bridge is running and have a button to disconnect it (use LINE as it is, without LINE MR) or to connect it again. LINE restarts either way.
+
 ### Messages
 - In the messages, Alt+R replies to the selected message and moves to the message input, Delete deletes it and Shift+Delete unsends it (the items of LINE's message menu; LINE's own confirmation is left to you). Elsewhere these keys work as usual; they can be changed in NVDA's Input gestures (contributed by wengweng0312).
 - Choosing Reply in a message's menu moves to the message input (contributed by wengweng0312).
