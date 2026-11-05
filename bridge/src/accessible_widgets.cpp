@@ -485,7 +485,7 @@ bool isDescendant(const QAccessibleInterface *iface, const QWidget *ancestor)
 
 WidgetKind classifyWidget(const QWidget *w)
 {
-	if (!w)
+	if (!w || inMentionSuggester(w))
 		return WidgetKind::None;
 	if (isInputClass(w))
 		return WidgetKind::Input;

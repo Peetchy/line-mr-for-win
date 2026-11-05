@@ -139,11 +139,12 @@ bool moveInStickerGrid(QWidget *w, int key)
 	return true;
 }
 
-// The messages of a chat (not the search bar's suggestion list, which also sits in ChatMessageView).
+// The messages of a chat (not the search bar's suggestion list or the @ mention suggestions, which
+// also sit in ChatMessageView).
 bool isMessageList(const QWidget *w)
 {
 	return isLineListView(w) && ancestorInheriting(w, "ChatMessageView") && !ancestorInheriting(w, "SearchDetailPanel")
-	    && !ancestorInheriting(w, "LcListView");
+	    && !ancestorInheriting(w, "LcListView") && !inMentionSuggester(w);
 }
 
 // The chat's search bar shows a result ("41/42"): LINE has made the matching message its current row.
@@ -319,6 +320,8 @@ bool duplicatesTabStop(QWidget *w)
 
 bool makeFocusable(QWidget *w)
 {
+	if (inMentionSuggester(w))
+		return false;
 	// The chat header's member count: the chat name stop says it (and opens the same member list).
 	// Checked again later: the text can turn into a count after the widget was made focusable.
 	if (isChatHeaderMemberCount(w)) {
@@ -377,7 +380,7 @@ void collectTabStops(QWidget *w, QList<QWidget *> &content, QList<QWidget *> &ti
 {
 	inTitleBar = inTitleBar || inheritsClass(w, "LcTitleBar");
 	for (QWidget *c : childWidgetsInOrder(w)) {
-		if (c->isWindow())
+		if (c->isWindow() || inMentionSuggester(c))
 			continue;
 		QList<QWidget *> &stops = inTitleBar ? titleBar : content;
 		const qsizetype first = stops.size();
@@ -577,6 +580,8 @@ void labelComboBox(QWidget *box)
 
 void tagWidget(QWidget *w)
 {
+	if (inMentionSuggester(w))
+		return;
 	labelComboBox(w);
 	// The text profile editor's colour swatches sit in a scroll area that would be a nameless stop.
 	if (inheritsClass(w, "LcScrollArea") && inheritsClass(w->window(), "CustomProfileEditorWindow"))
@@ -1089,6 +1094,8 @@ public:
 	// it back right away): such focus changes are not announced.
 	bool suppressFocusOn(const QWidget *w) const
 	{
+		if (inMentionSuggester(w))
+			return false;
 		return m_browsingList && w != m_browsingList.data() && m_listKeyTimer.isValid()
 		    && m_listKeyTimer.elapsed() < 5000 && isInOpenChat(w);
 	}
@@ -1143,6 +1150,20 @@ public:
 			return false;
 		}
 		auto *w = static_cast<QWidget *>(watched);
+		// LINE's @ mention suggestions are LINE's own (its interfaces, focus, keys). While they show,
+		// the message input's keys go to LINE's filters too: Up/Down/Enter choose a member there.
+		if (inMentionSuggester(w)
+		    || ((event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease) && isMessageInput(w)
+		        && mentionSuggesterShown(w))) {
+			if (event->type() == QEvent::FocusIn || event->type() == QEvent::KeyPress) {
+				m_browsingList = nullptr;
+				g_editorFocusTimer.invalidate();
+			}
+			static int logged = 0;
+			if (event->type() == QEvent::KeyPress && logged++ < 3)
+				a11yLog("[mention] key 0x%x left to LINE", static_cast<QKeyEvent *>(event)->key());
+			return false;
+		}
 		switch (event->type()) {
 		case QEvent::Polish:
 			repairCachedInterface(w);

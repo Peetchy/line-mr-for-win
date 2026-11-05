@@ -30,6 +30,10 @@ bool inheritsClass(const QObject *object, const char *className);
 bool inheritsAnyClass(const QObject *object, std::initializer_list<const char *> classNames);
 // Nearest ancestor (excluding `w`) whose class or superclass is `className`.
 QWidget *ancestorInheriting(const QWidget *w, const char *className);
+// LINE's @ mention suggestions (UserMentionSuggester) or a widget inside them: left to LINE.
+bool inMentionSuggester(const QWidget *w);
+// The window of the message input `input` shows LINE's @ mention suggestions.
+bool mentionSuggesterShown(const QWidget *input);
 
 // --- Properties -----------------------------------------------------------------------------
 

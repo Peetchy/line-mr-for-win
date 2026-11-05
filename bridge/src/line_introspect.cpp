@@ -678,6 +678,22 @@ QWidget *ancestorInheriting(const QWidget *w, const char *className)
 	return nullptr;
 }
 
+bool inMentionSuggester(const QWidget *w)
+{
+	return w && (inheritsClass(w, "UserMentionSuggester") || ancestorInheriting(w, "UserMentionSuggester"));
+}
+
+bool mentionSuggesterShown(const QWidget *input)
+{
+	if (!input)
+		return false;
+	for (QWidget *c : input->window()->findChildren<QWidget *>()) {
+		if (inheritsClass(c, "UserMentionSuggester") && c->isVisible())
+			return true;
+	}
+	return false;
+}
+
 // ---- Properties --------------------------------------------------------------------------------
 
 QVariant readProperty(const QObject *o, const char *name)
