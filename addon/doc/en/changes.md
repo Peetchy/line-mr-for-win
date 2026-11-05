@@ -13,6 +13,8 @@
 - Enter in the chat list stays in the opened chat's message input: LINE sometimes moved focus into the messages once the chat had loaded. In an open chat, Tab always goes messages, message input, then the buttons below it.
 - @ mentions in group chats: after typing @, Up/Down read the members LINE suggests, typing filters them and Enter chooses one. Before, the arrows did nothing there (contributed by wengweng0312). In the message input a chosen member reads "@name" (before, NVDA read nothing for it).
 - Messages read LINE's own text (LINE 26.6 and later): the sender and time on every message, whole replies ("X replied to Y's message ...") and full file names, also for messages not on screen. LINE MR adds what LINE leaves out: "You" before your own messages, stickers and calls, and reactions (contributed by wengweng0312). Lengths the bridge reads (calls, and voice messages and videos without LINE's text) are said in words: "7 seconds", "10 minutes 54 seconds" instead of "00:07", "10:54".
+- Messages also say what LINE's own text leaves out: a file's size and download deadline, a link preview's title, "Location" before an address, "Contact" and the contact's name, "Photo album" instead of "Photo". Replies start with the reply: "X, Reply to Y: <reply>, Original message: <quoted text>". In Keep Memo every message reads "You", and a Japanese or Chinese LINE's times and read receipts are recognised, so your own messages read "You" there too.
+- New option in NVDA's settings, category LINE MR: "Read the sender's name only when the sender changes" (off by default): consecutive messages from the same person start with their text.
 
 ## Version 0.5.5
 

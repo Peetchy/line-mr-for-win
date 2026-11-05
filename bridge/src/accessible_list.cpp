@@ -44,16 +44,80 @@ constexpr const char *kCurrentIndexSignal = "currentIndexChanged()";
 // Painted row texts are reused this long (NVDA asks for a name several times per focus change).
 constexpr qint64 kRowTextTtlMs = 1500;
 
-bool directChatSenderNamesEnabled()
+// The add-on's message settings (message-settings.ini), read at most once a second.
+struct MessageSettings {
+	bool directChatSenderNames = false;
+	bool senderOnlyWhenChanged = false;
+};
+
+const MessageSettings &messageSettings()
 {
 	static QElapsedTimer checked;
-	static bool enabled = false;
+	static MessageSettings settings;
 	if (!checked.isValid() || checked.elapsed() >= 1000) {
 		checked.start();
 		QSettings ini(bridgeDirectory() + QStringLiteral("message-settings.ini"), QSettings::IniFormat);
-		enabled = ini.value(QStringLiteral("messages/directChatSenderNames"), false).toBool();
+		settings.directChatSenderNames = ini.value(QStringLiteral("messages/directChatSenderNames"), false).toBool();
+		settings.senderOnlyWhenChanged = ini.value(QStringLiteral("messages/senderOnlyWhenChanged"), false).toBool();
 	}
-	return enabled;
+	return settings;
+}
+
+bool directChatSenderNamesEnabled()
+{
+	return messageSettings().directChatSenderNames;
+}
+
+// LINE's ChatData of the chat a message list shows: the chat list's selected row (the open chat of
+// the main window), else the chat list row with the chat header's name (a chat in a window of its
+// own).
+QObject *openChatData(const QWidget *messageList)
+{
+	const bool mainWindow = inheritsClass(messageList->window(), "AllInOneWindow");
+	const QString name = mainWindow ? QString() : chatNameFor(messageList);
+	for (QWidget *top : QApplication::topLevelWidgets()) {
+		if (!inheritsClass(top, "AllInOneWindow"))
+			continue;
+		for (auto *list : top->findChildren<QAbstractItemView *>(QStringLiteral("lineMR_list_chats"))) {
+			QAbstractItemModel *m = list->model();
+			if (!m)
+				continue;
+			if (mainWindow) {
+				if (QItemSelectionModel *sm = list->selectionModel()) {
+					for (const QModelIndex &idx : sm->selectedIndexes()) {
+						QObject *data = idx.data(kItemDataRole).value<QObject *>();
+						if (inheritsClass(data, "ChatData"))
+							return data;
+					}
+				}
+				continue;
+			}
+			for (int r = 0; r < qMin(m->rowCount(list->rootIndex()), 3000) && !name.isEmpty(); ++r) {
+				QObject *data = m->index(r, 0, list->rootIndex()).data(kItemDataRole).value<QObject *>();
+				if (inheritsClass(data, "ChatData") && stringProp(data, "name") == name)
+					return data;
+			}
+		}
+	}
+	return nullptr;
+}
+
+// The user's own LINE id: the first profile of the friend list ("My profile" heads it).
+QString ownProfileId()
+{
+	for (QWidget *top : QApplication::topLevelWidgets()) {
+		if (!inheritsClass(top, "AllInOneWindow"))
+			continue;
+		for (auto *list : top->findChildren<QAbstractItemView *>(QStringLiteral("lineMR_list_friends"))) {
+			QAbstractItemModel *m = list->model();
+			for (int r = 0; m && r < qMin(m->rowCount(list->rootIndex()), 20); ++r) {
+				QObject *data = m->index(r, 0, list->rootIndex()).data(kItemDataRole).value<QObject *>();
+				if (inheritsClass(data, "ProfileData"))
+					return stringProp(data, "mid");
+			}
+		}
+	}
+	return QString();
 }
 
 // The bridge interface of `view`, looked up whenever it is needed. Never keep an interface's id
@@ -179,13 +243,11 @@ QString dataObjectText(const QObject *data)
 
 // ---- Row text from what LINE paints ------------------------------------------------------------
 
-// Time ("2:49 PM", "14:49", "14.49 น.", "下午 2:49") and read receipt ("Read", "Read 3", "อ่านแล้ว",
-// "已讀") labels.
+// Time ("2:49 PM", "14.49 น.", "下午 2:49", "午前 7:57") and read receipt ("Read 3", "อ่านแล้ว", "既読")
+// labels.
 bool isTimeOrReceipt(const QString &text)
 {
-	static const QRegularExpression pattern(QStringLiteral(
-		"^(([上下]午\\s?)?\\d{1,2}[:.]\\d{2}(\\s?([AaPp][Mm]|น\\.?))?|Read( \\d+)?|อ่านแล้ว( \\d+)?|已讀(\\s?\\d+)?)$"));
-	return pattern.match(text.trimmed()).hasMatch();
+	return isMessageTimeOrReceipt(text);
 }
 
 // The menu LINE draws over photos (Save / Save as... / Share / Send to Keep Memo), painted as one
@@ -216,7 +278,7 @@ bool isPhotoMenu(const QString &text)
 
 bool isReceipt(const QString &text)
 {
-	static const QRegularExpression pattern(QStringLiteral("^(Read( \\d+)?|อ่านแล้ว( \\d+)?|已讀(\\s?\\d+)?)$"));
+	static const QRegularExpression pattern(QStringLiteral("^(Read( \\d+)?|อ่านแล้ว( \\d+)?|已[讀读](\\s?\\d+)?|既読(\\s?\\d+)?)$"));
 	return pattern.match(text.trimmed()).hasMatch();
 }
 
@@ -370,6 +432,20 @@ const char *messageKind(const CaptureResult &cap, const QRect &rowRect, bool fil
 	// A location bubble also has an arrow at its right end that looks like a play icon.
 	if (locationIcon)
 		return "Location";
+	// A contact: a 50-80 px bubble with the person's round picture (30-46 px) at its left, their name
+	// beside it and an arrow at the right (158x60, picture 38x38 at 10,11 at 150 %).
+	for (const PaintedImage &bubble : cap.images) {
+		const QRectF &b = bubble.rect;
+		if (!bubble.alpha || !bubble.clearCorners || bubble.clipped || b.height() < 50 || b.height() > 80
+		    || b.width() < 120 || !textInside(b))
+			continue;
+		for (const PaintedImage &picture : cap.images) {
+			const QRectF &p = picture.rect;
+			if (p.width() >= 30 && p.width() <= 46 && qAbs(p.width() - p.height()) < 3 && b.contains(p)
+			    && p.left() - b.left() >= 4 && p.left() - b.left() <= 20 && qAbs(p.center().y() - b.center().y()) < 6)
+				return "Contact";
+		}
+	}
 	if (voice) {
 		static const QRegularExpression length(QStringLiteral("^\\d{1,2}:\\d{2}$"));
 		for (const PaintedImage &bubble : cap.images) {
@@ -792,6 +868,8 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	qreal lastX = -1000;
 	bool photoMenu = false;
 	bool fileSize = false;
+	qreal timeRight = -1; // where the leftmost time or receipt ends
+	QStringList contentLines;
 	// Received group messages start with the sender's name, beside the avatar at the top.
 	bool sender = false;
 	// LINE draws read receipts only beside the user's own messages: in a row with the sender's
@@ -825,6 +903,7 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 			receipt = receipt || isReceipt(t);
 			trailing << t;
 			trailingX << l.x;
+			timeRight = timeRight < 0 ? l.right : qMin(timeRight, l.right);
 			continue;
 		}
 		if (isPhotoMenu(t)) {
@@ -833,6 +912,7 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 		}
 		if (content.isEmpty())
 			sender = l.y < 18 && l.x < rowRect.width() * 0.3;
+		contentLines << t;
 		minX = qMin(minX, l.x);
 		maxRight = qMax(maxRight, l.right);
 		if (!content.isEmpty() && qAbs(l.x - lastX) <= 4) {
@@ -850,6 +930,28 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	found.captured = true;
 	found.own = direction == MessageDirection::Outgoing;
 	found.sender = prefix.isEmpty() ? QString() : directSender;
+	// Drawn lines LINE's own text may lack (withMessageParts() adds those it does not contain): a
+	// file's size and download deadline, a contact's name, a link preview's title (the first line of
+	// the preview, indented under the address; "Tap here to open the link" is not a title).
+	if (kind && (qstrcmp(kind, "File") == 0 || qstrcmp(kind, "Contact") == 0)) {
+		found.details = contentLines;
+	} else {
+		qreal addressX = -1;
+		for (const Line &l : std::as_const(lines)) {
+			const QString t = cleanText(QString(l.text).remove(QChar(0x200B)));
+			if (t.isEmpty() || isTimeOrReceipt(t) || isPhotoMenu(t))
+				continue;
+			if (addressX < 0) {
+				if (t.contains(QLatin1StringView("http://")) || t.contains(QLatin1StringView("https://"))
+				    || t.startsWith(QLatin1StringView("www.")))
+					addressX = l.x;
+			} else if (l.x > addressX + 4) {
+				if (t != QStringLiteral("แตะที่นี่เพื่อเปิดลิงก์"))
+					found.details << t;
+				break;
+			}
+		}
+	}
 	if (content.isEmpty() && trailing.isEmpty()) {
 		if (kind)
 			found.kind = label(kind);
@@ -883,7 +985,8 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	if (!own && !content.isEmpty()) {
 		// Notices ("X left the group") are centred and have a time too; sent bubbles end at the right.
 		const bool centred = qAbs((minX + maxRight) / 2 - rowRect.width() / 2.0) < rowRect.width() * 0.08;
-		own = minX > rowRect.width() * 0.35 && !centred;
+		// The time sits left of the user's own bubble (also of wide ones: link previews, locations).
+		own = !centred && (minX > rowRect.width() * 0.35 || (timeRight >= 0 && timeRight <= minX + 2));
 	} else if (!own) {
 		qreal pictureX = -1;
 		for (const QRectF &r : cap.pixmapRects) {
@@ -1881,6 +1984,51 @@ QString LineAccessibleList::paintedRowText(int row, QObject *data) const
 	return withNativeText(idx, text, parts);
 }
 
+bool LineAccessibleList::inKeepMemo() const
+{
+	QAbstractItemView *v = view();
+	if (!v || !v->model())
+		return false;
+	// Keep Memo is the chat with the user themselves: its id is the user's own. (LINE may show another
+	// chat in the same model.)
+	const QString chat = chatNameFor(v);
+	if (m_keepMemoChat != chat || m_keepMemo < 0) {
+		QObject *data = openChatData(v);
+		const QString own = ownProfileId();
+		const QString id = data ? stringProp(data, "id") : QString();
+		m_keepMemo = !data || own.isEmpty() ? -1 : int(id == own);
+		m_keepMemoChat = chat;
+		a11yLog("[message-text] Keep Memo: %s", m_keepMemo < 0 ? (data ? "no own profile" : "no chat data")
+		                                                       : m_keepMemo ? "yes" : "no");
+	}
+	return m_keepMemo == 1;
+}
+
+QString LineAccessibleList::nativeRowText(const QModelIndex &idx, MessageRowParts parts) const
+{
+	const QString native = nativeMessageText(idx.data(Qt::AccessibleTextRole));
+	if (native.isEmpty())
+		return native;
+	// Keep Memo holds the user's own messages only (dates and its hint have no time).
+	if (!parts.own && inKeepMemo()) {
+		const QStringList fields = native.split(QStringLiteral(", "));
+		parts.own = fields.size() > 1 && isTimeOrReceipt(fields.last());
+	}
+	static const MessageLabels labels = [] {
+		MessageLabels l;
+		l.you = label("You");
+		l.replyTo = label("Reply to %1: %2");
+		l.original = label("Original message: %1");
+		l.kindsToName = QStringList { label("Location"), label("Contact") };
+		l.album = label("Photos");
+		l.photoWords = QStringList { QStringLiteral("Photo"), QStringLiteral("รูป"), QStringLiteral("写真"),
+		                             QStringLiteral("照片"), QStringLiteral("图片"), QStringLiteral("圖片") };
+		l.duration = spokenDuration;
+		return l;
+	}();
+	return withMessageParts(native, parts, labels);
+}
+
 QString LineAccessibleList::withNativeText(const QModelIndex &idx, const QString &painted, const MessageRowParts &parts) const
 {
 	QAbstractItemView *v = view();
@@ -1890,7 +2038,16 @@ QString LineAccessibleList::withNativeText(const QModelIndex &idx, const QString
 	const QString native = nativeMessageText(idx.data(Qt::AccessibleTextRole));
 	if (native.isEmpty())
 		return painted;
-	const QString text = withMessageParts(native, parts, label("You"), spokenDuration);
+	QString text = nativeRowText(idx, parts);
+	// The sender's name only when the row above is from someone else (add-on option).
+	if (idx.row() > 0 && messageSettings().senderOnlyWhenChanged) {
+		const QModelIndex above = idx.sibling(idx.row() - 1, 0);
+		QObject *data = above.data(kItemDataRole).value<QObject *>();
+		const auto cached = data ? m_painted.constFind(quintptr(data)) : m_painted.cend();
+		const MessageRowParts aboveParts = cached != m_painted.cend() && cached->object.data() == data ? cached->parts
+		                                                                                                : MessageRowParts();
+		text = withoutRepeatedSender(text, nativeRowText(above, aboveParts));
+	}
 	static int logged = 0;
 	if (logged++ < 8)
 		a11yLog("[message-text] row %d: LINE's text (%d chars)%s", idx.row(), int(native.size()),

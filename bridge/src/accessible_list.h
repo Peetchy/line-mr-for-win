@@ -62,6 +62,10 @@ public:
 	QString paintedRowText(int row, QObject *data) const;
 	// A message row: LINE's own text (LINE 26.6) with what only the drawing shows, else `painted`.
 	QString withNativeText(const QModelIndex &idx, const QString &painted, const MessageRowParts &parts) const;
+	// LINE's own text of a message row with the bridge's parts; "" if LINE gives none.
+	QString nativeRowText(const QModelIndex &idx, MessageRowParts parts) const;
+	// The chat shown is the user's Keep Memo (every message in it is the user's own).
+	bool inKeepMemo() const;
 
 	// Makes the newest visible row current (messages start at the bottom).
 	void focusLastVisibleRow();
@@ -174,6 +178,9 @@ private:
 	};
 	mutable QHash<quintptr, PaintedText> m_painted;
 	mutable QString m_directChatSender;
+	// The chat named m_keepMemoChat is Keep Memo: 1 yes, 0 no, -1 not known yet.
+	mutable int m_keepMemo = -1;
+	mutable QString m_keepMemoChat;
 	mutable bool m_prunePending = false;
 	QList<QMetaObject::Connection> m_connections;
 	QList<QMetaObject::Connection> m_modelConnections;

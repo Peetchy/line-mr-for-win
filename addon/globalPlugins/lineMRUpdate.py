@@ -40,6 +40,7 @@ config.conf.spec[CONFIG_SECTION] = {
 	"skippedVersion": "string(default='')",
 	"highlightFocus": "boolean(default=true)",
 	"directChatSenderNames": "boolean(default=false)",
+	"senderOnlyWhenChanged": "boolean(default=false)",
 	"highlightColor": "string(default='yellow')",
 	"highlightWidth": "integer(default=4, min=1, max=12)",
 }
@@ -52,7 +53,7 @@ def _applyHighlightSettings():
 
 		conf = config.conf[CONFIG_SECTION]
 		highlight.writeSettings(conf["highlightFocus"], conf["highlightColor"], conf["highlightWidth"])
-		messageSettings.writeSettings(conf["directChatSenderNames"])
+		messageSettings.writeSettings(conf["directChatSenderNames"], conf["senderOnlyWhenChanged"])
 	except Exception:
 		log.error("LINE MR: cannot write the bridge presentation settings", exc_info=True)
 
@@ -256,6 +257,12 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			wx.CheckBox(self, label=_("Show the sender's &name in one-to-one chats"))
 		)
 		self.directChatSenderNames.SetValue(conf["directChatSenderNames"])
+		self.senderOnlyWhenChanged = helper.addItem(
+			# Translators: Check box in the add-on's settings: a message's sender is read only when it is
+			# not the sender of the message above.
+			wx.CheckBox(self, label=_("Read the sender's name only when the &sender changes"))
+		)
+		self.senderOnlyWhenChanged.SetValue(conf["senderOnlyWhenChanged"])
 		self.highlightFocus = helper.addItem(
 			# Translators: Check box in the add-on's settings: a coloured frame shows which control in
 			# LINE has the focus (for low-vision users).
@@ -354,6 +361,7 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			conf["checkForUpdates"] = self.checkForUpdates.GetValue()
 		conf["highlightFocus"] = self.highlightFocus.GetValue()
 		conf["directChatSenderNames"] = self.directChatSenderNames.GetValue()
+		conf["senderOnlyWhenChanged"] = self.senderOnlyWhenChanged.GetValue()
 		conf["highlightColor"] = self._highlightColors[max(0, self.highlightColor.GetSelection())]
 		conf["highlightWidth"] = self.highlightWidth.GetValue()
 		_applyHighlightSettings()

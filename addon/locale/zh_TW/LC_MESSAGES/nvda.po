@@ -317,6 +317,11 @@ msgstr "收回選取的訊息(LINE 訊息功能表中的「收回」)"
 msgid "Show the sender's &name in one-to-one chats"
 msgstr "在單獨對話中顯示對方姓名(&N)"
 
+#. Translators: Check box in the add-on's settings: a message's sender is read only when it is
+#. not the sender of the message above.
+msgid "Read the sender's name only when the &sender changes"
+msgstr "僅在傳送者改變時朗讀傳送者姓名(&S)"
+
 #. Translators: Reported when the user disconnected the bridge in NVDA's settings.
 msgid "LINE MR bridge is disconnected: LINE runs as it is, without LINE MR's changes. To connect it again, open NVDA's settings, category LINE MR."
 msgstr "LINE MR 橋接元件已中斷連線:LINE 照原樣執行,沒有 LINE MR 的變更。要重新連線,請開啟 NVDA 設定的「LINE MR」類別。"

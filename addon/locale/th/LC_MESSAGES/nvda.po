@@ -317,6 +317,11 @@ msgstr "ยกเลิกข้อความที่เลือก (\"ย�
 msgid "Show the sender's &name in one-to-one chats"
 msgstr "แสดงชื่อผู้ส่งในแชทหนึ่งต่อหนึ่ง (&N)"
 
+#. Translators: Check box in the add-on's settings: a message's sender is read only when it is
+#. not the sender of the message above.
+msgid "Read the sender's name only when the &sender changes"
+msgstr "อ่านชื่อผู้ส่งเฉพาะเมื่อผู้ส่งเปลี่ยน (&S)"
+
 #. Translators: Reported when the user disconnected the bridge in NVDA's settings.
 msgid "LINE MR bridge is disconnected: LINE runs as it is, without LINE MR's changes. To connect it again, open NVDA's settings, category LINE MR."
 msgstr "ตัวเชื่อม LINE MR ถูกตัดการเชื่อมต่ออยู่: LINE ทำงานตามปกติโดยไม่มีการปรับของ LINE MR หากต้องการเชื่อมต่ออีกครั้ง ให้เปิดการตั้งค่า NVDA หมวด LINE MR"

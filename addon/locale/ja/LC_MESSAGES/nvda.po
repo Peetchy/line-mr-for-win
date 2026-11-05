@@ -317,6 +317,11 @@ msgstr "選択したメッセージの送信を取り消します(LINE のメッ
 msgid "Show the sender's &name in one-to-one chats"
 msgstr "1 対 1 のトークで送信者の名前を表示(&N)"
 
+#. Translators: Check box in the add-on's settings: a message's sender is read only when it is
+#. not the sender of the message above.
+msgid "Read the sender's name only when the &sender changes"
+msgstr "送信者が変わったときだけ送信者の名前を読み上げる(&S)"
+
 #. Translators: Reported when the user disconnected the bridge in NVDA's settings.
 msgid "LINE MR bridge is disconnected: LINE runs as it is, without LINE MR's changes. To connect it again, open NVDA's settings, category LINE MR."
 msgstr "LINE MR ブリッジは切断されています: LINE は LINE MR の変更なしでそのまま動作します。再び接続するには、NVDA の設定のカテゴリ「LINE MR」を開きます。"

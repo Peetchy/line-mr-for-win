@@ -40,7 +40,13 @@ int main(int argc, char **argv)
 
 	// What LINE 26.6 (Thai) gave, with the bridge's parts.
 	using line_a11y::withMessageParts;
-	const QString you = QString::fromUtf8("คุณ");
+	line_a11y::MessageLabels you;
+	you.you = QString::fromUtf8("คุณ");
+	you.replyTo = QString::fromUtf8("ตอบกลับ %1: %2");
+	you.original = QString::fromUtf8("ข้อความเดิม: %1");
+	you.kindsToName = QStringList { QString::fromUtf8("ตำแหน่งที่ตั้ง"), QString::fromUtf8("รายชื่อติดต่อ") };
+	you.album = QString::fromUtf8("อัลบั้มรูปภาพ");
+	you.photoWords = QStringList { QString::fromUtf8("รูป") };
 	MessageRowParts none;
 	expect(withMessageParts(QString::fromUtf8("Moss, โดนยกตัวอย่าง, 13.50 น."), none, you),
 	       QString::fromUtf8("Moss, โดนยกตัวอย่าง, 13.50 น."), "off screen: LINE's text as it is");
@@ -72,19 +78,20 @@ int main(int argc, char **argv)
 	call.reactions = QString::fromUtf8("ความรู้สึก: ถูกใจ");
 	expect(withMessageParts(QString::fromUtf8("00:07, 20.49 น."), call, you),
 	       QString::fromUtf8("การโทร, 00:07, 20.49 น., ความรู้สึก: ถูกใจ"), "call: LINE gives only the length");
-	const auto seconds = [](const QString &clock) {
+	line_a11y::MessageLabels seconds = you;
+	seconds.duration = [](const QString &clock) {
 		return clock == QStringLiteral("00:07") ? QString::fromUtf8("7 วินาที") : clock;
 	};
-	expect(withMessageParts(QString::fromUtf8("00:07, 20.49 น."), call, you, seconds),
+	expect(withMessageParts(QString::fromUtf8("00:07, 20.49 น."), call, seconds),
 	       QString::fromUtf8("การโทร, 7 วินาที, 20.49 น., ความรู้สึก: ถูกใจ"), "call length in seconds");
 	MessageRowParts voiceClock = voice;
 	voiceClock.lengths = QStringList { QStringLiteral("00:07") };
-	expect(withMessageParts(QString::fromUtf8(", 9.00 น."), voiceClock, you, seconds),
+	expect(withMessageParts(QString::fromUtf8(", 9.00 น."), voiceClock, seconds),
 	       QString::fromUtf8("ข้อความเสียง, 7 วินาที, 9.00 น."), "voice length in seconds");
 	MessageRowParts video = received;
 	video.kind = QString::fromUtf8("วิดีโอ");
 	video.lengths = QStringList { QStringLiteral("04:01") };
-	expect(withMessageParts(QString::fromUtf8("ข้อความวิดีโอ, ความยาววิดีโอ 241 วินาที, 15.02 น."), video, you, seconds),
+	expect(withMessageParts(QString::fromUtf8("ข้อความวิดีโอ, ความยาววิดีโอ 241 วินาที, 15.02 น."), video, seconds),
 	       QString::fromUtf8("ข้อความวิดีโอ, ความยาววิดีโอ 241 วินาที, 15.02 น."), "LINE's video length kept");
 	MessageRowParts voiceNamed = voice;
 	expect(withMessageParts(QString::fromUtf8("ข้อความเสียง, ข้อความเสียงยาว 7 วินาที, 10.15 น."), voiceNamed, you),
@@ -103,5 +110,64 @@ int main(int argc, char **argv)
 	       QString::fromUtf8("Aew Sirilak, ไม่อยากนัดละ, 18.00 น."), "sender name not repeated");
 	expect(withMessageParts(QString::fromUtf8("คุณ, ok, 9.00 น."), own, you), QString::fromUtf8("คุณ, ok, 9.00 น."),
 	       "You not repeated");
+
+	// What the bridge adds (2026-11-05, Keep Memo and "Digital Acessibility", Thai).
+	MessageRowParts file = own;
+	file.kind = QString::fromUtf8("ไฟล์");
+	file.details = QStringList { QString::fromUtf8("ใบรับรองแพทย์.pdf"), QString::fromUtf8("หมดเวลาเก็บไฟล์"), QString::fromUtf8("ขนาด 2.6MB") };
+	expect(withMessageParts(QString::fromUtf8("ไฟล์, หมดเวลาเก็บไฟล์, ใบรับรองแพทย์.pdf, 5.11 น."), file, you),
+	       QString::fromUtf8("คุณ, ไฟล์, หมดเวลาเก็บไฟล์, ใบรับรองแพทย์.pdf, ขนาด 2.6MB, 5.11 น."), "file size");
+	MessageRowParts link = own;
+	link.details = QStringList { QStringLiteral("Facebook") };
+	expect(withMessageParts(QStringLiteral("https://www.facebook.com/share/p/1JrLE3Sy9j/?mibextid=wwXIfr, 9.18 น."), link, you),
+	       QString::fromUtf8("คุณ, https://www.facebook.com/share/p/1JrLE3Sy9j/?mibextid=wwXIfr, Facebook, 9.18 น."), "link title");
+	MessageRowParts location = own;
+	location.kind = QString::fromUtf8("ตำแหน่งที่ตั้ง");
+	expect(withMessageParts(QString::fromUtf8("หมู่บ้าน A Tambon Khlong Nung, Thailand, 10.20 น."), location, you),
+	       QString::fromUtf8("คุณ, ตำแหน่งที่ตั้ง, หมู่บ้าน A Tambon Khlong Nung, Thailand, 10.20 น."), "own location");
+	MessageRowParts receivedLocation = received;
+	receivedLocation.kind = QString::fromUtf8("ตำแหน่งที่ตั้ง");
+	expect(withMessageParts(QString::fromUtf8("Moss, หมู่บ้าน A, Thailand, 10.20 น."), receivedLocation, you),
+	       QString::fromUtf8("Moss, ตำแหน่งที่ตั้ง, หมู่บ้าน A, Thailand, 10.20 น."), "received location");
+	MessageRowParts contact = own;
+	contact.kind = QString::fromUtf8("รายชื่อติดต่อ");
+	contact.details = QStringList { QString::fromUtf8("arm🦾C-m") };
+	expect(withMessageParts(QString::fromUtf8(", 10.21 น."), contact, you),
+	       QString::fromUtf8("คุณ, รายชื่อติดต่อ, arm🦾C-m, 10.21 น."), "contact");
+	MessageRowParts album = received;
+	album.kind = QString::fromUtf8("อัลบั้มรูปภาพ");
+	expect(withMessageParts(QString::fromUtf8("Moss, รูป, 13.55 น."), album, you),
+	       QString::fromUtf8("Moss, อัลบั้มรูปภาพ, 13.55 น."), "album");
+	MessageRowParts unknown;
+	expect(withMessageParts(QString::fromUtf8("Wantanee ตอบกลับข้อความของ Aew Sirilak ข้อความเดิมของ Aew Sirilak คือ 16 เช้า 17 เช้า ตอบกลับว่า อาจารย์ ไปเชียงใหม่ 18-21 พย, 18.20 น."), unknown, you),
+	       QString::fromUtf8("Wantanee, ตอบกลับ Aew Sirilak: อาจารย์ ไปเชียงใหม่ 18-21 พย, ข้อความเดิม: 16 เช้า 17 เช้า, 18.20 น."), "reply");
+	expect(withMessageParts(QString::fromUtf8("ตอบกลับข้อความของ Moss ข้อความเดิมของ Moss คือ ไฟล์ : a.pdf ตอบกลับว่า ok, ขอบคุณ, 9.00 น., อ่านแล้ว"), own, you),
+	       QString::fromUtf8("คุณ, ตอบกลับ Moss: ok, ขอบคุณ, ข้อความเดิม: ไฟล์ : a.pdf, 9.00 น., อ่านแล้ว"), "own reply with a comma");
+	// The other languages' sentences (labels stay Thai here).
+	expect(withMessageParts(QString::fromUtf8("A reply from nattanun to Aew Sirilak's message. Aew Sirilak's original message: @nattanun slide ok?. Reply: ได้เลยครับ., 3:56 PM"), unknown, you),
+	       QString::fromUtf8("nattanun, ตอบกลับ Aew Sirilak: ได้เลยครับ, ข้อความเดิม: @nattanun slide ok?, 3:56 PM"), "reply (English)");
+	expect(withMessageParts(QString::fromUtf8("A reply from Chatchawarn - Pop to nattanun's message. nattanun's original message: . Reply: ยุทธ 70, 10:51 AM"), unknown, you),
+	       QString::fromUtf8("Chatchawarn - Pop, ตอบกลับ nattanun: ยุทธ 70, 10:51 AM"), "reply to a message without text (English)");
+	expect(withMessageParts(QString::fromUtf8("Aew Sirilakのメッセージへのnattanunのリプライ。Aew Sirilakの元のメッセージ：17 เช้าไหมคะ。リプライ：ได้ครับ。, 午後 6:52"), unknown, you),
+	       QString::fromUtf8("nattanun, ตอบกลับ Aew Sirilak: ได้ครับ, ข้อความเดิม: 17 เช้าไหมคะ, 午後 6:52"), "reply (Japanese)");
+	expect(withMessageParts(QString::fromUtf8("nattanun回复Aew Sirilak的信息。Aew Sirilak的原信息是：@nattanun slide。回复是：ได้เลยครับ。, 下午 3:56"), unknown, you),
+	       QString::fromUtf8("nattanun, ตอบกลับ Aew Sirilak: ได้เลยครับ, ข้อความเดิม: @nattanun slide, 下午 3:56"), "reply (Simplified Chinese)");
+	expect(withMessageParts(QString::fromUtf8("Aew Sirilak回覆nattanun的訊息。nattanun的原始訊息：ได้เลยครับ。回覆內容：ขอบคุณค่ะ。, 下午 3:56"), unknown, you),
+	       QString::fromUtf8("Aew Sirilak, ตอบกลับ nattanun: ขอบคุณค่ะ, ข้อความเดิม: ได้เลยครับ, 下午 3:56"), "reply (Traditional Chinese)");
+	expect(withMessageParts(QString::fromUtf8("Moss, 午前 7:57"), unknown, you), QString::fromUtf8("Moss, 午前 7:57"), "Japanese time");
+	expect(line_a11y::isMessageTimeOrReceipt(QString::fromUtf8("午前 7:57")) && line_a11y::isMessageTimeOrReceipt(QString::fromUtf8("既読 3"))
+	           ? QString() : QStringLiteral("no"), QString(), "Japanese time and receipt");
+
+	using line_a11y::withoutRepeatedSender;
+	expect(withoutRepeatedSender(QString::fromUtf8("Moss, ค่ะ, 9.01 น."), QString::fromUtf8("Moss, สติกเกอร์, 9.00 น.")),
+	       QString::fromUtf8("ค่ะ, 9.01 น."), "same sender");
+	expect(withoutRepeatedSender(QString::fromUtf8("Moss, ค่ะ, 9.01 น."), QString::fromUtf8("Aew, ค่ะ, 9.00 น.")),
+	       QString::fromUtf8("Moss, ค่ะ, 9.01 น."), "other sender");
+	expect(withoutRepeatedSender(QString::fromUtf8("Moss, ค่ะ, 9.01 น."), QString::fromUtf8("4 พฤศจิกายน 2026")),
+	       QString::fromUtf8("Moss, ค่ะ, 9.01 น."), "after a date");
+	expect(withoutRepeatedSender(QString::fromUtf8("คุณ, ok, 9.01 น., อ่านแล้ว"), QString::fromUtf8("คุณ, สติกเกอร์, 9.00 น.")),
+	       QString::fromUtf8("ok, 9.01 น., อ่านแล้ว"), "own after own");
+	expect(withoutRepeatedSender(QString::fromUtf8("ข้อความ, 9.01 น."), QString::fromUtf8("ข้อความ, 9.00 น.")),
+	       QString::fromUtf8("ข้อความ, 9.01 น."), "no sender: kept");
 	return failures ? 1 : 0;
 }
