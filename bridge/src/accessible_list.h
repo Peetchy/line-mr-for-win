@@ -7,8 +7,12 @@
 //  2. what LINE paints for the row (chat messages: ChatMessageData has no properties). The row's
 //     rectangle of the viewport is rendered into the text-recording paint device
 //     (captureRegionText()); unlike the macOS bridge this needs no memory offsets.
+//  3. for chat messages in LINE 26.6, LINE's own text (Qt::AccessibleTextRole), completed with what
+//     only the drawing tells (own message, sticker / video ..., reactions): withNativeText().
 
 #pragma once
+
+#include "native_message_text.h"
 
 #include <QtCore/QHash>
 #include <QtCore/QList>
@@ -56,6 +60,8 @@ public:
 	// Painted text of `row`, remembered after the row scrolls out of view (until the model is
 	// reset or rows go away: LINE reuses row objects for the next chat).
 	QString paintedRowText(int row, QObject *data) const;
+	// A message row: LINE's own text (LINE 26.6) with what only the drawing shows, else `painted`.
+	QString withNativeText(const QModelIndex &idx, const QString &painted, const MessageRowParts &parts) const;
 
 	// Makes the newest visible row current (messages start at the bottom).
 	void focusLastVisibleRow();
@@ -164,6 +170,7 @@ private:
 		QString text;
 		qint64 at = 0;
 		QPointer<QObject> object; // the row's data object the text belongs to
+		MessageRowParts parts;
 	};
 	mutable QHash<quintptr, PaintedText> m_painted;
 	mutable QString m_directChatSender;

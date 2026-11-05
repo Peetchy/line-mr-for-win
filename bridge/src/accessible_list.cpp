@@ -1,5 +1,6 @@
 #include "accessible_list.h"
 #include "accessible_widgets.h"
+#include "native_message_text.h"
 
 #include "a11y_announce.h"
 #include "a11y_event_filter.h"
@@ -739,7 +740,7 @@ bool timeAfterText(const CaptureResult &cap)
 // A chat message row: sender, content, then time and read receipt (which LINE draws beside the
 // bubble). Sent messages are drawn on the right and have no sender name.
 QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, bool *skipped,
-                       const QString &directSender = QString())
+                       const QString &directSender = QString(), MessageRowParts *parts = nullptr)
 {
 	const CaptureResult cap = captureRegionText(viewport, rowRect);
 	*skipped = cap.skipped;
@@ -835,14 +836,23 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	}
 	QRectF lengthBubble;
 	const char *kind = messageKind(cap, rowRect, fileSize, &lengthBubble);
+	// For LINE's own text of the row (withMessageParts()).
+	MessageRowParts unused;
+	MessageRowParts &found = parts ? *parts : unused;
+	found.captured = true;
+	found.own = direction == MessageDirection::Outgoing;
+	found.sender = prefix.isEmpty() ? QString() : directSender;
 	if (content.isEmpty() && trailing.isEmpty()) {
 		if (kind)
-			return prefix + label(kind);
-		return cap.pixmaps > 0 || photoMenu ? prefix + label("Photo or sticker") : QString();
+			found.kind = label(kind);
+		else if (cap.pixmaps > 0 || photoMenu)
+			found.kind = label("Photo or sticker");
+		return found.kind.isEmpty() ? QString() : prefix + found.kind;
 	}
 	// Date separators and notices are a single centred line without a time (as are tall pictures
 	// whose time is out of view: those have a kind).
 	const QString reactions = reactionSummary(cap, reactionCount);
+	found.reactions = reactions;
 	if (trailing.isEmpty() && !kind) {
 		// (While the mouse is over a message LINE draws its reaction button instead of the time.)
 		if (!reactions.isEmpty())
@@ -877,14 +887,21 @@ QString paintedRowText(QWidget *viewport, const QRect &rowRect, bool messages, b
 	// The type comes after the sender's name, before what the message shows (file name, length).
 	if (direction != MessageDirection::Unknown)
 		own = direction == MessageDirection::Outgoing;
+	found.own = own;
+	if (own)
+		found.sender.clear();
 	if (kind) {
 		const qsizetype at = sender && !own ? 1 : 0;
 		content.insert(at, label(kind));
 		for (qsizetype i = 0; i < lengthText.size(); ++i)
 			content.insert(at + 1 + i, lengthText[i]);
+		found.kind = label(kind);
+		found.lengths = lengthText;
 	}
-	else if (content.isEmpty() || (sender && content.size() == 1 && cap.pixmaps > 1))
+	else if (content.isEmpty() || (sender && content.size() == 1 && cap.pixmaps > 1)) {
 		content << label("Photo or sticker");
+		found.kind = label("Photo or sticker");
+	}
 	if (own)
 		content.prepend(label("You"));
 	if (!reactions.isEmpty())
@@ -1778,16 +1795,19 @@ QString LineAccessibleList::paintedRowText(int row, QObject *data) const
 		cached = m_painted.cend();
 	}
 	if (cached != m_painted.cend() && now - cached->at < kRowTextTtlMs)
-		return cached->text;
+		return withNativeText(idx, cached->text, cached->parts);
 	const QRect r = v->visualRect(idx);
-	if (!v->isVisible() || r.isEmpty() || !v->viewport()->rect().intersects(r))
-		return cached != m_painted.cend() ? cached->text : QString(); // last text seen on screen
+	if (!v->isVisible() || r.isEmpty() || !v->viewport()->rect().intersects(r)) { // last text seen on screen
+		return cached != m_painted.cend() ? withNativeText(idx, cached->text, cached->parts)
+		                                  : withNativeText(idx, QString(), MessageRowParts());
+	}
 	const bool messages = ancestorInheriting(v, "ChatMessageView") != nullptr || inheritsClass(data, "ChatMessageData");
 	bool skipped = false;
+	MessageRowParts parts;
 	QString text = inheritsClass(v->window(), "ChatSearchResultWindow")
 	    ? searchResultRowText(v->viewport(), r, &skipped)
 	    : isPostList(v) ? postRowText(v->viewport(), r, &skipped)
-	                    : line_a11y::paintedRowText(v->viewport(), r, messages, &skipped, directSender);
+	                    : line_a11y::paintedRowText(v->viewport(), r, messages, &skipped, directSender, &parts);
 	if (skipped) {
 		// LINE was painting: answer with what we knew and read the row again shortly; NVDA
 		// hears about the real text through a name change.
@@ -1802,7 +1822,8 @@ QString LineAccessibleList::paintedRowText(int row, QObject *data) const
 			QAccessibleEvent event(item, QAccessible::NameChanged);
 			QAccessible::updateAccessibility(&event);
 		});
-		return cached != m_painted.cend() ? cached->text : QString();
+		return cached != m_painted.cend() ? withNativeText(idx, cached->text, cached->parts)
+		                                  : withNativeText(idx, QString(), MessageRowParts());
 	}
 	// The photo / video viewer's thumbnail strip (MediaViewerWindow) draws pictures only: say what each
 	// one is (a video's thumbnail has a play icon, perhaps its length).
@@ -1840,13 +1861,45 @@ QString LineAccessibleList::paintedRowText(int row, QObject *data) const
 		}
 	}
 	if (text.isEmpty() && cached != m_painted.cend())
-		return cached->text; // row momentarily blank
+		return withNativeText(idx, cached->text, cached->parts); // row momentarily blank
 	// A row partly scrolled out yields part of its text; keep the longer reading.
-	if (cached != m_painted.cend() && !v->viewport()->rect().contains(r) && cached->text.size() > text.size())
+	if (cached != m_painted.cend() && !v->viewport()->rect().contains(r) && cached->text.size() > text.size()) {
 		text = cached->text;
+		parts = cached->parts;
+	}
 	if (m_painted.size() > 5000)
 		m_painted.clear();
-	m_painted.insert(key, { text, now, data });
+	m_painted.insert(key, { text, now, data, parts });
+	return withNativeText(idx, text, parts);
+}
+
+QString LineAccessibleList::withNativeText(const QModelIndex &idx, const QString &painted, const MessageRowParts &parts) const
+{
+	QAbstractItemView *v = view();
+	if (!v || !inheritsClass(v->model(), "ChatMessageModel") || !ancestorInheriting(v, "ChatMessageView")
+	    || ancestorInheriting(v, "SearchDetailPanel"))
+		return painted;
+	const QString native = nativeMessageText(idx.data(Qt::AccessibleTextRole));
+	if (native.isEmpty())
+		return painted;
+	const QString text = withMessageParts(native, parts, label("You"));
+	static int logged = 0;
+	if (logged++ < 8)
+		a11yLog("[message-text] row %d: LINE's text (%d chars)%s", idx.row(), int(native.size()),
+		        parts.captured ? " with the drawn row's parts" : "");
+	// Development aid: a file "message-text-debug" in the bridge directory logs each row's readings
+	// (chat text!) to message-text-debug.txt.
+	static const bool debug = QFile::exists(bridgeDirectory() + QStringLiteral("message-text-debug"));
+	if (debug) {
+		static QSet<QString> written;
+		if (!written.contains(text) && written.size() < 2000) {
+			written.insert(text);
+			QFile file(bridgeDirectory() + QStringLiteral("message-text-debug.txt"));
+			if (file.open(QIODevice::Append | QIODevice::Text))
+				file.write(QStringLiteral("row %1\n  native: %2\n  painted: %3\n  read: %4\n")
+				               .arg(idx.row()).arg(native, painted, text).toUtf8());
+		}
+	}
 	return text;
 }
 
