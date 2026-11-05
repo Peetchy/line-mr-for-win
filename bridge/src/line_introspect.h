@@ -118,8 +118,8 @@ UiLanguage uiLanguage();
 
 // Bridge-generated label in LINE's UI language.
 QString label(const char *english);
-// A length as LINE says it in its own message text: "00:07" -> "7 seconds", "04:01" -> "241 seconds"
-// (LINE counts seconds only); other text unchanged.
+// A length in words: "00:07" -> "7 seconds", "10:54" -> "10 minutes 54 seconds", "1:00:00" -> "1 hour";
+// other text unchanged.
 QString spokenDuration(const QString &clock);
 
 } // namespace line_a11y

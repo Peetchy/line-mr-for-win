@@ -247,6 +247,12 @@ const LabelTranslations kLabels[] = {
 	{ "Package %1", "แพ็กเกจ %1", "パッケージ %1", "套装 %1", "套裝 %1" },
 	{ "1 second", "1 วินาที", "1秒", "1秒", "1秒" },
 	{ "%1 seconds", "%1 วินาที", "%1秒", "%1秒", "%1秒" },
+	{ "1 minute", "1 นาที", "1分", "1分钟", "1分鐘" },
+	{ "%1 minutes", "%1 นาที", "%1分", "%1分钟", "%1分鐘" },
+	{ "1 hour", "1 ชั่วโมง", "1時間", "1小时", "1小時" },
+	{ "%1 hours", "%1 ชั่วโมง", "%1時間", "%1小时", "%1小時" },
+	// Between the parts of a length ("10 minutes 54 seconds"; Japanese and Chinese write them together).
+	{ "{length separator}", " ", "", "", "" },
 	{ "LINE emoji", "อีโมจิ LINE", "LINE絵文字", "LINE 表情", "LINE 表情貼" },
 	{ "File", "ไฟล์", "ファイル", "文件", "檔案" },
 	{ "Call message", "การโทร", "通話", "通话", "通話" },
@@ -1143,8 +1149,18 @@ QString spokenDuration(const QString &clock)
 	const QRegularExpressionMatch m = pattern.match(clock.trimmed());
 	if (!m.hasMatch())
 		return clock;
-	const int seconds = m.captured(1).toInt() * 3600 + m.captured(2).toInt() * 60 + m.captured(3).toInt();
-	return seconds == 1 ? label("1 second") : label("%1 seconds").arg(seconds);
+	const int total = m.captured(1).toInt() * 3600 + m.captured(2).toInt() * 60 + m.captured(3).toInt();
+	const int hours = total / 3600, minutes = total / 60 % 60, seconds = total % 60;
+	auto part = [](int n, const char *one, const char *many) { return n == 1 ? label(one) : label(many).arg(n); };
+	QStringList parts;
+	if (hours)
+		parts << part(hours, "1 hour", "%1 hours");
+	if (minutes)
+		parts << part(minutes, "1 minute", "%1 minutes");
+	if (seconds || parts.isEmpty())
+		parts << part(seconds, "1 second", "%1 seconds");
+	const QString separator = uiLanguage() == UiLanguage::English ? QStringLiteral(" ") : label("{length separator}");
+	return parts.join(separator);
 }
 
 QString label(const char *english)
