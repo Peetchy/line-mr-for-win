@@ -124,6 +124,12 @@ protected:
 	bool isPressable() const override;
 };
 
+// An @ mention in a text field: its document position and how it is read ("@Moss").
+struct InputMention {
+	int position;
+	QString label;
+};
+
 class LineAccessibleInput : public LineAccessibleWidget,
                             public QAccessibleTextInterface,
                             public QAccessibleEditableTextInterface {
@@ -173,6 +179,9 @@ private:
 	QLineEdit *lineEdit() const;
 	QTextEdit *textEdit() const;
 	bool isMasked() const;
+	// Text interface offsets spell out @ mentions; document positions have one character for each.
+	int toExposed(int position) const;
+	int toDocument(int offset) const;
 	QString plainText() const;   // unmasked
 	QString exposedText() const; // masked for password fields
 };

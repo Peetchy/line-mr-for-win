@@ -1455,6 +1455,36 @@ bool LineAccessibleInput::isMasked() const
 	return le && le->echoMode() != QLineEdit::Normal;
 }
 
+namespace {
+
+// LINE's @ mentions in a text field are object characters (U+FFFC) whose format carries the member:
+// UserProperty + 6 the mid, + 7 and + 9 the name (both "Moss" when seen). Read as "@Moss".
+QList<InputMention> inputMentions(const QTextDocument *doc)
+{
+	QList<InputMention> mentions;
+	for (QTextBlock block = doc->begin(); block.isValid(); block = block.next()) {
+		for (auto it = block.begin(); !it.atEnd(); ++it) {
+			const QTextFragment f = it.fragment();
+			const QString text = f.text();
+			if (!text.contains(QChar::ObjectReplacementCharacter))
+				continue;
+			const QTextCharFormat format = f.charFormat();
+			QString name = format.stringProperty(QTextFormat::UserProperty + 9);
+			if (name.isEmpty())
+				name = format.stringProperty(QTextFormat::UserProperty + 7);
+			if (name.isEmpty())
+				continue;
+			for (int i = 0; i < text.size(); ++i) {
+				if (text.at(i) == QChar::ObjectReplacementCharacter)
+					mentions.append({ f.position() + i, QLatin1Char('@') + name });
+			}
+		}
+	}
+	return mentions;
+}
+
+} // namespace
+
 QString LineAccessibleInput::plainText() const
 {
 	if (QLineEdit *le = lineEdit())
@@ -1478,7 +1508,43 @@ QString LineAccessibleInput::exposedText() const
 			return QString();
 		return QString(plainText().size(), kMaskChar);
 	}
-	return plainText();
+	QString text = plainText();
+	if (QTextEdit *te = textEdit()) {
+		const QList<InputMention> mentions = inputMentions(te->document());
+		for (auto it = mentions.crbegin(); it != mentions.crend(); ++it)
+			text.replace(it->position, 1, it->label);
+	}
+	return text;
+}
+
+int LineAccessibleInput::toExposed(int position) const
+{
+	QTextEdit *te = textEdit();
+	if (!te)
+		return position;
+	int shift = 0;
+	for (const InputMention &m : inputMentions(te->document())) {
+		if (m.position >= position)
+			break;
+		shift += int(m.label.size()) - 1;
+	}
+	return position + shift;
+}
+
+int LineAccessibleInput::toDocument(int offset) const
+{
+	QTextEdit *te = textEdit();
+	if (!te)
+		return offset;
+	int shift = 0;
+	for (const InputMention &m : inputMentions(te->document())) {
+		if (offset <= m.position + shift)
+			break;
+		if (offset < m.position + shift + m.label.size())
+			return m.position; // inside the spelled-out mention: before it
+		shift += int(m.label.size()) - 1;
+	}
+	return offset - shift;
 }
 
 void *LineAccessibleInput::interface_cast(QAccessible::InterfaceType t)
@@ -1579,16 +1645,16 @@ QString LineAccessibleInput::text(QAccessible::Text t) const
 	QTextEdit *te = t == QAccessible::Help ? textEdit() : nullptr;
 	if (!te)
 		return LineAccessibleWidget::text(t);
-	// Offsets are document positions, as in plainText(). A block not laid out yet is one line.
+	// Offsets as in text(int, int) (mentions spelled out). A block not laid out yet is one line.
 	QTextDocument *doc = te->document();
 	QStringList starts;
 	for (QTextBlock block = doc->begin(); block.isValid(); block = block.next()) {
 		const QTextLayout *layout = block.layout();
 		const int lines = layout ? layout->lineCount() : 0;
 		if (lines == 0)
-			starts.append(QString::number(block.position()));
+			starts.append(QString::number(toExposed(block.position())));
 		for (int i = 0; i < lines; ++i)
-			starts.append(QString::number(block.position() + layout->lineAt(i).textStart()));
+			starts.append(QString::number(toExposed(block.position() + layout->lineAt(i).textStart())));
 	}
 	// Edits and a new width (wrapping) change the lines.
 	return QStringLiteral("lineMR-lines:%1.%2:%3")
@@ -1615,8 +1681,8 @@ void LineAccessibleInput::selection(int selectionIndex, int *startOffset, int *e
 	} else if (QTextEdit *te = textEdit()) {
 		const QTextCursor c = te->textCursor();
 		if (c.hasSelection()) {
-			*startOffset = c.selectionStart();
-			*endOffset = c.selectionEnd();
+			*startOffset = toExposed(c.selectionStart());
+			*endOffset = toExposed(c.selectionEnd());
 		}
 	}
 }
@@ -1659,8 +1725,8 @@ void LineAccessibleInput::setSelection(int selectionIndex, int startOffset, int 
 		le->setSelection(startOffset, endOffset - startOffset);
 	} else if (QTextEdit *te = textEdit()) {
 		QTextCursor c(te->document());
-		c.setPosition(startOffset);
-		c.setPosition(endOffset, QTextCursor::KeepAnchor);
+		c.setPosition(toDocument(startOffset));
+		c.setPosition(toDocument(endOffset), QTextCursor::KeepAnchor);
 		te->setTextCursor(c);
 	}
 }
@@ -1670,7 +1736,7 @@ int LineAccessibleInput::cursorPosition() const
 	if (QLineEdit *le = lineEdit())
 		return le->cursorPosition();
 	if (QTextEdit *te = textEdit())
-		return te->textCursor().position();
+		return toExposed(te->textCursor().position());
 	return 0;
 }
 
@@ -1681,7 +1747,7 @@ void LineAccessibleInput::setCursorPosition(int position)
 		le->setCursorPosition(position);
 	} else if (QTextEdit *te = textEdit()) {
 		QTextCursor c = te->textCursor();
-		c.setPosition(position);
+		c.setPosition(toDocument(position));
 		te->setTextCursor(c);
 	}
 }
@@ -1697,7 +1763,7 @@ QString LineAccessibleInput::text(int startOffset, int endOffset) const
 int LineAccessibleInput::characterCount() const
 {
 	if (QTextEdit *te = textEdit())
-		return qMax(0, te->document()->characterCount() - 1);
+		return toExposed(qMax(0, te->document()->characterCount() - 1));
 	return int(exposedText().size());
 }
 
@@ -1721,13 +1787,14 @@ QRect LineAccessibleInput::characterRect(int offset) const
 		return QRect(le->mapToGlobal(local.topLeft()), local.size());
 	}
 	if (QTextEdit *te = textEdit()) {
+		const int position = toDocument(qBound(0, offset, characterCount()));
 		QTextCursor c(te->document());
-		c.setPosition(qBound(0, offset, characterCount()));
+		c.setPosition(position);
 		const QRect caret = te->cursorRect(c);
 		const QString all = plainText();
 		const QFontMetrics fm(c.charFormat().font());
-		const int width = offset >= 0 && offset < all.size() && all.at(offset) != u'\n'
-			? fm.horizontalAdvance(all.at(offset)) : 1;
+		const int width = position < all.size() && all.at(position) != u'\n'
+			? fm.horizontalAdvance(all.at(position)) : 1;
 		const QRect local(caret.x(), caret.y(), qMax(1, width), caret.height());
 		return QRect(te->viewport()->mapToGlobal(local.topLeft()), local.size());
 	}
@@ -1739,7 +1806,7 @@ int LineAccessibleInput::offsetAtPoint(const QPoint &point) const
 	if (QLineEdit *le = lineEdit())
 		return le->cursorPositionAt(le->mapFromGlobal(point));
 	if (QTextEdit *te = textEdit())
-		return te->cursorForPosition(te->viewport()->mapFromGlobal(point)).position();
+		return toExposed(te->cursorForPosition(te->viewport()->mapFromGlobal(point)).position());
 	return -1;
 }
 
@@ -1753,10 +1820,10 @@ void LineAccessibleInput::scrollToSubstring(int startIndex, int endIndex)
 	} else if (QTextEdit *te = textEdit()) {
 		const QTextCursor keep = te->textCursor();
 		QTextCursor c(te->document());
-		c.setPosition(qBound(0, endIndex, characterCount()));
+		c.setPosition(toDocument(qBound(0, endIndex, characterCount())));
 		te->setTextCursor(c);
 		te->ensureCursorVisible();
-		c.setPosition(qBound(0, startIndex, characterCount()));
+		c.setPosition(toDocument(qBound(0, startIndex, characterCount())));
 		te->setTextCursor(c);
 		te->ensureCursorVisible();
 		te->setTextCursor(keep);
@@ -1799,8 +1866,8 @@ void LineAccessibleInput::replaceText(int startOffset, int endOffset, const QStr
 		if (te->isReadOnly())
 			return;
 		QTextCursor c(te->document());
-		c.setPosition(startOffset);
-		c.setPosition(endOffset, QTextCursor::KeepAnchor);
+		c.setPosition(toDocument(startOffset));
+		c.setPosition(toDocument(endOffset), QTextCursor::KeepAnchor);
 		c.insertText(text);
 		te->setTextCursor(c);
 	}
