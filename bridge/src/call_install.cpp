@@ -100,7 +100,8 @@ void syncCallBridges()
 {
 	static const QString self = selfPath();
 	static const QByteArray selfHash = fileHash(self);
-	if (self.isEmpty() || selfHash.isEmpty())
+	// Gone from LINE's folder (add-on removed, bridge disconnected): this LINE runs on until it quits.
+	if (self.isEmpty() || selfHash.isEmpty() || !QFile::exists(self))
 		return;
 	for (const QLatin1StringView helper : kHelpers) {
 		const QString exe = helper + QStringLiteral(".exe");

@@ -97,7 +97,7 @@ NVDA 启动时,LINE MR 会在 GitHub 上检查是否有新版本。如果有,会
 
 ## 桥接组件的工作原理
 
-桥接组件是 `line_a11y.dll`,一个放在 `%LOCALAPPDATA%\LINE\bin\current\platformthemes` 中的 Qt 平台主题插件;LINE 的通话程序(显示来电和通话窗口的 `LineCall.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<版本>\platformthemes` 中,LINE 的照片和视频查看器(`LineMediaPlayer.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineMediaPlayer\<版本>\platformthemes` 中。LINE 的 Qt 在启动时加载它;它不返回任何主题(因此 LINE 的外观完全不变),只为 LINE 的自定义控件添加无障碍接口。它通过记录每个控件绘制的内容来读取文字,因此不依赖 LINE 的内部内存布局。不会修改任何 LINE 文件;要移除它,删除这些 DLL 即可。
+桥接组件是 `line_a11y.dll`,一个放在 `%LOCALAPPDATA%\LINE\bin\current\platformthemes` 中的 Qt 平台主题插件;LINE 的通话程序(显示来电和通话窗口的 `LineCall.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<版本>\platformthemes` 中,LINE 的照片和视频查看器(`LineMediaPlayer.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineMediaPlayer\<版本>\platformthemes` 中。LINE 的 Qt 在启动时加载它;它不返回任何主题(因此 LINE 的外观完全不变),只为 LINE 的自定义控件添加无障碍接口。它通过记录每个控件绘制的内容来读取文字,因此不依赖 LINE 的内部内存布局。不会修改任何 LINE 文件。在 NVDA 的插件商店中移除 LINE MR 后,NVDA 重新启动时也会删除这些 DLL 和文件夹 `%LOCALAPPDATA%\LineMR`(日志、设置);正在运行的 LINE 会继续使用桥接组件,直到退出 LINE。如果 LINE 是为所有用户安装的(Program Files),请手动删除 LINE 文件夹中的 DLL。
 
 日志:`%LOCALAPPDATA%\LineMR\logs\bridge.log`。
 

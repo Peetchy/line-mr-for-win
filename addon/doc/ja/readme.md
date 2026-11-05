@@ -97,7 +97,7 @@ LINE で NVDA+Shift+Control+L を押してください。LINE MR が問題を報
 
 ## ブリッジの仕組み
 
-ブリッジは `line_a11y.dll` という Qt のプラットフォーム テーマ プラグインで、`%LOCALAPPDATA%\LINE\bin\current\platformthemes` に置かれます。LINE の通話プログラム(着信と通話ウィンドウを表示する `LineCall.exe`)用のコピーは `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<バージョン>\platformthemes` に、LINE の写真・動画ビューアー(`LineMediaPlayer.exe`)用のコピーは `%LOCALAPPDATA%\LINE\Data\plugin\LineMediaPlayer\<バージョン>\platformthemes` に置かれます。LINE の Qt が起動時にこれを読み込みます。ブリッジはテーマを返さないので(LINE の見た目はまったく変わりません)、LINE 独自のウィジェットにアクセシビリティ インターフェイスを追加するだけです。文字は各ウィジェットが描画する内容を記録して読み取るため、LINE の内部メモリ配置には依存しません。LINE のファイルは一切変更しません。削除するには、これらの DLL を削除してください。
+ブリッジは `line_a11y.dll` という Qt のプラットフォーム テーマ プラグインで、`%LOCALAPPDATA%\LINE\bin\current\platformthemes` に置かれます。LINE の通話プログラム(着信と通話ウィンドウを表示する `LineCall.exe`)用のコピーは `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<バージョン>\platformthemes` に、LINE の写真・動画ビューアー(`LineMediaPlayer.exe`)用のコピーは `%LOCALAPPDATA%\LINE\Data\plugin\LineMediaPlayer\<バージョン>\platformthemes` に置かれます。LINE の Qt が起動時にこれを読み込みます。ブリッジはテーマを返さないので(LINE の見た目はまったく変わりません)、LINE 独自のウィジェットにアクセシビリティ インターフェイスを追加するだけです。文字は各ウィジェットが描画する内容を記録して読み取るため、LINE の内部メモリ配置には依存しません。LINE のファイルは一切変更しません。NVDA のアドオン ストアで LINE MR を削除すると、NVDA の再起動時にこれらの DLL とフォルダー `%LOCALAPPDATA%\LineMR`(ログ、設定)も削除されます。実行中の LINE は終了するまでブリッジを使い続けます。すべてのユーザー用にインストールした LINE(Program Files)では、LINE のフォルダーの DLL を手動で削除してください。
 
 ログ: `%LOCALAPPDATA%\LineMR\logs\bridge.log`
 

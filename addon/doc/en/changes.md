@@ -4,6 +4,7 @@
 
 ### Settings
 - NVDA's settings, category LINE MR, show whether the bridge is running and have a button to disconnect it (use LINE as it is, without LINE MR) or to connect it again. LINE restarts either way.
+- Removing LINE MR in NVDA's Add-on Store now also removes the bridge from LINE, its call program and its photo viewer, and LINE MR's folder `%LOCALAPPDATA%\LineMR`. A running LINE keeps the bridge until it quits.
 
 ### Messages
 - In the messages, Alt+R replies to the selected message and moves to the message input, Delete deletes it and Shift+Delete unsends it (the items of LINE's message menu; LINE's own confirmation is left to you). Elsewhere these keys work as usual; they can be changed in NVDA's Input gestures (contributed by wengweng0312).

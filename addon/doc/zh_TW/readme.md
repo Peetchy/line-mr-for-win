@@ -97,7 +97,7 @@ NVDA 啟動時,LINE MR 會在 GitHub 上檢查是否有新版本。如果有,會
 
 ## 橋接元件的運作方式
 
-橋接元件是 `line_a11y.dll`,一個放在 `%LOCALAPPDATA%\LINE\bin\current\platformthemes` 中的 Qt 平台佈景主題外掛;LINE 的通話程式(顯示來電和通話視窗的 `LineCall.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<版本>\platformthemes` 中,LINE 的相片和影片檢視器(`LineMediaPlayer.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineMediaPlayer\<版本>\platformthemes` 中。LINE 的 Qt 在啟動時載入它;它不回傳任何佈景主題(因此 LINE 的外觀完全不變),只為 LINE 的自訂控制項加入無障礙介面。它透過記錄每個控制項繪製的內容來讀取文字,因此不依賴 LINE 的內部記憶體配置。不會修改任何 LINE 檔案;要移除它,刪除這些 DLL 即可。
+橋接元件是 `line_a11y.dll`,一個放在 `%LOCALAPPDATA%\LINE\bin\current\platformthemes` 中的 Qt 平台佈景主題外掛;LINE 的通話程式(顯示來電和通話視窗的 `LineCall.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<版本>\platformthemes` 中,LINE 的相片和影片檢視器(`LineMediaPlayer.exe`)使用的副本放在 `%LOCALAPPDATA%\LINE\Data\plugin\LineMediaPlayer\<版本>\platformthemes` 中。LINE 的 Qt 在啟動時載入它;它不回傳任何佈景主題(因此 LINE 的外觀完全不變),只為 LINE 的自訂控制項加入無障礙介面。它透過記錄每個控制項繪製的內容來讀取文字,因此不依賴 LINE 的內部記憶體配置。不會修改任何 LINE 檔案。在 NVDA 的附加元件商店中移除 LINE MR 後,NVDA 重新啟動時也會刪除這些 DLL 和資料夾 `%LOCALAPPDATA%\LineMR`(記錄、設定);正在執行的 LINE 會繼續使用橋接元件,直到結束 LINE。如果 LINE 是為所有使用者安裝的(Program Files),請手動刪除 LINE 資料夾中的 DLL。
 
 記錄檔:`%LOCALAPPDATA%\LineMR\logs\bridge.log`。
 

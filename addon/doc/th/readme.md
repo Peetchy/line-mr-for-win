@@ -97,7 +97,7 @@ LINE วาดปุ่มและข้อความเอง โปรแ�
 
 ## ตัวเชื่อมทำงานอย่างไร
 
-ตัวเชื่อมคือไฟล์ `line_a11y.dll` ซึ่งเป็นปลั๊กอินธีมของ Qt วางไว้ที่ `%LOCALAPPDATA%\LINE\bin\current\platformthemes` และมีอีกชุดสำหรับโปรแกรมโทรของ LINE (`LineCall.exe` ซึ่งแสดงสายเรียกเข้าและหน้าต่างการโทร) ที่ `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<รุ่น>\platformthemes` และอีกชุดสำหรับหน้าต่างดูรูปภาพและวิดีโอของ LINE (`LineMediaPlayer.exe`) ที่ `%LOCALAPPDATA%\LINE\Data\plugin\LineMediaPlayer\<รุ่น>\platformthemes` LINE จะโหลดไฟล์นี้ตอนเริ่มทำงาน ตัวเชื่อมไม่เปลี่ยนหน้าตาของ LINE และอ่านข้อความจากสิ่งที่แต่ละส่วนวาด จึงไม่ขึ้นกับโครงสร้างหน่วยความจำภายในของ LINE ไม่มีการแก้ไขไฟล์ของ LINE หากต้องการเอาออก ให้ลบไฟล์ DLL เหล่านั้น
+ตัวเชื่อมคือไฟล์ `line_a11y.dll` ซึ่งเป็นปลั๊กอินธีมของ Qt วางไว้ที่ `%LOCALAPPDATA%\LINE\bin\current\platformthemes` และมีอีกชุดสำหรับโปรแกรมโทรของ LINE (`LineCall.exe` ซึ่งแสดงสายเรียกเข้าและหน้าต่างการโทร) ที่ `%LOCALAPPDATA%\LINE\Data\plugin\LineCall\<รุ่น>\platformthemes` และอีกชุดสำหรับหน้าต่างดูรูปภาพและวิดีโอของ LINE (`LineMediaPlayer.exe`) ที่ `%LOCALAPPDATA%\LINE\Data\plugin\LineMediaPlayer\<รุ่น>\platformthemes` LINE จะโหลดไฟล์นี้ตอนเริ่มทำงาน ตัวเชื่อมไม่เปลี่ยนหน้าตาของ LINE และอ่านข้อความจากสิ่งที่แต่ละส่วนวาด จึงไม่ขึ้นกับโครงสร้างหน่วยความจำภายในของ LINE ไม่มีการแก้ไขไฟล์ของ LINE เมื่อถอน LINE MR ใน Add-on Store ของ NVDA ไฟล์ DLL เหล่านี้และโฟลเดอร์ `%LOCALAPPDATA%\LineMR` (log และการตั้งค่า) จะถูกลบเมื่อ NVDA เริ่มทำงานใหม่ ถ้า LINE เปิดอยู่ LINE จะยังใช้ตัวเชื่อมต่อไปจนกว่าจะออกจาก LINE หาก LINE ติดตั้งสำหรับผู้ใช้ทุกคน (Program Files) ให้ลบไฟล์ DLL ในโฟลเดอร์ของ LINE เอง
 
 บันทึกการทำงาน: `%LOCALAPPDATA%\LineMR\logs\bridge.log`
 

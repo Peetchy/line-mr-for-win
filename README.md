@@ -70,7 +70,7 @@ To check that it works, press **NVDA+Shift+Control+L** in LINE: NVDA says whethe
 
 **Updates.** When NVDA starts, LINE MR checks for a new release and offers to install it. You can turn this off or check right away in NVDA menu > Preferences > Settings > **LINE MR**, which also has the **What's new** button.
 
-**Uninstalling.** Remove LINE MR in NVDA's Add-on Store (installed add-ons). The bridge is a single file, `platformthemes\line_a11y.dll`, in LINE's folder; deleting it, or reinstalling LINE, removes it from LINE.
+**Uninstalling.** Remove LINE MR in NVDA's Add-on Store (installed add-ons) and restart NVDA: the bridge (`platformthemes\line_a11y.dll` in LINE's folder, and its copies for LINE's call program and photo viewer) and `%LOCALAPPDATA%\LineMR` are removed too. A running LINE keeps the bridge until it quits. For LINE installed for all users (Program Files), delete `platformthemes\line_a11y.dll` in LINE's folder yourself.
 
 ## Keyboard commands
 

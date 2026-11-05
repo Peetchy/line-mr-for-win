@@ -4,6 +4,7 @@
 
 ### 设置
 - NVDA 设置的“LINE MR”类别显示桥接组件是否在运行,并有按钮可断开它(按原样使用 LINE,不带 LINE MR)或重新连接。两种情况下 LINE 都会重新启动。
+- 在 NVDA 的插件商店中移除 LINE MR 时,现在也会从 LINE、其通话程序和照片查看器中移除桥接组件,并删除 LINE MR 的文件夹 `%LOCALAPPDATA%\LineMR`。正在运行的 LINE 会继续使用桥接组件,直到退出。
 
 ### 消息
 - 在消息列表中,Alt+R 回复所选消息并移到消息输入框,Delete 删除,Shift+Delete 撤回(即 LINE 消息菜单中的项目;LINE 的确认由你自己回答)。在其他地方这些键照常使用,可在 NVDA 的输入手势中更改(由 wengweng0312 贡献)。

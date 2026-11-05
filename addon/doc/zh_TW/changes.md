@@ -4,6 +4,7 @@
 
 ### 設定
 - NVDA 設定的「LINE MR」類別顯示橋接元件是否在執行,並有按鈕可中斷它(照原樣使用 LINE,不帶 LINE MR)或重新連線。兩種情況下 LINE 都會重新啟動。
+- 在 NVDA 的附加元件商店中移除 LINE MR 時,現在也會從 LINE、其通話程式和相片檢視器中移除橋接元件,並刪除 LINE MR 的資料夾 `%LOCALAPPDATA%\LineMR`。正在執行的 LINE 會繼續使用橋接元件,直到結束。
 
 ### 訊息
 - 在訊息列表中,Alt+R 回覆選取的訊息並移到訊息輸入框,Delete 刪除,Shift+Delete 收回(即 LINE 訊息功能表中的項目;LINE 的確認由你自己回答)。在其他地方這些鍵照常使用,可在 NVDA 的輸入手勢中變更(由 wengweng0312 貢獻)。
