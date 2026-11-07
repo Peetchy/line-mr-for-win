@@ -11,6 +11,9 @@
 ### Saving messages
 - New: Ctrl+S in the messages saves the selected message. Photos, videos, files and voice messages: LINE's own Save as (LINE asks where). Text messages (whole, also long ones), locations and contacts: a text file (.txt), LINE MR asks where. Stickers, calls, dates and notices: LINE MR says they cannot be saved. Elsewhere Ctrl+S works as usual; it can be changed in NVDA's Input gestures.
 
+### Photos & videos
+- Several photos and videos can be saved or shared at once (#9): in a chat's Photos & videos window (chat menu), Space ticks the item under the cursor and NVDA says whether it is checked; Tab reaches LINE's bar under the grid (the number selected, Share, Send to Keep Memo, Download, Cancel). Download asks for a folder; Cancel unticks everything and returns to the grid. Enter still opens the item. An album sent in a chat has its photos there too: LINE itself saves several photos only from this window.
+
 ### Chat list
 - The unread count reads "3 unread messages" (was "3 unread"), still at the end of the chat's row.
 - Groups and OpenChats say so after the chat's name: "DHCB, Group, 37 members, ...", "English talk, OpenChat, 3051 members, ..." (#5). Official accounts cannot be told apart from friends: LINE gives no sign of them.

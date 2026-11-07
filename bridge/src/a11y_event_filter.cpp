@@ -393,6 +393,12 @@ void collectTabStops(QWidget *w, QList<QWidget *> &content, QList<QWidget *> &ti
 		// out through its buttons, nearest first (stickers ... attach file).
 		if (inheritsClass(c, "MessageInputPanel"))
 			std::reverse(stops.begin() + first, stops.end());
+		// The selection bar under Photos & videos was created right to left: read it like the screen
+		// ("2 selected", Share, Send to Keep Memo, Download, Cancel).
+		if (inheritsClass(c, "LcImage") && ancestorInheriting(c, "MediaListPanel"))
+			std::stable_sort(stops.begin() + first, stops.end(), [c](QWidget *a, QWidget *b) {
+				return a->mapTo(c, QPoint(0, 0)).x() < b->mapTo(c, QPoint(0, 0)).x();
+			});
 		// The open chat's note banner and the buttons over the messages come before the message
 		// list, which leads on to the message input (user request). The reply bar (Go to the
 		// original message, Cancel reply) sits between the list and the input it belongs to.
@@ -1177,8 +1183,9 @@ public:
 				breadcrumb("show window %s", w->metaObject()->className());
 			repairCachedInterface(w);
 			makeFocusableIn(w);
-			// Its stops were made focusable the first time; the order may have changed since.
-			if (inheritsClass(w, "MessageReplyLayer"))
+			// Their stops were made focusable the first time; the order may have changed since.
+			if (inheritsClass(w, "MessageReplyLayer")
+			    || (inheritsClass(w, "LcImage") && ancestorInheriting(w, "MediaListPanel")))
 				orderTabStops(w->window());
 			tagWidgetsIn(w);
 			if (w->isWindow() && !isContextMenu(w) && menuPressIsRecent()) {
@@ -1257,6 +1264,23 @@ public:
 				menuHidden();
 			if (isViewerWindow(w))
 				viewerHidden(w);
+			// Photos & videos: Cancel in the selection bar hides the bar, and Qt moved focus to the title
+			// bar. Back to the grid the photos were ticked in.
+			if (inheritsClass(w, "LcImage") && ancestorInheriting(w, "MediaListPanel")) {
+				QPointer<QWidget> bar(w);
+				QTimer::singleShot(150, w, [bar] {
+					QWidget *focus = QApplication::focusWidget();
+					if (!bar || bar->isVisible() || !bar->window()->isActiveWindow()
+					    || (focus && focus->isVisible() && !ancestorInheriting(focus, "LcTitleBar")))
+						return;
+					for (QAbstractItemView *grid : ancestorInheriting(bar, "MediaListPanel")->findChildren<QAbstractItemView *>()) {
+						if (grid->isVisible() && isLineListView(grid)) {
+							grid->setFocus(Qt::OtherFocusReason);
+							return;
+						}
+					}
+				});
+			}
 			break;
 		case QEvent::FocusIn:
 			if (isVideoWidget(w))
@@ -1562,6 +1586,10 @@ public:
 				auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
 				if (list && (isListNavigationKey(key->key()) || key->key() == Qt::Key_Left || key->key() == Qt::Key_Right)
 				    && list->moveGridCursor(key->key()))
+					return true;
+				// Space in Photos & videos ticks the item (several can then be downloaded or shared at
+				// once, issue #9); Enter opens it.
+				if (list && !key->isAutoRepeat() && key->key() == Qt::Key_Space && list->toggleMediaTick())
 					return true;
 				// Space / Enter: what a click does (a photo or video opens in LINE's viewer; a sticker
 				// package shows its stickers, and the first one takes focus).

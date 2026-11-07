@@ -116,6 +116,10 @@ public:
 	// Space / Enter in a picker list (Share with...): ticks or unticks the current row the way a
 	// click does (LINE ignores those keys there). False if the row is not a picker row.
 	bool toggleCursorRow();
+	// Space in a chat's Photos & videos grid (issue #9): ticks or unticks the item with its check
+	// button, as a mouse user selects several photos; LINE then shows its selection bar (Download,
+	// Send to Keep Memo, Share, Cancel). False for other lists and for month headings.
+	bool toggleMediaTick();
 	// Applications key / Shift+F10 on a message: Qt asks for the menu at the centre of the row,
 	// which is often beside the bubble (LINE then shows the chat background's menu: Select all /
 	// Set wallpaper). Right-clicks the message's bubble instead; if LINE still shows the background's

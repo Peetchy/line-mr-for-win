@@ -1484,6 +1484,57 @@ void notifyPickerRowLater(QAbstractItemView *view, int row)
 	});
 }
 
+// A chat's Photos & videos grid: the items (not the month headings, which span the grid).
+bool isMediaGridItem(const QAbstractItemView *v, const QModelIndex &idx)
+{
+	return v && idx.isValid() && ancestorInheriting(v, "MediaListPanel")
+	    && v->visualRect(idx).width() < v->viewport()->width() / 2;
+}
+
+// Where a grid item's check button is (MediaListDelegateWidget: 20 px at 154,10 of 189 px).
+QPointF mediaCheckPoint(const QRect &itemRect)
+{
+	return QPointF(itemRect.right() - 24, itemRect.top() + 20);
+}
+
+// Whether a Photos & videos item is ticked: its check button is drawn green (unticked: a white tick on
+// grey). 1 ticked, 0 not, -1 not known (not drawn).
+// Cached briefly: screen readers ask for the state many times in a row.
+int mediaTickState(QAbstractItemView *v, const QModelIndex &idx, bool fresh = false)
+{
+	struct Seen {
+		int state = -1;
+		QElapsedTimer age;
+	};
+	static QHash<QPair<quintptr, int>, Seen> seen;
+	const QPair<quintptr, int> key(quintptr(v), idx.row());
+	if (auto it = seen.constFind(key); !fresh && it != seen.cend() && it->age.isValid() && it->age.elapsed() < 400)
+		return it->state;
+	const QRect r = v->visualRect(idx);
+	if (r.isEmpty() || !v->viewport()->rect().intersects(r))
+		return -1;
+	const CaptureResult cap = captureRegionText(v->viewport(), r);
+	if (cap.skipped)
+		return seen.value(key).state;
+	int state = -1;
+	const QPointF check = mediaCheckPoint(QRect(QPoint(0, 0), r.size()));
+	for (const PaintedImage &pi : cap.images) {
+		if (pi.rect.width() < 12 || pi.rect.width() > 40 || !pi.rect.adjusted(-6, -6, 6, 6).contains(check))
+			continue;
+		const QColor c = pi.average;
+		if (!c.isValid())
+			continue;
+		state = c.green() > c.red() + 40 && c.green() > c.blue() + 20 ? 1 : 0;
+		break;
+	}
+	if (seen.size() > 500)
+		seen.clear();
+	Seen &entry = seen[key];
+	entry.state = state;
+	entry.age.start();
+	return state;
+}
+
 // One row of an LcListView.
 class LineAccessibleListItem : public QAccessibleInterface, public QAccessibleActionInterface {
 public:
@@ -1647,11 +1698,14 @@ public:
 		}
 		st.selectable = true;
 		st.focusable = true;
+		auto *list = dynamic_cast<LineAccessibleList *>(parent());
 		if (bool checked = false; isPickerRow(m_view, rowData(), &checked)) {
 			st.checkable = true;
 			st.checked = checked;
+		} else if (isMediaGridItem(m_view, idx)) {
+			st.checkable = true;
+			st.checked = mediaTickState(m_view, idx) == 1;
 		}
-		auto *list = dynamic_cast<LineAccessibleList *>(parent());
 		const int cursor = list ? list->cursorRow() : m_view->currentIndex().row();
 		// LINE moves the current row without selecting it; NVDA would say "not selected" on every row.
 		if (list && list->hasCursor())
@@ -2411,6 +2465,13 @@ bool LineAccessibleList::moveCursor(int key)
 	return true;
 }
 
+namespace {
+
+void sendHover(QWidget *target, QPointF local);
+void sendLeave(QWidget *target);
+
+} // namespace
+
 bool LineAccessibleList::moveGridCursor(int key)
 {
 	QAbstractItemView *v = view();
@@ -2500,6 +2561,9 @@ bool LineAccessibleList::clickCursorRow()
 		return false;
 	a11yLog("[keyboard] click on row %d of %s", row, v->window()->metaObject()->className());
 	sendClick(v->viewport(), QRectF(r).center());
+	// Photos & videos draws "View in chat" over the item under the mouse; the item read it too.
+	if (ancestorInheriting(v, "MediaListPanel"))
+		sendLeave(v->viewport());
 	return true;
 }
 
@@ -2732,6 +2796,41 @@ bool LineAccessibleList::toggleCursorRow()
 	v->scrollTo(idx);
 	sendClick(v->viewport(), QRectF(v->visualRect(idx)).center());
 	notifyPickerRowLater(v, row);
+	return true;
+}
+
+bool LineAccessibleList::toggleMediaTick()
+{
+	QAbstractItemView *v = view();
+	const int row = cursorRow();
+	if (!v || !v->model() || row < 0)
+		return false;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	if (!isMediaGridItem(v, idx))
+		return false;
+	v->scrollTo(idx);
+	const QRect r = v->visualRect(idx);
+	if (!v->viewport()->rect().contains(mediaCheckPoint(r).toPoint()))
+		return false;
+	a11yLog("[content] tick item %d", row);
+	sendHover(v->viewport(), mediaCheckPoint(r));
+	sendClick(v->viewport(), mediaCheckPoint(r));
+	QPointer<QAbstractItemView> guard(v);
+	QTimer::singleShot(200, v, [guard, row] {
+		auto *list = listFor(guard);
+		if (!list || !list->view())
+			return;
+		// The hover made LINE draw "View in chat" over the item.
+		sendLeave(list->view()->viewport());
+		const QModelIndex idx = list->view()->model()->index(row, 0, list->view()->rootIndex());
+		a11yLog("[content] item %d ticked: %d", row, mediaTickState(list->view(), idx, true));
+		if (QAccessibleInterface *item = list->itemAt(row)) {
+			QAccessible::State changed;
+			changed.checked = true;
+			QAccessibleStateChangeEvent event(item, changed);
+			QAccessible::updateAccessibility(&event);
+		}
+	});
 	return true;
 }
 
@@ -3145,9 +3244,12 @@ bool fileDialogShown()
 void saveMediaItem(QAbstractItemView *v, const QModelIndex &idx)
 {
 	const QRect r = v->visualRect(idx);
-	const QPointF check(r.right() - 24, r.top() + 20);
-	sendHover(v->viewport(), check);
-	sendClick(v->viewport(), check);
+	const QPointF check = mediaCheckPoint(r);
+	// Already ticked (Space): Download saves it with the other ticked items.
+	if (mediaTickState(v, idx, true) != 1) {
+		sendHover(v->viewport(), check);
+		sendClick(v->viewport(), check);
+	}
 	QPointer<QWidget> window(v->window());
 	QTimer::singleShot(300, window, [window] {
 		if (!window)
