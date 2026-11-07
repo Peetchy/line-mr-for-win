@@ -407,12 +407,12 @@ msgid "LINE MR's audio helper is missing. Reinstall the add-on."
 msgstr "LINE MR の音声ヘルパーがありません。アドオンを再インストールしてください。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
-msgid "Transcribing a voice message of {seconds} seconds. Alt+T cancels."
-msgstr "{seconds} 秒のボイスメッセージを文字に起こしています。Alt+T で中止します。"
+msgid "Transcribing a voice message of {seconds} seconds. Alt+Shift+T cancels."
+msgstr "{seconds} 秒のボイスメッセージを文字に起こしています。Alt+Shift+T で中止します。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
-msgid "Transcribing the voice message. Alt+T cancels."
-msgstr "ボイスメッセージを文字に起こしています。Alt+T で中止します。"
+msgid "Transcribing the voice message. Alt+Shift+T cancels."
+msgstr "ボイスメッセージを文字に起こしています。Alt+Shift+T で中止します。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
 msgid "LINE's sound cannot be recorded on this computer (Windows 10 version 2004 or later is needed)."
@@ -439,8 +439,8 @@ msgid "Not a voice message."
 msgstr "ボイスメッセージではありません。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
-msgid "A voice message is being transcribed. Alt+T cancels it."
-msgstr "ボイスメッセージを文字に起こしている最中です。Alt+T で中止します。"
+msgid "A voice message is being transcribed. Alt+Shift+T cancels it."
+msgstr "ボイスメッセージを文字に起こしている最中です。Alt+Shift+T で中止します。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
 msgid "Voice message text"
@@ -471,8 +471,8 @@ msgid "The speech model for voice messages is not downloaded yet. LINE MR tries 
 msgstr "ボイスメッセージ用の音声モデルはまだダウンロードされていません。NVDA の次回起動時に再試行します。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
-msgid "Voice message transcription is ready. In a chat, press Alt+T on a voice message."
-msgstr "ボイスメッセージの文字起こしの準備ができました。チャットでボイスメッセージを選んで Alt+T を押してください。"
+msgid "Voice message transcription is ready. In a chat, press Alt+Shift+T on a voice message."
+msgstr "ボイスメッセージの文字起こしの準備ができました。チャットでボイスメッセージを選んで Alt+Shift+T を押してください。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
 msgid "The speech model for voice messages is still downloading ({percent}%)."
@@ -491,10 +491,6 @@ msgid "Speech recognition failed (exit code {code})."
 msgstr "音声認識に失敗しました (終了コード {code})。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
-msgid "Speech model:"
-msgstr "音声モデル:"
-
-#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
 msgid "Same as NVDA"
 msgstr "NVDA と同じ"
 
@@ -511,20 +507,8 @@ msgid "Downloaded"
 msgstr "ダウンロード済み"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
-msgid "Not downloaded"
-msgstr "未ダウンロード"
-
-#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
 msgid "Downloading, {percent}%"
 msgstr "ダウンロード中 {percent}%"
-
-#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
-msgid "&Transcribe voice messages with Alt+T (downloads a speech model of {size} MB once)"
-msgstr "Alt+T でボイスメッセージを文字に起こす (音声モデル {size} MB を一度ダウンロード)(&T)"
-
-#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
-msgid "Delete the downloaded speech model ({size} MB)? Turning transcription on again downloads it again."
-msgstr "ダウンロードした音声モデル ({size} MB) を削除しますか? 文字起こしを再びオンにすると、もう一度ダウンロードします。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
 msgid "Close"
@@ -545,7 +529,6 @@ msgstr "ボイスメッセージを聞き取り中: {total} 秒中 {done} 秒"
 #. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
 msgid "Listening to the voice message: {done} seconds"
 msgstr "ボイスメッセージを聞き取り中: {done} 秒"
-
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
 msgid "Getting the voice message from LINE..."
@@ -572,5 +555,177 @@ msgid "Converting to text: about {percent}%"
 msgstr "文字に変換中: 約 {percent}%"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
-msgid "&Ask for the language before each transcription"
-msgstr "文字起こしのたびに言語を確認する(&A)"
+msgid "&Ask for the model and language before each transcription"
+msgstr "文字起こしのたびにモデルと言語を確認する(&A)"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "&Transcribe voice messages with Alt+Shift+T (downloads the chosen speech model once)"
+msgstr "Alt+Shift+T でボイスメッセージを文字に起こす (選んだ音声モデルを一度だけダウンロード)(&T)"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Speech &model:"
+msgstr "音声モデル(&M):"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "&Browse for a model file..."
+msgstr "モデルファイルを選ぶ...(&B)"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Model state:"
+msgstr "モデルの状態:"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Not downloaded: {size} MB are downloaded when you press OK"
+msgstr "未ダウンロード: OK を押すと {size} MB をダウンロードします"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Your own file"
+msgstr "自分のファイル"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "File not found"
+msgstr "ファイルが見つかりません"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Checking whether the speech recognizer can load the file..."
+msgstr "音声認識プログラムがこのファイルを読み込めるか確認しています..."
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Choose a whisper.cpp speech model"
+msgstr "whisper.cpp の音声モデルを選ぶ"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "whisper.cpp models (*.bin)"
+msgstr "whisper.cpp モデル (*.bin)"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "All files"
+msgstr "すべてのファイル"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "The speech recognizer could not load this file. It may be made for a newer whisper.cpp; choose another file."
+msgstr "音声認識プログラムはこのファイルを読み込めませんでした。新しい whisper.cpp 用に作られた可能性があります。別のファイルを選んでください。"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Delete the downloaded speech models ({size} MB)? Turning transcription on again downloads the chosen one again."
+msgstr "ダウンロードした音声モデル ({size} MB) を削除しますか? 文字起こしを再びオンにすると、選んだモデルをもう一度ダウンロードします。"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Delete the speech model you used before, {name} ({size} MB)? You can download it again later."
+msgstr "前に使っていた音声モデル {name} ({size} MB) を削除しますか? 後でもう一度ダウンロードできます。"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "best for Thai"
+msgstr "タイ語に最適"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "many languages"
+msgstr "多言語"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "{name} ({strength}, {size} MB, downloaded)"
+msgstr "{name} ({strength}、{size} MB、ダウンロード済み)"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "{name} ({strength}, {size} MB download)"
+msgstr "{name} ({strength}、{size} MB のダウンロード)"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Your model file: {name}"
+msgstr "自分のモデルファイル: {name}"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "The speech model file {path} was not found. Choose another model in NVDA's settings, category LINE MR."
+msgstr "音声モデルファイル {path} が見つかりません。NVDA の設定の LINE MR カテゴリで別のモデルを選んでください。"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "The file can be used."
+msgstr "このファイルは使えます。"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "The file can be used, but it is an English-only model: it cannot transcribe Thai or other languages."
+msgstr "このファイルは使えますが、英語専用のモデルです。タイ語などほかの言語は文字にできません。"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "The speech model file is incomplete or damaged. Download it again."
+msgstr "音声モデルファイルが不完全か壊れています。もう一度ダウンロードしてください。"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "This is not a whisper.cpp speech model (ggml .bin file, for example ggml-small.bin from huggingface.co/ggerganov/whisper.cpp)."
+msgstr "これは whisper.cpp の音声モデル (ggml の .bin ファイル。例: huggingface.co/ggerganov/whisper.cpp の ggml-small.bin) ではありません。"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "This is a {format} file. LINE MR needs a whisper.cpp model (ggml .bin file, for example ggml-small.bin from huggingface.co/ggerganov/whisper.cpp); convert the model first."
+msgstr "これは {format} ファイルです。LINE MR には whisper.cpp のモデル (ggml の .bin ファイル。例: huggingface.co/ggerganov/whisper.cpp の ggml-small.bin) が必要です。先にモデルを変換してください。"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "This ggml file is not a Whisper speech model."
+msgstr "この ggml ファイルは Whisper の音声モデルではありません。"
+
+#. Translators: speech model choice (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "This speech model uses a format this version of LINE MR cannot read."
+msgstr "この音声モデルは、このバージョンの LINE MR では読めない形式です。"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "Thai only"
+msgstr "タイ語のみ"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "stickers"
+msgstr "スタンプ"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "calls"
+msgstr "通話"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "dates"
+msgstr "日付"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "notices"
+msgstr "お知らせ"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "Saving {kind} is not supported."
+msgstr "{kind}の保存には対応していません。"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "Saving this kind of message is not supported."
+msgstr "この種類のメッセージの保存には対応していません。"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "LINE offers no way to save this message (it may have expired)."
+msgstr "LINE にはこのメッセージを保存する方法がありません (期限切れの可能性があります)。"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "LINE is busy. Press Ctrl+S again."
+msgstr "LINE が処理中です。もう一度 Ctrl+S を押してください。"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "Save message as text file"
+msgstr "メッセージをテキストファイルとして保存"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "Text files (*.txt)"
+msgstr "テキストファイル (*.txt)"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "The message could not be saved: {error}"
+msgstr "メッセージを保存できませんでした: {error}"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "Saved as {name}"
+msgstr "{name} として保存しました"
+
+#. Translators: Save message (appModules/line/saveMessage.py) and speech models
+msgid "Saves the selected message: photos, videos, files and voice messages with LINE's Save as, text as a text file"
+msgstr "選んだメッセージを保存します: 写真、動画、ファイル、ボイスメッセージは LINE の「名前を付けて保存」で、テキストはテキストファイルとして"
+
+#. Translators: speech model choice
+msgid "Thai only, most accurate, very slow"
+msgstr "タイ語のみ、最も正確、とても遅い"
+
+#. Translators: the Translate command (Alt+T)
+msgid "Translates the selected message (Translate in LINE's message menu)"
+msgstr "選択したメッセージを翻訳します (LINE のメッセージメニューの「翻訳」)"

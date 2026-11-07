@@ -1,6 +1,6 @@
 # Hugging Face Whisper (safetensors, bf16/f16/f32) -> whisper.cpp ggml f16, numpy only.
 # Port of whisper.cpp models/convert-h5-to-ggml.py without torch / transformers.
-# Usage: convert_hf_to_ggml.py <hf dir with model.safetensors, vocab.json, config.json, mel_filters.npz> <out.bin>
+# Usage: convert_hf_to_ggml.py <hf dir with model.safetensors (or shards + index), vocab.json, config.json, mel_filters.npz> <out.bin>
 import json
 import struct
 import sys
@@ -84,8 +84,18 @@ for key, _ in sorted(tokens.items(), key=lambda x: x[1]):
 	fout.write(struct.pack("i", len(text)))
 	fout.write(text)
 
+def tensors(src):
+	"""model.safetensors, or the shards listed in model.safetensors.index.json (large models)."""
+	if (src / "model.safetensors").exists():
+		yield from load(src / "model.safetensors")
+		return
+	index = json.load((src / "model.safetensors.index.json").open(encoding="utf8"))
+	for shard in sorted(set(index["weight_map"].values())):
+		yield from load(src / shard)
+
+
 count = 0
-for name, data in load(src / "model.safetensors"):
+for name, data in tensors(src):
 	if name == "proj_out.weight":
 		continue
 	nn = name.split(".")[1:]

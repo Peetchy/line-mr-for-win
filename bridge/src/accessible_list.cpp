@@ -17,6 +17,7 @@
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
 #include <QtCore/QItemSelectionModel>
+#include <QtCore/QMimeData>
 #include <QtCore/QMetaProperty>
 #include <QtCore/QPointer>
 #include <QtCore/QRegularExpression>
@@ -3209,7 +3210,52 @@ struct PendingMessageCommand {
 	QPersistentModelIndex row;
 	QStringList labels;
 	QElapsedTimer at;
+	// What the item is chosen for: a plain command, or Save message (LINE's "Save as...", or Copy
+	// for the add-on to save the text).
+	enum Purpose { Command, SaveAs, CopyText } purpose = Command;
+	QString kind;     // the message kind, for the add-on's messages
+	QString fileName; // suggested name of the text file
 } g_messageCommand;
+
+// Save message, text: LINE's Copy puts the message on the clipboard; the text is taken from there
+// and what the clipboard held before is put back.
+void captureCopiedText(const QString &kind, const QString &fileName)
+{
+	QClipboard *clipboard = QGuiApplication::clipboard();
+	auto *backup = new QMimeData;
+	if (const QMimeData *before = clipboard->mimeData()) {
+		for (const QString &format : before->formats())
+			backup->setData(format, before->data(format));
+		if (before->hasImage())
+			backup->setImageData(before->imageData());
+	}
+	auto done = std::make_shared<bool>(false);
+	auto conn = std::make_shared<QMetaObject::Connection>();
+	auto finish = [clipboard, backup, done, conn, kind, fileName](bool changed) {
+		if (*done)
+			return;
+		*done = true;
+		QObject::disconnect(*conn);
+		const QString text = changed ? clipboard->text() : QString();
+		if (backup->formats().isEmpty()) {
+			clipboard->clear();
+			delete backup;
+		} else {
+			clipboard->setMimeData(backup); // the clipboard owns it now
+		}
+		if (!changed)
+			a11yLog("[save] LINE's Copy changed nothing on the clipboard");
+		if (text.isEmpty())
+			requestSave(QStringLiteral("nosave"), kind);
+		else
+			requestSave(QStringLiteral("text"), kind, fileName, text);
+	};
+	*conn = QObject::connect(clipboard, &QClipboard::dataChanged, qApp, [finish] {
+		// LINE may set the text in steps: read it once LINE is done.
+		QTimer::singleShot(50, qApp, [finish] { finish(true); });
+	});
+	QTimer::singleShot(2000, qApp, [finish] { finish(false); });
+}
 
 // The chat's message list in a window showing one (the main window or a popped-out chat).
 QAbstractItemView *visibleMessageList()
@@ -3589,7 +3635,7 @@ bool LineAccessibleList::openReactions(int row, bool remove)
 bool LineAccessibleList::openMessageCommand(int command)
 {
 	QAbstractItemView *v = view();
-	if (!v || !v->hasFocus() || !v->currentIndex().isValid() || command < 0 || command > 2)
+	if (!v || !v->hasFocus() || !v->currentIndex().isValid() || command < 0 || command > 3)
 		return false;
 	if (g_messageCommand.source && g_messageCommand.at.isValid() && g_messageCommand.at.elapsed() < 2000)
 		return true;
@@ -3597,6 +3643,7 @@ bool LineAccessibleList::openMessageCommand(int command)
 		{ QStringLiteral("Reply"), QStringLiteral("回覆"), QStringLiteral("回复"), QStringLiteral("回復"), QStringLiteral("返信"), QStringLiteral("ตอบกลับ") },
 		{ QStringLiteral("Delete"), QStringLiteral("刪除"), QStringLiteral("删除"), QStringLiteral("削除"), QStringLiteral("ลบ") },
 		{ QStringLiteral("Unsend"), QStringLiteral("收回"), QStringLiteral("撤回"), QStringLiteral("送信取消"), QStringLiteral("送信を取り消す"), QStringLiteral("ยกเลิกข้อความ"), QStringLiteral("ยกเลิกการส่ง") },
+		{ QStringLiteral("Translate"), QStringLiteral("翻譯"), QStringLiteral("翻译"), QStringLiteral("翻訳"), QStringLiteral("แปล") },
 	};
 	g_messageCommand.source = v;
 	g_messageCommand.row = v->currentIndex();
@@ -3606,6 +3653,89 @@ bool LineAccessibleList::openMessageCommand(int command)
 	if (!openRowMenu()) {
 		g_messageCommand = PendingMessageCommand();
 		return false;
+	}
+	return true;
+}
+
+bool LineAccessibleList::saveMessage()
+{
+	QAbstractItemView *v = view();
+	const int row = cursorRow();
+	if (!v || !v->model() || row < 0)
+		return false;
+	if (g_messageCommand.source && g_messageCommand.at.isValid() && g_messageCommand.at.elapsed() < 2000)
+		return true;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	v->scrollTo(idx);
+	const QRect r = v->visualRect(idx);
+	const CaptureResult cap = captureRegionText(v->viewport(), r);
+	if (cap.skipped) {
+		requestSave(QStringLiteral("busy"), QString());
+		return true;
+	}
+	bool fileSize = false, time = false;
+	qreal minX = r.width(), maxRight = 0, timeLeft = r.width(), timeRight = -1;
+	for (const CapturedText &it : cap.items) {
+		const QString t = cleanText(it.text);
+		if (t.isEmpty() || isPhotoMenu(t))
+			continue;
+		fileSize = fileSize || isFileSize(t);
+		if (isTimeOrReceipt(t)) {
+			time = true;
+			timeLeft = qMin(timeLeft, it.pos.x());
+			timeRight = qMax(timeRight, it.pos.x() + it.width);
+			continue;
+		}
+		minX = qMin(minX, it.pos.x());
+		maxRight = qMax(maxRight, it.pos.x() + it.width);
+	}
+	QRectF bubble;
+	const char *found = messageKind(cap, r, fileSize, &bubble);
+	const QString kind = found ? QString::fromLatin1(found) : QString();
+	// As judgeReactions(): notices are centred, dates have no time. A long message of the user's own
+	// is about centred too (a 370 px row: text 93-315), but its time sits right beside the bubble
+	// (left of own messages, right of received ones).
+	const bool timeBeside = time && (timeRight <= minX + 2 || timeLeft >= maxRight - 2);
+	const bool centred = !timeBeside && maxRight > 0 && minX > r.width() * 0.25
+	                     && qAbs((minX + maxRight) / 2 - r.width() / 2.0) < r.width() * 0.08;
+	const QString chat = chatNameFor(v);
+	const QString fileName = (chat.isEmpty() ? QStringLiteral("LINE") : chat) + u' '
+	    + QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HHmm"));
+	static const QStringList media = { QStringLiteral("Photo"), QStringLiteral("Photos"), QStringLiteral("Video"),
+		                               QStringLiteral("File"), QStringLiteral("Voice message") };
+	PendingMessageCommand::Purpose purpose;
+	if (media.contains(kind)) {
+		purpose = PendingMessageCommand::SaveAs;
+	} else if (kind == QLatin1StringView("Location") || kind == QLatin1StringView("Contact")) {
+		// LINE's Copy is for text messages; these are saved as read.
+		QAccessibleInterface *item = itemAt(row);
+		const QString text = item ? item->text(QAccessible::Name) : QString();
+		requestSave(text.isEmpty() ? QStringLiteral("nosave") : QStringLiteral("text"), kind, fileName, text);
+		return true;
+	} else if (kind.isEmpty() && time && !centred && !cap.items.isEmpty()) {
+		purpose = PendingMessageCommand::CopyText;
+	} else {
+		// Stickers, calls, pictures the bridge cannot tell apart, dates, notices.
+		requestSave(QStringLiteral("unsupported"), !kind.isEmpty() ? kind : time ? QStringLiteral("Notice") : QStringLiteral("Date"));
+		return true;
+	}
+	static const QStringList saveAs = { QStringLiteral("Save as"), QStringLiteral("บันทึกเป็น"), QStringLiteral("名前を付けて保存"),
+		                                QStringLiteral("另存为"), QStringLiteral("另存新檔"), QStringLiteral("另存為") };
+	static const QStringList copy = { QStringLiteral("Copy"), QStringLiteral("คัดลอก"), QStringLiteral("コピー"),
+		                              QStringLiteral("复制"), QStringLiteral("複製") };
+	g_messageCommand.source = v;
+	g_messageCommand.row = idx;
+	g_messageCommand.labels = purpose == PendingMessageCommand::SaveAs ? saveAs : copy;
+	g_messageCommand.purpose = purpose;
+	g_messageCommand.kind = kind.isEmpty() ? QStringLiteral("Text") : kind;
+	g_messageCommand.fileName = fileName;
+	g_messageCommand.at.start();
+	if (v->currentIndex() != idx)
+		v->setCurrentIndex(idx);
+	a11yLog("[save] row %d: %s", row, qPrintable(g_messageCommand.kind));
+	if (!openRowMenu()) {
+		g_messageCommand = PendingMessageCommand();
+		requestSave(QStringLiteral("nosave"), kind);
 	}
 	return true;
 }
@@ -3693,9 +3823,13 @@ QWidget *takePendingMenuChoice(const QList<QWidget *> &items)
 		    && g_messageCommand.row.isValid() && g_messageCommand.row.model() == source->model()
 		    && source->currentIndex() == g_messageCommand.row;
 		const QStringList wanted = g_messageCommand.labels;
+		const PendingMessageCommand command = g_messageCommand;
 		g_messageCommand = PendingMessageCommand(); // consume once; never continue into a confirmation
-		if (!valid)
+		if (!valid) {
+			if (command.purpose != PendingMessageCommand::Command)
+				requestSave(QStringLiteral("nosave"), command.kind);
 			return nullptr;
+		}
 		for (QWidget *item : items) {
 			QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(item);
 			QString text = iface ? cleanText(iface->text(QAccessible::Name)).remove(u'&').trimmed() : QString();
@@ -3703,8 +3837,25 @@ QWidget *takePendingMenuChoice(const QList<QWidget *> &items)
 				text.chop(1);
 			if (item->isEnabled() && wanted.contains(text.trimmed())) {
 				a11yLog("[message-command] activating %s", qUtf8Printable(text));
+				if (command.purpose == PendingMessageCommand::CopyText)
+					captureCopiedText(command.kind, command.fileName);
+				else if (command.purpose == PendingMessageCommand::SaveAs)
+					requestSave(QStringLiteral("media"), command.kind);
 				return item;
 			}
+		}
+		if (command.purpose != PendingMessageCommand::Command) {
+			// Save message: no Save as / Copy here (an expired file): close the menu, the add-on says so.
+			a11yLog("[save] no %s in the menu", command.purpose == PendingMessageCommand::SaveAs ? "Save as" : "Copy");
+			if (!items.isEmpty()) {
+				QPointer<QWidget> menu = items.first()->window();
+				QTimer::singleShot(0, qApp, [menu] {
+					if (menu)
+						menu->hide();
+				});
+			}
+			requestSave(QStringLiteral("nosave"), command.kind);
+			return nullptr;
 		}
 		// Not offered for this message (Unsend on someone else's): the menu stays open for the user.
 		a11yLog("[message-command] command unavailable for this row");

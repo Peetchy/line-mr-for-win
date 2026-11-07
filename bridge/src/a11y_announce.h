@@ -32,4 +32,10 @@ void requestTranscription(const QString &status, int seconds);
 // signal is consumed.
 bool transcriptionPlayRequested();
 
+// The add-on's Save message command (Ctrl+S): writes %LOCALAPPDATA%\LineMR\save-request.txt
+// (lines "status <text|media|nosave|unsupported|busy>", "kind <message kind>", "name <suggested
+// file name>", tab-separated), the text to save (status text) to save-text.txt (UTF-8), and signals
+// "Local\lineMR.saveRequest". The add-on asks where to save the text, or says why nothing is saved.
+void requestSave(const QString &status, const QString &kind, const QString &name = QString(), const QString &text = QString());
+
 } // namespace line_a11y

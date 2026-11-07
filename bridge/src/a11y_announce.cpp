@@ -76,6 +76,25 @@ void requestTranscription(const QString &status, int seconds)
 	a11yLog("[transcribe] request signalled: %s, %d s (%d)", qPrintable(status), seconds, int(ok));
 }
 
+void requestSave(const QString &status, const QString &kind, const QString &name, const QString &text)
+{
+	QFile body(bridgeDirectory() + QStringLiteral("save-text.txt"));
+	if (body.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+		body.write(text.toUtf8());
+		body.close();
+	}
+	QFile f(bridgeDirectory() + QStringLiteral("save-request.txt"));
+	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+		return;
+	QString safeName = name;
+	safeName.replace(u'\t', u' ').replace(u'\n', u' ').replace(u'\r', u' ');
+	f.write(QStringLiteral("status\t%1\nkind\t%2\nname\t%3\n").arg(status, kind, safeName).toUtf8());
+	f.close();
+	static const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, L"Local\\lineMR.saveRequest");
+	const BOOL ok = event && SetEvent(event);
+	a11yLog("[save] request signalled: %s, %s, %d characters (%d)", qPrintable(status), qPrintable(kind), int(text.size()), int(ok));
+}
+
 bool transcriptionPlayRequested()
 {
 	static const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, L"Local\\lineMR.transcribePlay");

@@ -1495,14 +1495,24 @@ public:
 			// remappable Alt+R/Delete/Shift+Delete commands and only send these from messages.
 			const auto commandModifiers = Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier;
 			if (isMessageList(w) && key->modifiers() == commandModifiers
-			    && key->key() >= Qt::Key_F9 && key->key() <= Qt::Key_F11) {
+			    && ((key->key() >= Qt::Key_F9 && key->key() <= Qt::Key_F11) || key->key() == Qt::Key_F7)) {
 				if (!key->isAutoRepeat()) {
+					// F9 reply, F10 delete, F11 unsend, F7 translate (Alt+T).
+					const int command = key->key() == Qt::Key_F7 ? 3 : key->key() - Qt::Key_F9;
 					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
-						list->openMessageCommand(key->key() - Qt::Key_F9);
+						list->openMessageCommand(command);
 				}
 				return true;
 			}
-			// The add-on's Transcribe voice message command (Alt+T).
+			// The add-on's Save message command (Ctrl+S).
+			if (isMessageList(w) && key->modifiers() == commandModifiers && key->key() == Qt::Key_F8) {
+				if (!key->isAutoRepeat()) {
+					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
+						list->saveMessage();
+				}
+				return true;
+			}
+			// The add-on's Transcribe voice message command (Alt+Shift+T).
 			if (isMessageList(w) && key->modifiers() == commandModifiers && key->key() == Qt::Key_F12) {
 				if (!key->isAutoRepeat()) {
 					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
@@ -1581,10 +1591,16 @@ public:
 			if (isLineListView(w)
 			    && (key->key() == Qt::Key_Space || key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)
 			    && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier))) {
-				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
-				    list && !key->isAutoRepeat()
-				    && (isMessageList(w) ? list->openSeeMore() || list->openLink() || list->openMessageContent()
-				                         : list->openSearchResult() || list->toggleCursorRow() || list->openPostMedia()))
+				auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
+				// Messages: never left to LINE. LINE acts on a row it keeps itself, which is not the one
+				// NVDA read (34): Enter on a text message opened a video the user had saved before.
+				if (list && isMessageList(w)) {
+					if (!key->isAutoRepeat() && !list->openSeeMore() && !list->openLink() && !list->openMessageContent())
+						a11yLog("[keyboard] message row %d: nothing to open", list->cursorRow());
+					return true;
+				}
+				if (list && !key->isAutoRepeat()
+				    && (list->openSearchResult() || list->toggleCursorRow() || list->openPostMedia()))
 					return true;
 			}
 			// The Applications key on a message: its menu (see the context menu event above). Handled on

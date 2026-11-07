@@ -125,13 +125,20 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# LINE downloads and updates its helper processes (LineCall.exe, LineMediaPlayer.exe) on its
 		# own; give every version the bridge before a call comes in or a photo is opened.
 		threading.Thread(target=_repairHelperBridges, name="lineMR.helperBridgeRepair", daemon=True).start()
-		# Requests from the bridge's "Transcribe voice message" (menu item or Alt+T).
+		# Requests from the bridge's "Transcribe voice message" (menu item or Alt+Shift+T).
 		try:
 			from appModules.line import transcribe
 
 			transcribe.startListener()
 		except Exception:
 			log.error("LINE MR: cannot listen for voice message transcription requests", exc_info=True)
+		# Requests from the bridge's Save message (Ctrl+S): a text to save, or why nothing is saved.
+		try:
+			from appModules.line import saveMessage
+
+			saveMessage.startListener()
+		except Exception:
+			log.error("LINE MR: cannot listen for save requests", exc_info=True)
 
 	def terminate(self):
 		try:
@@ -140,6 +147,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			transcribe.stopListener()
 		except Exception:
 			log.debugWarning("LINE MR: stopping the transcription listener failed", exc_info=True)
+		try:
+			from appModules.line import saveMessage
+
+			saveMessage.stopListener()
+		except Exception:
+			log.debugWarning("LINE MR: stopping the save listener failed", exc_info=True)
 		self._listener.stop()
 		if self._volumeKeeper:
 			self._volumeKeeper.stop()

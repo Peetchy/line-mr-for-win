@@ -2,8 +2,14 @@
 
 ## Version 0.5.6
 
+### Keys
+- Alt+T in the messages now translates the selected message (Translate in LINE's message menu); voice message transcription moved to Alt+Shift+T.
+
 ### Voice messages to text
-- New: Alt+T on a voice message (or "Transcribe voice message" in its menu) turns it into text on this computer; the text opens in a window where it can be read, edited and copied. Off by default: turning it on in NVDA's settings, category LINE MR, downloads the speech model once (879 MB, Typhoon Whisper Turbo, trained on Thai). See the guide, "Voice messages to text".
+- New: Alt+Shift+T on a voice message (or "Transcribe voice message" in its menu) turns it into text on this computer; the text opens in a window where it can be read, edited and copied. Off by default: turning it on in NVDA's settings, category LINE MR, downloads the speech model chosen there once. Six models: Typhoon Whisper Turbo (874 MB, the default: best for Thai, also English and Japanese, the least memory of the Typhoon models), Typhoon Whisper Medium and Large v3 (Thai only; Large v3 the most accurate, but very slow), and OpenAI's Whisper Small, Medium and Large v3 Turbo (many languages); or "Browse for a model file" for a whisper.cpp model of your own, which LINE MR checks before using it. The dialog before each transcription asks for the model and the language. See the guide, "Voice messages to text".
+
+### Saving messages
+- New: Ctrl+S in the messages saves the selected message. Photos, videos, files and voice messages: LINE's own Save as (LINE asks where). Text messages (whole, also long ones), locations and contacts: a text file (.txt), LINE MR asks where. Stickers, calls, dates and notices: LINE MR says they cannot be saved. Elsewhere Ctrl+S works as usual; it can be changed in NVDA's Input gestures.
 
 ### Chat list
 - The unread count reads "3 unread messages" (was "3 unread"), still at the end of the chat's row.

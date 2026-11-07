@@ -1,12 +1,13 @@
-# Voice message transcription: LINE plays the message, the add-on records LINE's sound and turns it
-# into text, offline. Off until the user turns it on in the settings, which downloads what it needs
-# (speechModel.py: whisper.cpp and the Thai-trained Typhoon Whisper Turbo model, ~880 MB).
+# Voice message transcription: the add-on turns LINE's voice messages into text, offline. Off until
+# the user turns it on in the settings, which downloads what it needs (speechModel.py: whisper.cpp
+# and the speech model chosen there; or a model file of the user's).
 #
-# 1. The bridge (menu item "Transcribe voice message", or Alt+T in the message list, which sends it
+# 1. The bridge (menu item "Transcribe voice message", or Alt+Shift+T in the message list, which sends it
 #    the private key Control+Alt+Shift+F12) checks that the row is a voice message, writes
 #    %LOCALAPPDATA%\LineMR\transcribe-request.txt (status, length in seconds, LINE's process id)
 #    and signals Local\lineMR.transcribeRequest.
-# 2. Unless the user turned it off, a dialog asks for the message's language (`LanguageDialog`).
+# 2. Unless the user turned it off, a dialog asks for the speech model and the message's language
+#    (`LanguageDialog`).
 # 3. A `Job` thread looks for LINE's own copy of the message (voiceCache.py: LINE keeps every voice
 #    message it has played as an .m4a file; found by its length) and decodes it (lineMR_audio.exe
 #    decode): nothing is played. A message never played has no copy: then lineMR_audio.exe capture
@@ -23,7 +24,7 @@
 #    editable field with Copy and Close; Cancel / Escape while it works cancels the job.
 #
 # Nothing here runs on NVDA's main thread except speech and the dialog (queueHandler /
-# wx.CallAfter); the worker waits on child processes with timeouts and can be cancelled (Alt+T
+# wx.CallAfter); the worker waits on child processes with timeouts and can be cancelled (Alt+Shift+T
 # again), so NVDA never freezes. The recording is deleted afterwards.
 
 import ctypes
@@ -81,7 +82,8 @@ _SILENCE = 3.0
 #: Seconds from the play request until LINE's sound starts (LINE loads the message first).
 _START_ALLOWANCE = 8
 #: A recognizer that prints nothing for this long is taken as hung (Whisper prints a segment per
-#: 30 s window of audio; large models on slow computers need a few minutes for one).
+#: 30 s window of audio; large models on slow computers need a few minutes for one). Slow models get
+#: two windows' worth of their expected time (`_speed()`).
 _ENGINE_SILENCE_TIMEOUT = 300
 
 _kernel32 = ctypes.WinDLL("kernel32")
@@ -186,32 +188,49 @@ def enabled():
 	return _conf()["transcribeVoiceMessages"]
 
 
+def selectedModel(modelId=None):
+	"""The speech model of a setting's value (default: the configured one)."""
+	return speechModel.model(modelId or _conf()["transcribeModel"], _conf()["transcribeCustomModel"])
+
+
+def ready(m=None):
+	"""The program and the model `m` (default: the configured one) are on disk."""
+	m = m or selectedModel()
+	return speechModel.programInstalled() and m.downloaded()
+
+
 def available():
 	"""On and downloaded."""
-	return enabled() and speechModel.installed()
+	return enabled() and ready()
 
 
-def unavailableMessage():
-	"""Why Alt+T does nothing now (None when it works)."""
+def unavailableMessage(m=None):
+	"""Why Alt+Shift+T does nothing now (None when it works)."""
 	if not enabled():
-		# Translators: Reported when Alt+T is pressed on a message while voice message transcription is off.
+		# Translators: Reported when Alt+Shift+T is pressed on a message while voice message transcription is off.
 		return _("Voice message transcription is off. Turn it on in NVDA's settings, category LINE MR.")
+	m = m or selectedModel()
 	download = speechModel.downloading()
-	if download is not None:
-		# Translators: Reported when Alt+T is pressed while the speech model downloads ({percent} = how much is done).
+	if download is not None and (download.model is None or download.model.id == m.id):
+		# Translators: Reported when Alt+Shift+T is pressed while the speech model downloads ({percent} = how much is done).
 		return _("The speech model for voice messages is still downloading ({percent}%).").format(
 			percent=download.done * 100 // max(1, download.total)
 		)
-	if not speechModel.installed():
-		# Translators: Reported when Alt+T is pressed but the speech model is missing (a download failed).
+	if m.id == speechModel.CUSTOM and not m.downloaded():
+		# Translators: Reported when the speech model file the user chose is gone ({path} = the file).
+		return _("The speech model file {path} was not found. Choose another model in NVDA's settings, category LINE MR.").format(
+			path=m.path
+		)
+	if not ready(m):
+		# Translators: Reported when Alt+Shift+T is pressed but the speech model is missing (a download failed).
 		return _("The speech model for voice messages is not downloaded yet. LINE MR tries again when NVDA starts.")
 	return None
 
 
 def retryDownload():
-	"""Alt+T while the speech model is missing (a download failed): starts the download again.
+	"""Alt+Shift+T while the speech model is missing (a download failed): starts the download again.
 	False when that is not the problem."""
-	if enabled() and not speechModel.installed() and speechModel.downloading() is None:
+	if enabled() and not ready() and speechModel.downloading() is None and selectedModel().id != speechModel.CUSTOM:
 		applySettings()
 		return True
 	return False
@@ -223,7 +242,7 @@ def _onDownloaded():
 	if enabled():
 		_speak(
 			# Translators: Spoken when the speech model for voice messages has been downloaded.
-			_("Voice message transcription is ready. In a chat, press Alt+T on a voice message.")
+			_("Voice message transcription is ready. In a chat, press Alt+Shift+T on a voice message.")
 		)
 
 
@@ -236,24 +255,29 @@ def applySettings(announce=True):
 	"""After the setting changed or at NVDA start: downloads what is missing while it is on, tells the
 	bridge whether to offer "Transcribe voice message"."""
 	_writeBridgeFlag()
-	if enabled() and speechModel.startDownload(_onDownloaded) and announce:
+	if not enabled():
+		return
+	m = selectedModel()
+	size = speechModel.downloadMB(m)
+	if m.id == speechModel.CUSTOM:
+		m = None  # the user's own file: only the program can be missing
+	if speechModel.startDownload(m, _onDownloaded) and announce:
 		_speak(
 			# Translators: Spoken when the speech model download starts ({size} is in megabytes).
-			_("Downloading the speech model for voice messages, {size} MB. LINE MR tells you when it is ready.").format(
-				size=speechModel.DOWNLOAD_MB
-			)
+			_("Downloading the speech model for voice messages, {size} MB. LINE MR tells you when it is ready.").format(size=size)
 		)
 
 
 class WhisperEngine:
-	#: Name shown in the transcript window.
-	name = "Typhoon Whisper"
-
-	def __init__(self, language=None):
-		problem = unavailableMessage()
+	def __init__(self, language=None, modelId=None):
+		m = selectedModel(modelId)
+		problem = unavailableMessage(m)
 		if problem:
 			raise TranscriptionError(problem)
-		self.program, self.model = speechModel.programPath(), speechModel.modelPath()
+		self.program, self.model = speechModel.programPath(), m.path
+		self.modelId = m.id
+		#: Shown in the transcript window.
+		self.name = m.name
 		self.language = whisperLanguage(language)
 
 	def run(self, wav, cancelled, onProgress):
@@ -272,7 +296,8 @@ class WhisperEngine:
 				_("Speech recognition could not be started.")
 			) from None
 		try:
-			for line in proc.lines(_ENGINE_SILENCE_TIMEOUT, cancelled):
+			timeout = max(_ENGINE_SILENCE_TIMEOUT, 2 * _FULL_WINDOW_SECONDS * _speed(self.modelId, self.language))
+			for line in proc.lines(timeout, cancelled):
 				text = line.strip()
 				# Whisper's notes for non-speech ("[BLANK_AUDIO]", "[Music]", "(laughs)").
 				if not text or (text[0] in "[(" and text[-1] in "])"):
@@ -319,8 +344,17 @@ def _engineTimeout():
 # it is done. The window shows an estimate instead: seconds of work per second of audio, learnt on
 # this computer (transcribe-speed.json), separately for a fixed language and for detection.
 
-#: First guess: an i5-1235U needed 23 s (model loading included) for a 7 s Thai message.
-_DEFAULT_SPEED = {"fixed": 3.0, "auto": 6.0}
+#: First guess per model: seconds of work per second of audio with a fixed language (detection about
+#: doubles it), measured on an i5-1235U with 10 threads, model loading included (Turbo and Medium:
+#: 8 s of Thai in 20-24 s, 36 s in 91 s; Large v3: 33 s and 587 s; Whisper's own models assumed alike).
+_DEFAULT_SPEED = {
+	"typhoon-medium": 3.0,
+	"typhoon-turbo": 3.0,
+	"typhoon-large": 16.0,
+	"whisper-small": 1.0,
+	"whisper-medium": 3.0,
+	"whisper-turbo": 3.0,
+}
 #: Short messages cost about as much as this many seconds of audio (loading the model).
 _MIN_AUDIO_SECONDS = 5
 
@@ -329,26 +363,43 @@ def _speedPath():
 	return os.path.join(bridge.bridgeDataDir(), "transcribe-speed.json")
 
 
+def _speedKey(modelId, language):
+	return "%s/%s" % (modelId, "auto" if language == "auto" else "fixed")
+
+
 def _speeds():
-	speeds = dict(_DEFAULT_SPEED)
+	"""{"<model>/fixed" or "<model>/auto": seconds per audio second} learnt so far."""
+	speeds = {}
 	try:
 		with open(_speedPath(), encoding="utf-8") as f:
-			speeds.update({k: float(v) for k, v in json.load(f).items() if k in speeds and float(v) > 0})
+			for k, v in json.load(f).items():
+				# The first version had only Typhoon Turbo and wrote "fixed" / "auto".
+				k = k if "/" in k else "typhoon-turbo/" + k
+				if float(v) > 0:
+					speeds[k] = float(v)
 	except (OSError, ValueError, TypeError, AttributeError):
 		pass
 	return speeds
 
 
-def estimateSeconds(audioSeconds, language):
-	kind = "auto" if language == "auto" else "fixed"
-	return _speeds()[kind] * max(_MIN_AUDIO_SECONDS, audioSeconds)
-
-
-def _learnSpeed(audioSeconds, language, seconds):
-	kind = "auto" if language == "auto" else "fixed"
+def _speed(modelId, language):
 	speeds = _speeds()
+	key = _speedKey(modelId, language)
+	if key in speeds:
+		return speeds[key]
+	fixed = _DEFAULT_SPEED.get(modelId, 3.0)
+	return fixed * 2 if language == "auto" else fixed
+
+
+def estimateSeconds(audioSeconds, modelId, language):
+	return _speed(modelId, language) * max(_MIN_AUDIO_SECONDS, audioSeconds)
+
+
+def _learnSpeed(audioSeconds, modelId, language, seconds):
 	measured = seconds / max(_MIN_AUDIO_SECONDS, audioSeconds)
-	speeds[kind] = round(0.5 * speeds[kind] + 0.5 * measured, 3)
+	speed = round(0.5 * _speed(modelId, language) + 0.5 * measured, 3)
+	speeds = _speeds()
+	speeds[_speedKey(modelId, language)] = speed
 	try:
 		with open(_speedPath(), "w", encoding="utf-8") as f:
 			json.dump(speeds, f)
@@ -384,11 +435,12 @@ class Job(threading.Thread):
 
 	WAITING, RECORDING, CONVERTING = range(3)
 
-	def __init__(self, pid, seconds, language=None):
+	def __init__(self, pid, seconds, language=None, modelId=None):
 		super().__init__(name="lineMR.transcribe", daemon=True)
 		self.pid = pid
 		self.seconds = seconds
 		self.language = language
+		self.modelId = modelId
 		self._cancelled = False
 		self._capture = None
 		self.phase = self.WAITING
@@ -412,7 +464,7 @@ class Job(threading.Thread):
 		global _job
 		wav = os.path.join(bridge.bridgeDataDir(), "transcribe-%d.wav" % os.getpid())
 		try:
-			engine = WhisperEngine(self.language)
+			engine = WhisperEngine(self.language, self.modelId)
 			wx.CallAfter(TranscriptDialog.open, self)
 			source = voiceCache.find(self.seconds)
 			if source:
@@ -479,10 +531,10 @@ class Job(threading.Thread):
 					_signalPlay()
 					if self.seconds > 0:
 						# Translators: Spoken when the add-on starts recording a voice message of known length.
-						_speak(_("Transcribing a voice message of {seconds} seconds. Alt+T cancels.").format(seconds=self.seconds))
+						_speak(_("Transcribing a voice message of {seconds} seconds. Alt+Shift+T cancels.").format(seconds=self.seconds))
 					else:
 						# Translators: Spoken when the add-on starts recording a voice message.
-						_speak(_("Transcribing the voice message. Alt+T cancels."))
+						_speak(_("Transcribing the voice message. Alt+Shift+T cancels."))
 				elif kind == "level":
 					try:
 						self.recorded = int(value)
@@ -537,14 +589,14 @@ class Job(threading.Thread):
 
 	def _transcribe(self, engine, wav):
 		audioSeconds = _wavSeconds(wav)
-		self.estimate = estimateSeconds(audioSeconds, engine.language)
+		self.estimate = estimateSeconds(audioSeconds, engine.modelId, engine.language)
 		self.phase = self.CONVERTING
 		self.convertingSince = time.monotonic()
 		# Translators: Spoken when the recording is done and speech recognition starts.
 		_speak(_("Converting to text..."))
 		lines = list(engine.run(wav, self.cancelled, self._setProgress))
 		if not self._cancelled:
-			_learnSpeed(audioSeconds, engine.language, time.monotonic() - self.convertingSince)
+			_learnSpeed(audioSeconds, engine.modelId, engine.language, time.monotonic() - self.convertingSince)
 		return lines
 
 	def percent(self):
@@ -641,7 +693,7 @@ def _onRequest():
 		return
 	if status == "busy" or _job is not None:
 		# Translators: Reported when a transcription is asked for while one runs.
-		ui.message(_("A voice message is being transcribed. Alt+T cancels it."))
+		ui.message(_("A voice message is being transcribed. Alt+Shift+T cancels it."))
 		return
 	if status != "ok":
 		return
@@ -651,16 +703,16 @@ def _onRequest():
 	except ValueError:
 		return
 	if _conf()["transcribeAskLanguage"]:
-		LanguageDialog.ask(lambda language: _start(pid, seconds, language))
+		LanguageDialog.ask(lambda language, modelId: _start(pid, seconds, language, modelId))
 	else:
-		_start(pid, seconds, None)
+		_start(pid, seconds, None, None)
 
 
-def _start(pid, seconds, language):
+def _start(pid, seconds, language, modelId):
 	global _job
 	if _job is not None:
 		return
-	_job = Job(pid, seconds, language)
+	_job = Job(pid, seconds, language, modelId)
 	_job.start()
 
 
@@ -856,14 +908,16 @@ class TranscriptDialog(wx.Dialog):
 		self.Destroy()
 
 class LanguageDialog(wx.Dialog):
-	"""Asked before each transcription: the message's language, and "Don't show this again" (the
-	language and the question are also in NVDA's settings, category LINE MR)."""
+	"""Asked before each transcription: the speech model and the message's language, and "Don't
+	show this again" (all three are also in NVDA's settings, category LINE MR). The model chosen
+	here becomes the setting; one not downloaded yet is downloaded, and Alt+Shift+T again transcribes the
+	message once it is ready."""
 
 	_instance = None
 
 	@classmethod
 	def ask(cls, onChosen):
-		"""On NVDA's main thread; onChosen(language code) after OK, nothing after Cancel."""
+		"""On NVDA's main thread; onChosen(language code, model id) after OK, nothing after Cancel."""
 		if cls._instance:
 			cls._instance.Raise()
 			return
@@ -878,6 +932,14 @@ class LanguageDialog(wx.Dialog):
 		super().__init__(parent, title=_("Transcribe voice message"))
 		self._onChosen = onChosen
 		sizer = wx.BoxSizer(wx.VERTICAL)
+		# Translators: Label of the list of speech models asked before a voice message is transcribed.
+		sizer.Add(wx.StaticText(self, label=_("Speech &model:")), flag=wx.LEFT | wx.TOP | wx.RIGHT, border=8)
+		self._models = modelChoices(_conf()["transcribeCustomModel"])
+		self.model = wx.Choice(self, choices=[modelLabel(m) for m in self._models])
+		ids = [m.id for m in self._models]
+		configured = selectedModel().id
+		self.model.SetSelection(ids.index(configured) if configured in ids else 0)
+		sizer.Add(self.model, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=8)
 		# Translators: Label of the list of languages asked before a voice message is transcribed.
 		sizer.Add(wx.StaticText(self, label=_("&Language of the voice message:")), flag=wx.LEFT | wx.TOP | wx.RIGHT, border=8)
 		self._codes = list(WHISPER_LANGUAGES)
@@ -896,20 +958,59 @@ class LanguageDialog(wx.Dialog):
 		self.SetEscapeId(wx.ID_CANCEL)
 		self.SetSizerAndFit(sizer)
 		self.CentreOnScreen()
-		self.language.SetFocus()
+		self.model.SetFocus()
 
 	def _onOk(self, evt):
 		language = self._codes[max(0, self.language.GetSelection())]
+		m = self._models[max(0, self.model.GetSelection())]
+		conf = _conf()
+		conf["transcribeModel"] = m.id
 		if self.dontAsk.GetValue():
-			conf = _conf()
 			conf["transcribeLanguage"] = language
 			conf["transcribeAskLanguage"] = False
 		self.Close()
-		self._onChosen(language)
+		if not ready(m):
+			problem = unavailableMessage(m)
+			if not retryDownload() and problem:
+				ui.message(problem)
+			return
+		self._onChosen(language, m.id)
 
 	def _onClose(self, evt):
 		LanguageDialog._instance = None
 		self.Destroy()
+
+
+def modelChoices(customPath):
+	"""The models to choose from: speechModel.MODELS, then the user's own file if one was chosen."""
+	models = list(speechModel.MODELS)
+	if customPath:
+		models.append(speechModel.CustomModel(customPath))
+	return models
+
+
+def modelLabel(m):
+	"""A model's name and what it costs: "Typhoon Whisper Medium (best for Thai, 823 MB, downloaded)"."""
+	if m.id == speechModel.CUSTOM:
+		# Translators: A speech model choice: a model file the user chose ({name} = its file name).
+		return _("Your model file: {name}").format(name=m.name)
+	if m.id == "typhoon-medium":
+		# Translators: Part of a speech model's name: it writes every language in Thai letters (Typhoon Medium).
+		strength = _("Thai only")
+	elif m.id == "typhoon-large":
+		# Translators: Part of a speech model's name: writes every language in Thai letters, the most accurate for Thai, but many times slower (Typhoon Large v3).
+		strength = _("Thai only, most accurate, very slow")
+	elif m.id.startswith("typhoon"):
+		# Translators: Part of a speech model's name: trained further on Thai (Typhoon models).
+		strength = _("best for Thai")
+	else:
+		# Translators: Part of a speech model's name: OpenAI's general Whisper models.
+		strength = _("many languages")
+	if m.downloaded():
+		# Translators: A downloaded speech model ({name}; {strength} = what it is good at; {size} in megabytes).
+		return _("{name} ({strength}, {size} MB, downloaded)").format(name=m.name, strength=strength, size=m.megabytes)
+	# Translators: A speech model not downloaded yet ({name}; {strength} = what it is good at; {size} in megabytes).
+	return _("{name} ({strength}, {size} MB download)").format(name=m.name, strength=strength, size=m.megabytes)
 
 
 def languageLabels():

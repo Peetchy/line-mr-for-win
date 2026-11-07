@@ -53,11 +53,20 @@ For low-vision users, LINE MR draws a yellow frame with a black outline around t
 
 ## Voice messages to text
 
-Off by default. To turn it on, open NVDA's settings, category LINE MR, group "Voice message transcription", check "Transcribe voice messages with Alt+T" and press OK. LINE MR then downloads, once, what it needs (879 MB: the speech recognition program whisper.cpp and the speech model Typhoon Whisper Turbo by SCB 10X, trained on Thai and also good for English, Japanese and Chinese) and says when it is ready. The settings show how far the download is. An interrupted or failed download continues the next time NVDA starts, or when you press Alt+T on a voice message. Unchecking the box offers to delete the downloaded files.
+Off by default. To turn it on, open NVDA's settings, category LINE MR, group "Voice message transcription", check "Transcribe voice messages with Alt+Shift+T", choose a speech model and press OK. LINE MR then downloads, once, the speech recognition program whisper.cpp (5 MB) and the chosen model, and says when it is ready. "Model state" shows how far the download is. An interrupted or failed download continues the next time NVDA starts, or when you press Alt+Shift+T on a voice message. Unchecking the box offers to delete the downloaded files; choosing another model offers to delete the one used before.
 
-Then, on a voice message, press Alt+T, or choose "Transcribe voice message" in its menu (Applications key). A dialog asks for the language of the message ("Detect automatically" by default; choosing the language is faster and more reliable, and Chinese is sometimes taken for Thai when detected). Check "Don't show this again" to skip the dialog; the language and the question are also in the settings. After OK, a window shows what is happening, with a progress bar: getting the voice message from LINE, then converting to text with an estimated percentage (LINE MR learns how fast this computer is). When it is done, the text appears in the same window in an editable field, with Copy (copies the text as edited) and Close (Escape). The text may contain mistakes. Cancel or Escape in the window, or Alt+T in LINE, cancels while it works.
+Speech models (Typhoon by SCB 10X is Whisper trained further on Thai; Whisper by OpenAI knows many languages; memory = while converting, measured on an i5-1235U laptop):
 
-Nothing is played and nothing is sent to the internet: LINE keeps every voice message it has played or downloaded, and LINE MR converts that copy on this computer. A voice message that was never played has no copy yet: then LINE plays it once (you hear it) and LINE MR uses the file as soon as LINE has downloaded it. Converting takes a while on slower computers (on an i5-1235U laptop about 20 seconds for a 7-second message and 2 minutes for a 36-second one). Needs 64-bit Windows 10 version 2004 or later.
+- Typhoon Whisper Turbo (874 MB, the default): best for Thai, also English and Japanese; of the Typhoon models the one that needs the least memory (about 1.1 GB).
+- Typhoon Whisper Medium (823 MB): Thai only (it writes English, Japanese and Chinese in Thai letters); as fast as Turbo on Thai, but about 1.5 GB of memory.
+- Typhoon Whisper Large v3 (1,081 MB): Thai only (like Medium) and the most accurate for Thai, but very slow (a 36-second message took almost 10 minutes, Turbo 1.5 minutes) and about 2 GB of memory.
+- Whisper Small (264 MB): small and fast, many languages, but many mistakes in Thai.
+- Whisper Medium (823 MB) and Whisper Large v3 Turbo (874 MB): many languages; not trained further on Thai.
+- "Browse for a model file": a whisper.cpp model you downloaded yourself (a ggml .bin file, for example from huggingface.co/ggerganov/whisper.cpp). LINE MR checks that the file is a whisper.cpp model and complete, and has the speech recognition program load it once, before using it. Other formats (.pt, .safetensors, GGUF, ONNX, faster-whisper) must be converted first; English-only models (names ending in .en) cannot transcribe other languages.
+
+Then, on a voice message, press Alt+Shift+T, or choose "Transcribe voice message" in its menu (Applications key). A dialog asks for the speech model (the one chosen here is kept for next time; one not downloaded yet is downloaded, then press Alt+Shift+T again) and the language of the message ("Detect automatically" by default; choosing the language is faster and more reliable, and Chinese is sometimes taken for Thai when detected). Check "Don't show this again" to skip the dialog; the model, the language and the question are also in the settings. After OK, a window shows what is happening, with a progress bar: getting the voice message from LINE, then converting to text with an estimated percentage (LINE MR learns how fast this computer is). When it is done, the text appears in the same window in an editable field, with Copy (copies the text as edited) and Close (Escape). The text may contain mistakes. Cancel or Escape in the window, or Alt+Shift+T in LINE, cancels while it works.
+
+Nothing is played and nothing is sent to the internet: LINE keeps every voice message it has played or downloaded, and LINE MR converts that copy on this computer. A voice message that was never played has no copy yet: then LINE plays it once (you hear it) and LINE MR uses the file as soon as LINE has downloaded it. Converting takes a while on slower computers (on an i5-1235U laptop with Typhoon Whisper Turbo about 20 seconds for a 7-second message and 1.5 minutes for a 36-second one). Needs 64-bit Windows 10 version 2004 or later.
 
 ## Commands
 
@@ -72,13 +81,15 @@ Nothing is played and nothing is sent to the internet: LINE keeps every voice me
 | Alt+R | In the messages: reply to the selected message and move to the message input |
 | Delete | In the messages: delete the selected message (as Delete in the message's menu; LINE deletes it only on this computer) |
 | Shift+Delete | In the messages: unsend the selected message (as Unsend in the message's menu) |
-| Alt+T | In the messages: turn the selected voice message into text (turn it on in the settings first; again: cancel) |
+| Alt+T | In the messages: translate the selected message (as Translate in the message's menu) |
+| Alt+Shift+T | In the messages: turn the selected voice message into text (turn it on in the settings first; again: cancel) |
+| Ctrl+S | In the messages: save the selected message. Photos, videos, files and voice messages: LINE's Save as (LINE asks where). Text, locations and contacts: a text file (.txt; LINE MR asks where). Stickers, calls, dates and notices cannot be saved |
 | NVDA+Alt+1 … NVDA+Alt+9 | Read a recent message (1 = newest) |
 | Alt+A in LINE, NVDA+Shift+Control+A anywhere | Answer an incoming LINE call |
 | Alt+D in LINE, NVDA+Shift+Control+D anywhere | Decline an incoming LINE call; during a call, end it |
 | NVDA+Shift+Control+L | Report whether the LINE MR bridge is running (and offer to install it); press twice to copy a report for the developer to the clipboard |
 
-Commands can be changed under NVDA menu, Preferences, Input gestures, category "LINE MR". Alt+R, Delete and Shift+Delete act only in the messages; anywhere else (for example in the message input) the keys work as usual. They choose LINE's own item in the message's menu; if the message has no such item (for example Unsend on someone else's message), the menu stays open.
+Commands can be changed under NVDA menu, Preferences, Input gestures, category "LINE MR". Alt+R, Delete, Shift+Delete, Alt+T and Ctrl+S act only in the messages; anywhere else (for example in the message input) the keys work as usual. They choose LINE's own item in the message's menu; if the message has no such item (for example Unsend on someone else's message), the menu stays open. Ctrl+S saves a text message whole, also a long one: LINE MR uses LINE's Copy and then puts back what the clipboard held (Windows' clipboard history, Windows+V, keeps the message).
 
 ### Keys in LINE
 
