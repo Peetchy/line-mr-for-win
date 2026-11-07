@@ -33,6 +33,9 @@ bool isLineInputWidget(const QWidget *w);
 // The message input of a chat (ChatDetailInputTextEdit, or AutoSuggestTextArea in group chats):
 // a multi-line LINE text field inside the chat panel.
 bool isMessageInput(const QWidget *w);
+// LINE's main window with the chat room hidden ("Show or hide chat room": the window shows only the
+// chat list). A click on a chat then only selects it; LINE opens chats in their own windows.
+bool chatRoomHidden(const QWidget *window);
 // Name of the open chat in `w`'s window (the first text in the chat header), or "".
 QString chatNameFor(const QWidget *w);
 // "Sticker 3" for a sticker (or emoji) in the sticker window's grid, else empty.

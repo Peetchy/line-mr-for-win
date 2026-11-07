@@ -89,7 +89,10 @@ public:
 	// cursor instead; Enter opens the chat under it. Returns false for other keys.
 	bool moveCursor(int key);
 	// Opens the chat under the cursor if it is not the open one; false if there is nothing to open.
-	bool openCursorRow();
+	// `newWindow` (the chat room is hidden): opens it in its own window, also when it is LINE's current row.
+	bool openCursorRow(bool newWindow = false);
+	// Shift+Enter in the chat list: the row menu's "Open in new window" for the row under the cursor.
+	bool openCursorRowInNewWindow();
 	// Grids and lists LINE gives no keyboard (a chat's Photos & videos, Links, Files): the arrows,
 	// PageUp/PageDown and Home/End move the bridge's cursor by what is on screen (Left/Right one
 	// item, Up/Down the nearest item in the line above / below). Returns false for other keys.

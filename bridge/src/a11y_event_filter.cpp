@@ -657,6 +657,9 @@ bool g_replyMenuPressed = false;
 QElapsedTimer g_editorFocusTimer;
 QElapsedTimer g_chatOpenTimer;
 QPointer<QWidget> g_chatOpenWindow;
+// Shift+Enter in the chat list: the row menu's "Open in new window" is pressed for the user (the press
+// would otherwise end the way to the message input).
+QElapsedTimer g_chatWindowByKey;
 bool g_openingChatByEnter = false;
 
 bool editorFocusPending()
@@ -817,9 +820,10 @@ QWidget *chatTabTarget(QWidget *w, bool backward)
 // Enter in the chat list / Reply: focus the message input, waiting up to 0.8 s for it to appear.
 void focusMessageEditor(QPointer<QWidget> window, int attempts = 8)
 {
-	if (!editorFocusPending() || !window || !window->isVisible() || !window->isActiveWindow())
+	if (!editorFocusPending() || !window || !window->isVisible())
 		return;
-	if (QWidget *input = messageInputIn(window); input && input->isEnabled()) {
+	// A window LINE is still activating (a chat opened in its own window) gets a few more tries.
+	if (QWidget *input = messageInputIn(window); input && input->isEnabled() && window->isActiveWindow()) {
 		input->setFocus(Qt::OtherFocusReason);
 		static int logged = 0;
 		if (logged++ < 10)
@@ -1670,8 +1674,21 @@ public:
 					// The bridge's cursor moves; LINE's current row (the open chat) stays.
 					if (plain && list && list->moveCursor(key->key()))
 						return true;
-				} else if ((key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)
+				} else if ((key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter || key->key() == Qt::Key_Space)
 				           && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier))) {
+					if (key->isAutoRepeat())
+						return true;
+					// Shift+Enter: the chat in its own window (its menu's "Open in new window"), then its input.
+					// With the chat room hidden LINE's menu has no such item: there Enter already does it.
+					if (!friendList && key->key() != Qt::Key_Space && (key->modifiers() & Qt::ShiftModifier)
+					    && !chatRoomHidden(w->window())) {
+						m_browsingList = nullptr;
+						// Armed first: the menu is pressed and the window shown inside LINE's menu loop.
+						g_chatWindowByKey.start();
+						if (!list || !list->openCursorRowInNewWindow())
+							g_chatWindowByKey.invalidate();
+						return true;
+					}
 					// Friends: click the row and let LINE decide (a section header folds, a friend's
 					// chat opens and LINE moves focus there itself).
 					if (friendList) {
@@ -1681,16 +1698,23 @@ public:
 						}
 						break;
 					}
-					// Enter: open the chat under the cursor, go to it and start typing. LINE moves focus
-					// into the messages once the chat has loaded: FocusIn sends it on to the input.
+					// Enter / Space: open the chat under the cursor, go to it and start typing. LINE moves
+					// focus into the messages once the chat has loaded: FocusIn sends it on to the input.
 					// Arm before the synthetic click: opening can synchronously focus the messages.
+					// With the chat room hidden the chat opens in its own window (a click only selected
+					// the row, and LINE's own Enter then opened the window on a second press).
+					const bool roomHidden = chatRoomHidden(w->window());
 					g_chatOpenWindow = w->window();
 					g_chatOpenTimer.start();
 					m_browsingList = nullptr;
 					const bool opened = [&] {
 						QScopedValueRollback<bool> opening(g_openingChatByEnter, true);
-						return list && list->openCursorRow();
+						return list && list->openCursorRow(roomHidden);
 					}();
+					if (roomHidden) {
+						g_editorFocusTimer.start();
+						return true; // the new window's message list FocusIn goes on to the input
+					}
 					m_browsingList = nullptr;
 					g_editorFocusTimer.start();
 					const QPointer<QWidget> window(w->window());
@@ -1780,6 +1804,12 @@ private:
 			// The chosen item opened a window (a confirmation): it keeps the keyboard.
 			if (g_windowAfterMenu && g_windowAfterMenu->isVisible() && g_windowAfterMenu->window() != back->window()) {
 				a11yLog("[menu] closed; %s keeps the focus", g_windowAfterMenu->metaObject()->className());
+				// Shift+Enter in the chat list ("Open in new window"): the chat window shows inactive while
+				// the menu is open, so the input could not take focus then. Once it is activated: the input.
+				if (editorFocusPending() && inheritsClass(g_windowAfterMenu->window(), "ChatWindow")) {
+					const QPointer<QWidget> chat(g_windowAfterMenu->window());
+					QTimer::singleShot(200, chat, [chat] { focusMessageEditor(chat, 20); });
+				}
 				return;
 			}
 			if (g_quickWindowAfterMenu && g_quickWindowAfterMenu->isVisible()) {
@@ -1974,6 +2004,9 @@ void noteMenuPress(QWidget *item, const char *how)
 	                                  QStringLiteral("回復"), QStringLiteral("返信"), QStringLiteral("ตอบกลับ") }.contains(name);
 	if (g_replyMenuPressed) {
 		endListBrowsing(); // Reply intentionally moves from message navigation to composing.
+		g_editorFocusTimer.start();
+	} else if (g_chatWindowByKey.isValid() && g_chatWindowByKey.elapsed() < 3000) {
+		g_chatWindowByKey.invalidate();
 		g_editorFocusTimer.start();
 	} else {
 		g_editorFocusTimer.invalidate();

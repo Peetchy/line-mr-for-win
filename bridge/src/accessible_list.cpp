@@ -2567,16 +2567,26 @@ bool LineAccessibleList::clickCursorRow()
 	return true;
 }
 
-bool LineAccessibleList::openCursorRow()
+bool LineAccessibleList::openCursorRow(bool newWindow)
 {
 	QAbstractItemView *v = view();
-	const QPersistentModelIndex idx = m_cursor;
+	QPersistentModelIndex idx = m_cursor;
 	m_cursor = QPersistentModelIndex();
-	if (!v || !idx.isValid() || idx == QPersistentModelIndex(v->currentIndex()))
+	if (newWindow && !idx.isValid() && v)
+		idx = QPersistentModelIndex(v->currentIndex());
+	if (!v || !idx.isValid() || (!newWindow && idx == QPersistentModelIndex(v->currentIndex())))
 		return false;
-	// A click opens the chat the way LINE expects (setting the current row alone may not).
+	// A click opens the chat the way LINE expects (setting the current row alone may not). With the
+	// chat room hidden a click only selects the row: a double click opens the chat in its own window,
+	// as for a mouse user.
 	v->scrollTo(idx);
-	sendClick(v->viewport(), QRectF(v->visualRect(idx)).center());
+	const QPointF at = QRectF(v->visualRect(idx)).center();
+	if (newWindow) {
+		a11yLog("[keyboard] chat room hidden: row %d opens in its own window", idx.row());
+		sendDoubleClick(v->viewport(), at);
+	} else {
+		sendClick(v->viewport(), at);
+	}
 	return true;
 }
 
@@ -4168,6 +4178,21 @@ bool LineAccessibleList::openCursorMenu()
 	});
 	timer->start();
 	return true;
+}
+
+bool LineAccessibleList::openCursorRowInNewWindow()
+{
+	// The chat row menu's "Open in new window", pressed by menuShown() (a double click opens the chat in
+	// the main window while the chat room is shown). Set before the right click: LINE's menu loop
+	// may run inside it. Without the item (other languages not seen) the menu stays open.
+	g_menuChoice.texts = { QStringLiteral("เปิดในหน้าต่างใหม่"), QStringLiteral("Open in new window"),
+		                   QStringLiteral("Open in a new window"), QStringLiteral("新しいウィンドウで開く"),
+		                   QStringLiteral("在新窗口中打开"), QStringLiteral("在新視窗中開啟") };
+	g_menuChoice.at.start();
+	if (openCursorMenu())
+		return true;
+	g_menuChoice = PendingMenuChoice();
+	return false;
 }
 
 void LineAccessibleList::resetCursor()

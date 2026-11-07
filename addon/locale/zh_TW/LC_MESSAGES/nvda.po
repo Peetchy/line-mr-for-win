@@ -10,8 +10,8 @@ msgstr ""
 msgid "Reports whether the LINE MR accessibility bridge is installed and running in LINE and its call windows; pressed twice, copies a report for the developer"
 msgstr "報告 LINE MR 無障礙橋接元件是否已安裝並在 LINE 及其通話視窗中執行;按兩次複製給開發者的報告"
 
-msgid "Not available here. Switch to LINE's main window."
-msgstr "此處無法使用。請切換到 LINE 的主視窗。"
+msgid "LINE's main window is closed. Open LINE from the notification area."
+msgstr "LINE 的主視窗已關閉。請從通知區域開啟 LINE。"
 
 msgid "Shows the friends list"
 msgstr "顯示好友列表"
