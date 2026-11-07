@@ -540,6 +540,13 @@ QAccessibleInterface *lineAccessibleFactory(const QString &key, QObject *object)
 	if (inheritsClass(w, "MessageReplyLayer"))
 		return new QAccessibleWidget(w, QAccessible::Grouping);
 	const WidgetKind kind = classifyWidget(w);
+	// A picture holding buttons (the selection bar under Photos & videos: "2 selected", Share, Send to
+	// Keep Memo, Download, Cancel) is a container; as a picture its buttons were out of reach.
+	if (kind == WidgetKind::None && inheritsClass(w, "LcImage") && ancestorInheriting(w, "MediaListPanel")) {
+		const QList<QWidget *> children = w->findChildren<QWidget *>(Qt::FindDirectChildrenOnly);
+		if (std::any_of(children.cbegin(), children.cend(), [](const QWidget *c) { return inheritsClass(c, "LcButton"); }))
+			return new QAccessibleWidget(w, QAccessible::Grouping);
+	}
 	if (kind != WidgetKind::None) {
 		static QSet<QByteArray> loggedClasses;
 		const QByteArray cls = object->metaObject()->className();
