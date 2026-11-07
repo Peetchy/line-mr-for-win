@@ -102,3 +102,5 @@ The bridge is `line_a11y.dll`, a Qt platform-theme plugin placed in `%LOCALAPPDA
 Logs: `%LOCALAPPDATA%\LineMR\logs\bridge.log`.
 
 LINE MR is an independent project and is not affiliated with or endorsed by LY Corporation / LINE.
+
+Chat-list text: in NVDA Settings → LINE MR, “Use bridge text for the chat list” defaults to off. Off keeps LINE’s own row text and ordering, including bare unread counts; on restores the bridge’s ordering and unread labels. Applying the setting takes effect on the next row reading after about one second. If LINE supplies no usable row text, the bridge falls back to its existing text. Navigation and shortcuts are unchanged.

@@ -63,6 +63,19 @@ const MessageSettings &messageSettings()
 	return settings;
 }
 
+// Default to LINE's own chat-list text. Re-read so applying NVDA settings needs no LINE restart.
+bool bridgeChatListTextEnabled()
+{
+	static QElapsedTimer checked;
+	static bool enabled = false;
+	if (!checked.isValid() || checked.elapsed() >= 1000) {
+		checked.start();
+		QSettings ini(bridgeDirectory() + QStringLiteral("message-settings.ini"), QSettings::IniFormat);
+		enabled = ini.value(QStringLiteral("chatList/bridgeText"), false).toBool();
+	}
+	return enabled;
+}
+
 bool directChatSenderNamesEnabled()
 {
 	return messageSettings().directChatSenderNames;
@@ -1576,6 +1589,13 @@ public:
 		if (!idx.isValid())
 			return QString();
 		QObject *data = idx.data(kItemDataRole).value<QObject *>();
+		// Change only chat-row names: keep bridge navigation/actions and all other lists intact.
+		if (inheritsClass(data, "ChatData") && ancestorInheriting(m_view, "MainChatPanel")
+		    && !bridgeChatListTextEnabled()) {
+			const QVariant native = idx.data(Qt::AccessibleTextRole);
+			if (native.metaType().id() == QMetaType::QString && !native.toString().trimmed().isEmpty())
+				return native.toString(); // Keep LINE's order and bare unread count verbatim.
+		}
 		if (QString text = dataObjectText(data); !text.isEmpty()) {
 			if (inheritsClass(data, "ChatData") && ancestorInheriting(m_view, "MainChatPanel"))
 				return withChatStatus(text, data);

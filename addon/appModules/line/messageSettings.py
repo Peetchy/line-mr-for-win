@@ -7,11 +7,12 @@ from logHandler import log
 from . import bridge
 
 
-def writeSettings(senderNames, senderOnlyWhenChanged=False):
+def writeSettings(senderNames, senderOnlyWhenChanged=False, bridgeChatListText=False):
 	path = os.path.join(bridge.bridgeDataDir(), "message-settings.ini")
-	text = "[messages]\ndirectChatSenderNames=%s\nsenderOnlyWhenChanged=%s\n" % (
+	text = "[messages]\ndirectChatSenderNames=%s\nsenderOnlyWhenChanged=%s\n[chatList]\nbridgeText=%s\n" % (
 		"true" if senderNames else "false",
 		"true" if senderOnlyWhenChanged else "false",
+		"true" if bridgeChatListText else "false",
 	)
 	try:
 		with open(path, encoding="ascii") as f:

@@ -40,6 +40,7 @@ config.conf.spec[CONFIG_SECTION] = {
 	"skippedVersion": "string(default='')",
 	"highlightFocus": "boolean(default=true)",
 	"directChatSenderNames": "boolean(default=false)",
+	"bridgeChatListText": "boolean(default=false)",
 	"senderOnlyWhenChanged": "boolean(default=false)",
 	"highlightColor": "string(default='yellow')",
 	"highlightWidth": "integer(default=4, min=1, max=12)",
@@ -53,7 +54,9 @@ def _applyHighlightSettings():
 
 		conf = config.conf[CONFIG_SECTION]
 		highlight.writeSettings(conf["highlightFocus"], conf["highlightColor"], conf["highlightWidth"])
-		messageSettings.writeSettings(conf["directChatSenderNames"], conf["senderOnlyWhenChanged"])
+		messageSettings.writeSettings(
+			conf["directChatSenderNames"], conf["senderOnlyWhenChanged"], conf["bridgeChatListText"]
+		)
 	except Exception:
 		log.error("LINE MR: cannot write the bridge presentation settings", exc_info=True)
 
@@ -252,6 +255,11 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		from appModules.line import highlight
 
 		conf = config.conf[CONFIG_SECTION]
+		self.bridgeChatListText = helper.addItem(
+			# Translators: Off uses LINE's own chat-list text; on restores bridge ordering and unread labels.
+			wx.CheckBox(self, label=_("Use &bridge text for the chat list"))
+		)
+		self.bridgeChatListText.SetValue(conf["bridgeChatListText"])
 		self.directChatSenderNames = helper.addItem(
 			# Translators: Includes the other person's name before received messages in one-to-one chats.
 			wx.CheckBox(self, label=_("Show the sender's &name in one-to-one chats"))
@@ -361,6 +369,7 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			conf["checkForUpdates"] = self.checkForUpdates.GetValue()
 		conf["highlightFocus"] = self.highlightFocus.GetValue()
 		conf["directChatSenderNames"] = self.directChatSenderNames.GetValue()
+		conf["bridgeChatListText"] = self.bridgeChatListText.GetValue()
 		conf["senderOnlyWhenChanged"] = self.senderOnlyWhenChanged.GetValue()
 		conf["highlightColor"] = self._highlightColors[max(0, self.highlightColor.GetSelection())]
 		conf["highlightWidth"] = self.highlightWidth.GetValue()

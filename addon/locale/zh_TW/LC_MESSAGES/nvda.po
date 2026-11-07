@@ -365,3 +365,7 @@ msgstr "連線 LINE MR 橋接元件嗎?LINE 將關閉並重新啟動(進行中�
 #. Translators: Shown in the add-on's settings while LINE restarts.
 msgid "Restarting LINE..."
 msgstr "正在重新啟動 LINE..."
+
+#. Chat list text source setting, default off.
+msgid "Use &bridge text for the chat list"
+msgstr "使用橋接器的聊天室列表文字(&B)"

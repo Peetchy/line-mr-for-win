@@ -102,3 +102,5 @@ NVDA 啟動時,LINE MR 會在 GitHub 上檢查是否有新版本。如果有,會
 記錄檔:`%LOCALAPPDATA%\LineMR\logs\bridge.log`。
 
 LINE MR 是一個獨立專案,與 LY Corporation / LINE 無關聯,也未獲其認可。
+
+聊天室列表文字：NVDA 設定 → LINE MR 的「使用橋接器的聊天室列表文字」預設關閉。關閉時保留 LINE 原生文字與順序（包含純數字的未讀數量）；開啟後恢復橋接器的排列與未讀標籤。套用設定後，約一秒再移動至其他聊天室即可聽到變化。若 LINE 沒提供可用文字，則退回橋接器文字。導覽與快速鍵不變。
