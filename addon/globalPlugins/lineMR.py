@@ -125,8 +125,21 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# LINE downloads and updates its helper processes (LineCall.exe, LineMediaPlayer.exe) on its
 		# own; give every version the bridge before a call comes in or a photo is opened.
 		threading.Thread(target=_repairHelperBridges, name="lineMR.helperBridgeRepair", daemon=True).start()
+		# Requests from the bridge's "Transcribe voice message" (menu item or Alt+T).
+		try:
+			from appModules.line import transcribe
+
+			transcribe.startListener()
+		except Exception:
+			log.error("LINE MR: cannot listen for voice message transcription requests", exc_info=True)
 
 	def terminate(self):
+		try:
+			from appModules.line import transcribe
+
+			transcribe.stopListener()
+		except Exception:
+			log.debugWarning("LINE MR: stopping the transcription listener failed", exc_info=True)
 		self._listener.stop()
 		if self._volumeKeeper:
 			self._volumeKeeper.stop()

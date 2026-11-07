@@ -365,3 +365,212 @@ msgstr "เชื่อมต่อตัวเชื่อม LINE MR หรื
 #. Translators: Shown in the add-on's settings while LINE restarts.
 msgid "Restarting LINE..."
 msgstr "กำลังเริ่ม LINE ใหม่..."
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Transcribes the selected voice message into text; cancels a running transcription"
+msgstr "แปลงข้อความเสียงที่เลือกเป็นข้อความ กดอีกครั้งระหว่างแปลงเพื่อยกเลิก"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Voice message transcription"
+msgstr "แปลงข้อความเสียงเป็นข้อความ"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Thai"
+msgstr "ไทย"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "English"
+msgstr "อังกฤษ"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Japanese"
+msgstr "ญี่ปุ่น"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Chinese"
+msgstr "จีน"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Speech recognition stopped responding and was cancelled."
+msgstr "การรู้จำเสียงหยุดตอบสนองและถูกยกเลิก"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "No speech was recognised in the voice message."
+msgstr "ไม่พบคำพูดในข้อความเสียง"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Transcribing the voice message failed."
+msgstr "แปลงข้อความเสียงไม่สำเร็จ"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "LINE MR's audio helper is missing. Reinstall the add-on."
+msgstr "ไม่พบโปรแกรมช่วยด้านเสียงของ LINE MR โปรดติดตั้งส่วนเสริมใหม่"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Transcribing a voice message of {seconds} seconds. Alt+T cancels."
+msgstr "กำลังแปลงข้อความเสียงยาว {seconds} วินาที กด Alt+T เพื่อยกเลิก"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Transcribing the voice message. Alt+T cancels."
+msgstr "กำลังแปลงข้อความเสียง กด Alt+T เพื่อยกเลิก"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "LINE's sound cannot be recorded on this computer (Windows 10 version 2004 or later is needed)."
+msgstr "เครื่องนี้อัดเสียงของ LINE ไม่ได้ (ต้องใช้ Windows 10 เวอร์ชัน 2004 ขึ้นไป)"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Recording the voice message did not work."
+msgstr "อัดข้อความเสียงไม่สำเร็จ"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "LINE played no sound. If the voice message was already playing, stop it and try again."
+msgstr "LINE ไม่ได้เล่นเสียงใดเลย ถ้าข้อความเสียงกำลังเล่นอยู่ ให้หยุดก่อนแล้วลองอีกครั้ง"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Converting to text..."
+msgstr "กำลังแปลงเป็นข้อความ..."
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Transcription cancelled."
+msgstr "ยกเลิกการแปลงแล้ว"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Not a voice message."
+msgstr "ไม่ใช่ข้อความเสียง"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "A voice message is being transcribed. Alt+T cancels it."
+msgstr "กำลังแปลงข้อความเสียงอยู่ กด Alt+T เพื่อยกเลิก"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Voice message text"
+msgstr "ข้อความจากข้อความเสียง"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "&Text (made by {engine}, may contain mistakes):"
+msgstr "ข้อความ (สร้างโดย {engine} อาจมีคำผิด) (&T):"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "&Copy"
+msgstr "คัดลอก (&C)"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "The speech model for voice messages could not be downloaded (the download was damaged). LINE MR tries again when NVDA starts."
+msgstr "ดาวน์โหลดโมเดลเสียงสำหรับข้อความเสียงไม่สำเร็จ (ไฟล์ที่ได้เสียหาย) LINE MR จะลองใหม่เมื่อเปิด NVDA ครั้งถัดไป"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "The speech model for voice messages could not be downloaded. Check the internet connection and free disk space; LINE MR tries again when NVDA starts."
+msgstr "ดาวน์โหลดโมเดลเสียงสำหรับข้อความเสียงไม่สำเร็จ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตและพื้นที่ว่างในดิสก์ LINE MR จะลองใหม่เมื่อเปิด NVDA ครั้งถัดไป"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Voice message transcription is off. Turn it on in NVDA's settings, category LINE MR."
+msgstr "การแปลงข้อความเสียงเป็นข้อความปิดอยู่ เปิดได้ในการตั้งค่า NVDA หมวด LINE MR"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "The speech model for voice messages is not downloaded yet. LINE MR tries again when NVDA starts."
+msgstr "ยังไม่ได้ดาวน์โหลดโมเดลเสียงสำหรับข้อความเสียง LINE MR จะลองใหม่เมื่อเปิด NVDA ครั้งถัดไป"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Voice message transcription is ready. In a chat, press Alt+T on a voice message."
+msgstr "พร้อมแปลงข้อความเสียงเป็นข้อความแล้ว ในห้องแชท กด Alt+T บนข้อความเสียง"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "The speech model for voice messages is still downloading ({percent}%)."
+msgstr "โมเดลเสียงสำหรับข้อความเสียงยังดาวน์โหลดไม่เสร็จ ({percent}%)"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Downloading the speech model for voice messages, {size} MB. LINE MR tells you when it is ready."
+msgstr "กำลังดาวน์โหลดโมเดลเสียงสำหรับข้อความเสียง {size} MB LINE MR จะแจ้งเมื่อพร้อมใช้งาน"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Speech recognition could not be started."
+msgstr "เปิดตัวรู้จำเสียงไม่ได้"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Speech recognition failed (exit code {code})."
+msgstr "การรู้จำเสียงล้มเหลว (รหัส {code})"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Speech model:"
+msgstr "โมเดลเสียง:"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Same as NVDA"
+msgstr "ตามภาษาของ NVDA"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Detect automatically (slower)"
+msgstr "ตรวจหาอัตโนมัติ (ช้ากว่า)"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Voice message &language:"
+msgstr "ภาษาของข้อความเสียง (&L):"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Downloaded"
+msgstr "ดาวน์โหลดแล้ว"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Not downloaded"
+msgstr "ยังไม่ได้ดาวน์โหลด"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Downloading, {percent}%"
+msgstr "กำลังดาวน์โหลด {percent}%"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "&Transcribe voice messages with Alt+T (downloads a speech model of {size} MB once)"
+msgstr "แปลงข้อความเสียงเป็นข้อความด้วย Alt+T (ดาวน์โหลดโมเดลเสียง {size} MB ครั้งเดียว) (&T)"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Delete the downloaded speech model ({size} MB)? Turning transcription on again downloads it again."
+msgstr "ลบโมเดลเสียงที่ดาวน์โหลดไว้ ({size} MB) หรือไม่ ถ้าเปิดการแปลงข้อความเสียงอีกครั้งจะดาวน์โหลดใหม่"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Close"
+msgstr "ปิด"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Done"
+msgstr "เสร็จแล้ว"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "&Status:"
+msgstr "สถานะ (&S):"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Listening to the voice message: {done} of {total} seconds"
+msgstr "กำลังฟังข้อความเสียง: {done} จาก {total} วินาที"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Listening to the voice message: {done} seconds"
+msgstr "กำลังฟังข้อความเสียง: {done} วินาที"
+
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Getting the voice message from LINE..."
+msgstr "กำลังดึงข้อความเสียงจาก LINE..."
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Transcribe voice message"
+msgstr "แปลงเสียงเป็นข้อความ"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "&Don't show this again (change it in NVDA's settings, category LINE MR)"
+msgstr "ไม่ต้องแสดงหน้านี้อีก (เปลี่ยนได้ในการตั้งค่า NVDA หมวด LINE MR) (&D)"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "LINE's copy of the voice message cannot be read."
+msgstr "อ่านไฟล์ข้อความเสียงที่ LINE เก็บไว้ไม่ได้"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "&Language of the voice message:"
+msgstr "ภาษาของข้อความเสียง (&L):"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Converting to text: about {percent}%"
+msgstr "กำลังแปลงเป็นข้อความ: ประมาณ {percent}%"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "&Ask for the language before each transcription"
+msgstr "ถามภาษาก่อนแปลงข้อความเสียงทุกครั้ง (&A)"

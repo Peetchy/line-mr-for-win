@@ -43,17 +43,24 @@ config.conf.spec[CONFIG_SECTION] = {
 	"senderOnlyWhenChanged": "boolean(default=false)",
 	"highlightColor": "string(default='yellow')",
 	"highlightWidth": "integer(default=4, min=1, max=12)",
+	# Voice message transcription (appModules/line/transcribe.py): off until the user turns it on,
+	# which downloads the speech model (speechModel.py).
+	"transcribeVoiceMessages": "boolean(default=false)",
+	"transcribeLanguage": "string(default='auto')",
+	# Ask for the language before each transcription (the dialog's "Don't show this again" clears it).
+	"transcribeAskLanguage": "boolean(default=true)",
 }
 
 
 def _applyHighlightSettings():
 	"""Passes the focus highlight and message presentation settings to the bridge."""
 	try:
-		from appModules.line import highlight, messageSettings
+		from appModules.line import highlight, transcribe
 
 		conf = config.conf[CONFIG_SECTION]
 		highlight.writeSettings(conf["highlightFocus"], conf["highlightColor"], conf["highlightWidth"])
-		messageSettings.writeSettings(conf["directChatSenderNames"], conf["senderOnlyWhenChanged"])
+		# Also the message settings; downloads the speech model if transcription is on and it is missing.
+		transcribe.applySettings()
 	except Exception:
 		log.error("LINE MR: cannot write the bridge presentation settings", exc_info=True)
 
@@ -288,6 +295,7 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			max=highlight.MAX_WIDTH,
 			initial=conf["highlightWidth"],
 		)
+		self._makeTranscriptionSettings(helper, conf)
 		# Translators: Label of the bridge's state in the add-on's settings (read-only text).
 		self.bridgeState = helper.addLabeledControl(_("&Bridge:"), wx.TextCtrl, style=wx.TE_READONLY)
 		self.bridgeButton = helper.addItem(wx.Button(self))
@@ -296,6 +304,75 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		# Translators: Button in the add-on's settings: shows what changed in each version.
 		whatsNew = helper.addItem(wx.Button(self, label=_("&What's new")))
 		whatsNew.Bind(wx.EVT_BUTTON, lambda evt: showWhatsNew())
+
+	def _makeTranscriptionSettings(self, helper, conf):
+		from appModules.line import speechModel, transcribe
+
+		# Translators: Group of settings for turning voice messages into text.
+		group = guiHelper.BoxSizerHelper(self, sizer=wx.StaticBoxSizer(wx.VERTICAL, self, label=_("Voice message transcription")))
+		helper.addItem(group)
+		box = group.sizer.GetStaticBox()
+		self.transcribeVoiceMessages = group.addItem(
+			wx.CheckBox(
+				box,
+				# Translators: Check box in the add-on's settings ({size} is in megabytes). Turning it on
+				# downloads the speech model.
+				label=_("&Transcribe voice messages with Alt+T (downloads a speech model of {size} MB once)").format(
+					size=speechModel.DOWNLOAD_MB
+				),
+			)
+		)
+		self.transcribeVoiceMessages.SetValue(conf["transcribeVoiceMessages"])
+		# Translators: Label of the state of the speech model in the add-on's settings (read-only text).
+		self.speechModelState = group.addLabeledControl(_("Speech model:"), wx.TextCtrl, style=wx.TE_READONLY)
+		self.transcribeLanguage = group.addLabeledControl(
+			# Translators: Label of the language list for voice messages in the add-on's settings.
+			_("Voice message &language:"), wx.Choice, choices=transcribe.languageLabels()
+		)
+		language = conf["transcribeLanguage"]
+		self.transcribeLanguage.SetSelection(transcribe.WHISPER_LANGUAGES.index(language) if language in transcribe.WHISPER_LANGUAGES else 0)
+		self.transcribeAskLanguage = group.addItem(
+			# Translators: Check box in the add-on's settings: a dialog asks for the language before each
+			# voice message is transcribed.
+			wx.CheckBox(box, label=_("&Ask for the language before each transcription"))
+		)
+		self.transcribeAskLanguage.SetValue(conf["transcribeAskLanguage"])
+		self.transcribeVoiceMessages.Bind(wx.EVT_CHECKBOX, lambda evt: self._showTranscriptionDetails())
+		self._showTranscriptionDetails()
+		self._refreshSpeechModel()
+		self._speechModelTimer = wx.Timer(self)
+		self.Bind(wx.EVT_TIMER, lambda evt: self._refreshSpeechModel(), self._speechModelTimer)
+		self._speechModelTimer.Start(1000)
+
+	def _showTranscriptionDetails(self):
+		"""The speech model's state and the language show only while the check box is ticked."""
+		on = self.transcribeVoiceMessages.GetValue()
+		for control in (self.speechModelState, self.transcribeLanguage):
+			# addLabeledControl puts the label and the control in a sizer of their own.
+			control.GetContainingSizer().ShowItems(on)
+		self.transcribeAskLanguage.Show(on)
+		self.Layout()
+
+	def _refreshSpeechModel(self):
+		if not self:
+			return
+		from appModules.line import speechModel
+
+		download = speechModel.downloading()
+		if download is not None:
+			# Translators: State of the speech model in the add-on's settings ({percent} = how much is done).
+			text = _("Downloading, {percent}%").format(percent=download.done * 100 // max(1, download.total))
+		elif speechModel.installed():
+			# Translators: State of the speech model in the add-on's settings.
+			text = _("Downloaded")
+		else:
+			# Translators: State of the speech model in the add-on's settings.
+			text = _("Not downloaded")
+		if self.speechModelState.GetValue() != text:
+			self.speechModelState.SetValue(text)
+
+	def onDiscard(self):
+		self._speechModelTimer.Stop()
 
 	def _refreshBridge(self):
 		"""Shows the bridge's state and offers the opposite: Disconnect while it is installed in LINE,
@@ -364,6 +441,27 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		conf["senderOnlyWhenChanged"] = self.senderOnlyWhenChanged.GetValue()
 		conf["highlightColor"] = self._highlightColors[max(0, self.highlightColor.GetSelection())]
 		conf["highlightWidth"] = self.highlightWidth.GetValue()
+		from appModules.line import speechModel, transcribe
+
+		self._speechModelTimer.Stop()
+		conf["transcribeLanguage"] = transcribe.WHISPER_LANGUAGES[max(0, self.transcribeLanguage.GetSelection())]
+		conf["transcribeAskLanguage"] = self.transcribeAskLanguage.GetValue()
+		wasOn, on = conf["transcribeVoiceMessages"], self.transcribeVoiceMessages.GetValue()
+		conf["transcribeVoiceMessages"] = on
+		if wasOn and not on and (speechModel.installed() or speechModel.downloading() is not None):
+			if gui.messageBox(
+				# Translators: Question when voice message transcription is turned off ({size} is in megabytes).
+				_("Delete the downloaded speech model ({size} MB)? Turning transcription on again downloads it again.").format(
+					size=speechModel.DOWNLOAD_MB
+				),
+				# Translators: Title of LINE MR's dialogs.
+				_("LINE MR"),
+				wx.YES_NO | wx.ICON_QUESTION,
+				self,
+			) == wx.YES:
+				speechModel.remove()
+			else:
+				speechModel.cancelDownload()
 		_applyHighlightSettings()
 
 

@@ -365,3 +365,212 @@ msgstr "LINE MR ブリッジを接続しますか? LINE は終了して再起動
 #. Translators: Shown in the add-on's settings while LINE restarts.
 msgid "Restarting LINE..."
 msgstr "LINE を再起動しています..."
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Transcribes the selected voice message into text; cancels a running transcription"
+msgstr "選択したボイスメッセージを文字に起こします。処理中に押すと中止します"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Voice message transcription"
+msgstr "ボイスメッセージの文字起こし"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Thai"
+msgstr "タイ語"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "English"
+msgstr "英語"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Japanese"
+msgstr "日本語"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Chinese"
+msgstr "中国語"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Speech recognition stopped responding and was cancelled."
+msgstr "音声認識が応答しなくなったため中止しました。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "No speech was recognised in the voice message."
+msgstr "ボイスメッセージから音声を認識できませんでした。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Transcribing the voice message failed."
+msgstr "ボイスメッセージの文字起こしに失敗しました。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "LINE MR's audio helper is missing. Reinstall the add-on."
+msgstr "LINE MR の音声ヘルパーがありません。アドオンを再インストールしてください。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Transcribing a voice message of {seconds} seconds. Alt+T cancels."
+msgstr "{seconds} 秒のボイスメッセージを文字に起こしています。Alt+T で中止します。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Transcribing the voice message. Alt+T cancels."
+msgstr "ボイスメッセージを文字に起こしています。Alt+T で中止します。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "LINE's sound cannot be recorded on this computer (Windows 10 version 2004 or later is needed)."
+msgstr "このコンピューターでは LINE の音を録音できません (Windows 10 バージョン 2004 以降が必要です)。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Recording the voice message did not work."
+msgstr "ボイスメッセージを録音できませんでした。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "LINE played no sound. If the voice message was already playing, stop it and try again."
+msgstr "LINE から音が出ませんでした。ボイスメッセージが再生中だった場合は停止してからもう一度お試しください。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Converting to text..."
+msgstr "文字に変換しています..."
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Transcription cancelled."
+msgstr "文字起こしを中止しました。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Not a voice message."
+msgstr "ボイスメッセージではありません。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "A voice message is being transcribed. Alt+T cancels it."
+msgstr "ボイスメッセージを文字に起こしている最中です。Alt+T で中止します。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "Voice message text"
+msgstr "ボイスメッセージの文字"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "&Text (made by {engine}, may contain mistakes):"
+msgstr "テキスト ({engine} による。誤りを含む場合があります)(&T):"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, settings)
+msgid "&Copy"
+msgstr "コピー(&C)"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "The speech model for voice messages could not be downloaded (the download was damaged). LINE MR tries again when NVDA starts."
+msgstr "ボイスメッセージ用の音声モデルをダウンロードできませんでした (ダウンロードが壊れていました)。NVDA の次回起動時に再試行します。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "The speech model for voice messages could not be downloaded. Check the internet connection and free disk space; LINE MR tries again when NVDA starts."
+msgstr "ボイスメッセージ用の音声モデルをダウンロードできませんでした。インターネット接続とディスクの空き容量を確認してください。NVDA の次回起動時に再試行します。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Voice message transcription is off. Turn it on in NVDA's settings, category LINE MR."
+msgstr "ボイスメッセージの文字起こしはオフです。NVDA の設定の LINE MR カテゴリでオンにしてください。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "The speech model for voice messages is not downloaded yet. LINE MR tries again when NVDA starts."
+msgstr "ボイスメッセージ用の音声モデルはまだダウンロードされていません。NVDA の次回起動時に再試行します。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Voice message transcription is ready. In a chat, press Alt+T on a voice message."
+msgstr "ボイスメッセージの文字起こしの準備ができました。チャットでボイスメッセージを選んで Alt+T を押してください。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "The speech model for voice messages is still downloading ({percent}%)."
+msgstr "ボイスメッセージ用の音声モデルはまだダウンロード中です ({percent}%)。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Downloading the speech model for voice messages, {size} MB. LINE MR tells you when it is ready."
+msgstr "ボイスメッセージ用の音声モデル ({size} MB) をダウンロードしています。準備ができたらお知らせします。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Speech recognition could not be started."
+msgstr "音声認識を起動できませんでした。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Speech recognition failed (exit code {code})."
+msgstr "音声認識に失敗しました (終了コード {code})。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Speech model:"
+msgstr "音声モデル:"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Same as NVDA"
+msgstr "NVDA と同じ"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Detect automatically (slower)"
+msgstr "自動検出 (遅い)"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Voice message &language:"
+msgstr "ボイスメッセージの言語(&L):"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Downloaded"
+msgstr "ダウンロード済み"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Not downloaded"
+msgstr "未ダウンロード"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Downloading, {percent}%"
+msgstr "ダウンロード中 {percent}%"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "&Transcribe voice messages with Alt+T (downloads a speech model of {size} MB once)"
+msgstr "Alt+T でボイスメッセージを文字に起こす (音声モデル {size} MB を一度ダウンロード)(&T)"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Delete the downloaded speech model ({size} MB)? Turning transcription on again downloads it again."
+msgstr "ダウンロードした音声モデル ({size} MB) を削除しますか? 文字起こしを再びオンにすると、もう一度ダウンロードします。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Close"
+msgstr "閉じる"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Done"
+msgstr "完了"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "&Status:"
+msgstr "状態(&S):"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Listening to the voice message: {done} of {total} seconds"
+msgstr "ボイスメッセージを聞き取り中: {total} 秒中 {done} 秒"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Listening to the voice message: {done} seconds"
+msgstr "ボイスメッセージを聞き取り中: {done} 秒"
+
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Getting the voice message from LINE..."
+msgstr "LINE からボイスメッセージを取得しています..."
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Transcribe voice message"
+msgstr "ボイスメッセージを文字に起こす"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "&Don't show this again (change it in NVDA's settings, category LINE MR)"
+msgstr "今後このダイアログを表示しない (NVDA の設定の LINE MR カテゴリで変更できます)(&D)"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "LINE's copy of the voice message cannot be read."
+msgstr "LINE が保存したボイスメッセージを読み込めません。"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "&Language of the voice message:"
+msgstr "ボイスメッセージの言語(&L):"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "Converting to text: about {percent}%"
+msgstr "文字に変換中: 約 {percent}%"
+
+#. Translators: voice message transcription (appModules/line/transcribe.py, speechModel.py, settings)
+msgid "&Ask for the language before each transcription"
+msgstr "文字起こしのたびに言語を確認する(&A)"

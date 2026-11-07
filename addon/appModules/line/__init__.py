@@ -18,7 +18,7 @@ from NVDAObjects.behaviors import Dialog
 from NVDAObjects.UIA import UIA
 from scriptHandler import script
 
-from . import bridge, chatSearch, elements, fullText, messageActions, qtText
+from . import bridge, chatSearch, elements, fullText, messageActions, qtText, transcribe
 from .calls import CallCommandsAppModule
 
 addonHandler.initTranslation()
@@ -306,6 +306,27 @@ class AppModule(CallCommandsAppModule):
 	)
 	def script_unsendMessage(self, gesture):
 		messageActions.run(self, "unsend", gesture)
+
+	@script(
+		# Translators: Describes the command that turns the selected voice message into text (pressed
+		# again while it works, it cancels).
+		description=_("Transcribes the selected voice message into text; cancels a running transcription"),
+		category=SCRIPT_CATEGORY,
+		gesture="kb:alt+t",
+	)
+	def script_transcribeMessage(self, gesture):
+		if transcribe.cancel():
+			return
+		problem = transcribe.unavailableMessage()
+		if problem:
+			# Off or not downloaded: said in the message list (a failed download starts again), elsewhere
+			# the key is LINE's.
+			if not messageActions.inMessageList(self):
+				gesture.send()
+			elif not transcribe.retryDownload():
+				ui.message(problem)
+			return
+		messageActions.run(self, "transcribe", gesture)
 
 	@script(
 		# Translators: Describes the commands that read recent messages (1 is the newest).

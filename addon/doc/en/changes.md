@@ -2,6 +2,9 @@
 
 ## Version 0.5.6
 
+### Voice messages to text
+- New: Alt+T on a voice message (or "Transcribe voice message" in its menu) turns it into text on this computer; the text opens in a window where it can be read, edited and copied. Off by default: turning it on in NVDA's settings, category LINE MR, downloads the speech model once (879 MB, Typhoon Whisper Turbo, trained on Thai). See the guide, "Voice messages to text".
+
 ### Settings
 - NVDA's settings, category LINE MR, show whether the bridge is running and have a button to disconnect it (use LINE as it is, without LINE MR) or to connect it again. LINE restarts either way.
 - Removing LINE MR in NVDA's Add-on Store now also removes the bridge from LINE, its call program and its photo viewer, and LINE MR's folder `%LOCALAPPDATA%\LineMR`. A running LINE keeps the bridge until it quits.

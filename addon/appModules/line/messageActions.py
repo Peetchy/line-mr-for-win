@@ -18,6 +18,8 @@ _COMMAND_KEYS = {
 	"reply": "control+alt+shift+f9",
 	"delete": "control+alt+shift+f10",
 	"unsend": "control+alt+shift+f11",
+	# Transcribe voice message (transcribe.py; the bridge checks that it is a voice message).
+	"transcribe": "control+alt+shift+f12",
 }
 
 # A held key repeats: the command runs once.
@@ -33,6 +35,12 @@ def _messageList(obj):
 			return obj
 		obj = obj.parent
 	return None
+
+
+def inMessageList(app):
+	"""True when the focus is in LINE's message list."""
+	focus = api.getFocusObject()
+	return focus.processID == app.processID and _messageList(focus) is not None
 
 
 def run(app, action, gesture):

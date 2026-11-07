@@ -124,6 +124,13 @@ public:
 	bool openRowMenu();
 	// Internal commands dispatched by NVDA's remappable scripts: reply, delete, unsend.
 	bool openMessageCommand(int command);
+	// "Transcribe voice message" (menu item, or the add-on's command): if `row` is a voice message,
+	// asks the add-on to record and transcribe it (requestTranscription()) and plays the message once
+	// the add-on records; otherwise tells the add-on it is not one. False without a message list.
+	bool transcribeVoiceMessage(int row);
+	// The voice message's length in seconds as drawn in its bubble, -1 if not shown, -2 if `row` is
+	// not a voice message.
+	int voiceMessageSeconds(int row);
 	// Applications key / Shift+F10 in the chat or friend list: Qt would open the menu of LINE's
 	// current row (the open chat), not of the row the bridge's cursor is on (the one NVDA read), so
 	// "Delete" could hit another chat. Right-clicks the cursor row instead and keeps the cursor

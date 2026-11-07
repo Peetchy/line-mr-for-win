@@ -32,3 +32,11 @@ target_link_libraries(line_a11y PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Qml
 target_compile_definitions(line_a11y PRIVATE QT_NO_KEYWORDS UNICODE _UNICODE _CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN
     $<$<CONFIG:Release,RelWithDebInfo>:QT_NO_DEBUG>)
 target_compile_options(line_a11y PRIVATE /W4 /utf-8 /permissive- /wd4100)
+
+# Voice message transcription: audio capture and Windows speech recognition, in a process of
+# its own (shipped in the add-on, run by appModules/line/transcribe.py).
+add_executable(lineMR_audio src/audio_helper.cpp)
+target_link_libraries(lineMR_audio PRIVATE mmdevapi ole32 mfplat mfreadwrite mfuuid)
+target_compile_definitions(lineMR_audio PRIVATE UNICODE _UNICODE _CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
+target_compile_options(lineMR_audio PRIVATE /W4 /utf-8 /permissive- /wd4100)
+set_target_properties(lineMR_audio PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded" AUTOMOC OFF)

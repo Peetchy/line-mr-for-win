@@ -49,6 +49,7 @@ constexpr qint64 kRowTextTtlMs = 1500;
 struct MessageSettings {
 	bool directChatSenderNames = false;
 	bool senderOnlyWhenChanged = false;
+	bool transcribe = false; // voice message transcription is on (its model is downloaded)
 };
 
 const MessageSettings &messageSettings()
@@ -60,6 +61,7 @@ const MessageSettings &messageSettings()
 		QSettings ini(bridgeDirectory() + QStringLiteral("message-settings.ini"), QSettings::IniFormat);
 		settings.directChatSenderNames = ini.value(QStringLiteral("messages/directChatSenderNames"), false).toBool();
 		settings.senderOnlyWhenChanged = ini.value(QStringLiteral("messages/senderOnlyWhenChanged"), false).toBool();
+		settings.transcribe = ini.value(QStringLiteral("messages/transcribe"), false).toBool();
 	}
 	return settings;
 }
@@ -1410,6 +1412,7 @@ struct ProfileOffer {
 	RowSide side = RowSide::Empty;
 	bool reactable = false; // "React" is offered (not for dates, notices, calls)
 	bool reacted = false;   // the user has reacted: "Remove reaction" instead
+	bool voice = false;     // a voice message: "Transcribe voice message"
 	const char *noReaction = nullptr; // why not, for the log
 } g_profileOffer;
 
@@ -2891,6 +2894,17 @@ void addProfileMenuItem(QWidget *menu)
 	} else {
 		a11yLog("[menu] no reaction item: row %d (%s)", offer.index.row(), offer.noReaction ? offer.noReaction : "empty row");
 	}
+	// Voice messages: "Transcribe voice message" (the add-on records and transcribes them), only while
+	// the feature is on in the add-on's settings.
+	if (offer.voice && messageSettings().transcribe) {
+		QPointer<QAbstractItemView> view = offer.view;
+		QPersistentModelIndex index = offer.index;
+		addExtraMenuItem(menu, label("Transcribe voice message"), [view, index] {
+			auto *l = view ? dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(view.data())) : nullptr;
+			if (!l || !index.isValid() || !l->transcribeVoiceMessage(index.row()))
+				a11yLog("[transcribe] message row %d could not be looked at", index.isValid() ? index.row() : -1);
+		});
+	}
 	// The user's own messages, notices and dates have no sender to show.
 	if (offer.side != RowSide::Received) {
 		a11yLog("[menu] no profile item: message row %d is not a received message (%d)", offer.index.row(), int(offer.side));
@@ -3012,6 +3026,9 @@ bool LineAccessibleList::openRowMenu()
 	g_profileOffer.view = v;
 	g_profileOffer.index = idx;
 	g_profileOffer.side = rowSide(cap, r);
+	QRectF bubble;
+	const char *kind = messageKind(cap, r, false, &bubble);
+	g_profileOffer.voice = kind && qstrcmp(kind, "Voice message") == 0;
 	judgeReactions(g_profileOffer, v, r, cap);
 	g_profileOffer.at.start();
 	const QList<QPointF> points = messageMenuPoints(cap, r);
@@ -3590,6 +3607,81 @@ bool LineAccessibleList::openMessageCommand(int command)
 		g_messageCommand = PendingMessageCommand();
 		return false;
 	}
+	return true;
+}
+
+int LineAccessibleList::voiceMessageSeconds(int row)
+{
+	QAbstractItemView *v = view();
+	if (!v || !v->model() || row < 0)
+		return -2;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	v->scrollTo(idx);
+	const QRect r = v->visualRect(idx);
+	const CaptureResult cap = captureRegionText(v->viewport(), r);
+	QRectF bubble;
+	const char *kind = cap.skipped ? nullptr : messageKind(cap, r, false, &bubble);
+	if (!kind || qstrcmp(kind, "Voice message") != 0)
+		return -2;
+	// Its length ("00:07") is drawn inside the bubble.
+	static const QRegularExpression clock(QStringLiteral("^(?:(\\d{1,2}):)?(\\d{1,2}):(\\d{2})$"));
+	for (const CapturedText &it : cap.items) {
+		const QRegularExpressionMatch m = clock.match(cleanText(it.text));
+		if (m.hasMatch() && it.pos.x() >= bubble.left() && it.pos.x() < bubble.right())
+			return m.captured(1).toInt() * 3600 + m.captured(2).toInt() * 60 + m.captured(3).toInt();
+	}
+	return -1;
+}
+
+namespace {
+// A transcription the add-on was asked for: the message is played once it records.
+struct PendingTranscription {
+	QPointer<QAbstractItemView> view;
+	QPersistentModelIndex index;
+	QElapsedTimer at;
+} g_transcription;
+} // namespace
+
+bool LineAccessibleList::transcribeVoiceMessage(int row)
+{
+	QAbstractItemView *v = view();
+	if (!v || !v->model() || row < 0)
+		return false;
+	if (g_transcription.view && g_transcription.at.isValid() && g_transcription.at.elapsed() < 10000) {
+		requestTranscription(QStringLiteral("busy"), -1);
+		return true;
+	}
+	const int seconds = voiceMessageSeconds(row);
+	if (seconds == -2) {
+		requestTranscription(QStringLiteral("notvoice"), -1);
+		return true;
+	}
+	g_transcription.view = v;
+	g_transcription.index = v->model()->index(row, 0, v->rootIndex());
+	g_transcription.at.start();
+	requestTranscription(QStringLiteral("ok"), seconds);
+	// The add-on starts recording LINE's sound and then signals; the message is played only then, so
+	// its beginning is recorded. Given up after 10 s (the add-on refused: no recognizer, ...).
+	auto *timer = new QTimer(v);
+	QObject::connect(timer, &QTimer::timeout, v, [timer] {
+		if (!g_transcription.view || !g_transcription.index.isValid() || g_transcription.at.elapsed() > 10000) {
+			g_transcription = PendingTranscription();
+			timer->deleteLater();
+			return;
+		}
+		if (!transcriptionPlayRequested())
+			return;
+		QAbstractItemView *view = g_transcription.view;
+		const QModelIndex index = g_transcription.index;
+		g_transcription = PendingTranscription();
+		timer->deleteLater();
+		if (view->currentIndex() != index)
+			view->setCurrentIndex(index);
+		auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(view));
+		const bool played = list && list->openMessageContent();
+		a11yLog("[transcribe] row %d: %s", index.row(), played ? "playing" : "could not be played");
+	});
+	timer->start(100);
 	return true;
 }
 

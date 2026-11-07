@@ -1502,6 +1502,14 @@ public:
 				}
 				return true;
 			}
+			// The add-on's Transcribe voice message command (Alt+T).
+			if (isMessageList(w) && key->modifiers() == commandModifiers && key->key() == Qt::Key_F12) {
+				if (!key->isAutoRepeat()) {
+					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
+						list->transcribeVoiceMessage(list->cursorRow());
+				}
+				return true;
+			}
 			if (!isLineListView(w) || !isListNavigationKey(key->key()))
 				m_browsingList = nullptr;
 			if (isLineListView(w) && isListNavigationKey(key->key())) {

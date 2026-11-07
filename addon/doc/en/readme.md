@@ -51,6 +51,14 @@ For low-vision users, LINE MR draws a yellow frame with a black outline around t
 - Other windows: Settings (More > Settings; its sections and sub-sections are radio buttons, combo boxes carry their label), profile settings, Albums and Notes, Search friends, and Create chat (the button below the chat list: Chat, Group chat, OpenChat). In the friend list of Create chat / Create group, friends are checkboxes: Up/Down, Page Up/Page Down and Home/End move through all friends, Space ticks one, Tab leaves the list for the chosen friends ("Remove <name>") and Next, Shift+Tab goes back to the friend read last. The group profile page has Change profile picture, Edit group name and the "Members join automatically" switch (a checkbox). Create OpenChat asks first for the OpenChat's name, keywords and category, then (after Next) for your nickname in that OpenChat; the field reads what the page is for, and the X in a field is "Clear text". Change profile picture > Create text profile: the colours are check boxes named by number and colour ("Color 4: Light pink"), Space chooses one (checked); Text color / Background color pick what the colours change; the font list is "Font". Polls open as a web page, read in browse mode.
 - Picture messages (cards from official accounts such as banks) are pictures with the text drawn into them, so LINE gives no text to read: they are reported as "photo or sticker". Press NVDA+R on such a message to read its text with Windows OCR. When LINE could not download a card, it shows "Unable to load" with a "Try again" button, which is what you hear.
 
+## Voice messages to text
+
+Off by default. To turn it on, open NVDA's settings, category LINE MR, group "Voice message transcription", check "Transcribe voice messages with Alt+T" and press OK. LINE MR then downloads, once, what it needs (879 MB: the speech recognition program whisper.cpp and the speech model Typhoon Whisper Turbo by SCB 10X, trained on Thai and also good for English, Japanese and Chinese) and says when it is ready. The settings show how far the download is. An interrupted or failed download continues the next time NVDA starts, or when you press Alt+T on a voice message. Unchecking the box offers to delete the downloaded files.
+
+Then, on a voice message, press Alt+T, or choose "Transcribe voice message" in its menu (Applications key). A dialog asks for the language of the message ("Detect automatically" by default; choosing the language is faster and more reliable, and Chinese is sometimes taken for Thai when detected). Check "Don't show this again" to skip the dialog; the language and the question are also in the settings. After OK, a window shows what is happening, with a progress bar: getting the voice message from LINE, then converting to text with an estimated percentage (LINE MR learns how fast this computer is). When it is done, the text appears in the same window in an editable field, with Copy (copies the text as edited) and Close (Escape). The text may contain mistakes. Cancel or Escape in the window, or Alt+T in LINE, cancels while it works.
+
+Nothing is played and nothing is sent to the internet: LINE keeps every voice message it has played or downloaded, and LINE MR converts that copy on this computer. A voice message that was never played has no copy yet: then LINE plays it once (you hear it) and LINE MR uses the file as soon as LINE has downloaded it. Converting takes a while on slower computers (on an i5-1235U laptop about 20 seconds for a 7-second message and 2 minutes for a 36-second one). Needs 64-bit Windows 10 version 2004 or later.
+
 ## Commands
 
 | Command | Action |
@@ -64,6 +72,7 @@ For low-vision users, LINE MR draws a yellow frame with a black outline around t
 | Alt+R | In the messages: reply to the selected message and move to the message input |
 | Delete | In the messages: delete the selected message (as Delete in the message's menu; LINE deletes it only on this computer) |
 | Shift+Delete | In the messages: unsend the selected message (as Unsend in the message's menu) |
+| Alt+T | In the messages: turn the selected voice message into text (turn it on in the settings first; again: cancel) |
 | NVDA+Alt+1 … NVDA+Alt+9 | Read a recent message (1 = newest) |
 | Alt+A in LINE, NVDA+Shift+Control+A anywhere | Answer an incoming LINE call |
 | Alt+D in LINE, NVDA+Shift+Control+D anywhere | Decline an incoming LINE call; during a call, end it |

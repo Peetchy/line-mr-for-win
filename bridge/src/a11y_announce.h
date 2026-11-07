@@ -23,4 +23,13 @@ void announceIncomingCall(const QString &text);
 // call window's, whose controls are hidden while the mouse is elsewhere).
 void startEndCallListener(QObject *context);
 
+// Voice message transcription (the add-on records LINE's sound and transcribes it; LINE plays the
+// message): writes %LOCALAPPDATA%\LineMR\transcribe-request.txt (lines "status <ok|notvoice|busy>",
+// "seconds <length or -1>", "pid <LINE's process>", tab-separated) and signals
+// "Local\lineMR.transcribeRequest".
+void requestTranscription(const QString &status, int seconds);
+// True once the add-on has signalled "Local\lineMR.transcribePlay" (it is recording now); the
+// signal is consumed.
+bool transcriptionPlayRequested();
+
 } // namespace line_a11y

@@ -62,6 +62,26 @@ void announceIncomingCall(const QString &text)
 	a11yLog("[announce] incoming call signalled (%d)", int(ok));
 }
 
+void requestTranscription(const QString &status, int seconds)
+{
+	QFile f(bridgeDirectory() + QStringLiteral("transcribe-request.txt"));
+	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+		return;
+	f.write(QStringLiteral("status\t%1\nseconds\t%2\npid\t%3\n").arg(status).arg(seconds).arg(GetCurrentProcessId()).toUtf8());
+	f.close();
+	// A play request left over from an earlier, abandoned transcription must not start this one.
+	transcriptionPlayRequested();
+	static const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, L"Local\\lineMR.transcribeRequest");
+	const BOOL ok = event && SetEvent(event);
+	a11yLog("[transcribe] request signalled: %s, %d s (%d)", qPrintable(status), seconds, int(ok));
+}
+
+bool transcriptionPlayRequested()
+{
+	static const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, L"Local\\lineMR.transcribePlay");
+	return event && WaitForSingleObject(event, 0) == WAIT_OBJECT_0;
+}
+
 void startEndCallListener(QObject *context)
 {
 	const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, L"Local\\lineMR.endCall");
