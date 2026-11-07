@@ -76,6 +76,7 @@ public:
 	// Coming back to the messages with Tab / Shift+Tab: makes the row the user last read current
 	// again. False (nothing changed) if there is none in this chat (LINE gives each chat a new model).
 	bool focusRememberedRow();
+	void focusVisibleRowOnBacktab();
 
 	// Up / Down / PageUp / PageDown in the message list: the previous / next row with text (a page:
 	// about a screen further). LINE moves from a row of its own that setCurrentIndex() does not
@@ -189,6 +190,7 @@ private:
 	QPersistentModelIndex m_cursor;
 	// The message row last read while the list had focus (focusRememberedRow()).
 	QPersistentModelIndex m_lastRead;
+	bool m_selectingVisibleRow = false;
 };
 
 // The message menu the keyboard opened (openRowMenu) gets one more item, "Show <sender>'s profile",

@@ -21,6 +21,7 @@
 #include <QtCore/QPointer>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSet>
+#include <QtCore/QScopedValueRollback>
 #include <QtCore/QSettings>
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
@@ -1871,13 +1872,14 @@ void LineAccessibleList::notifyCurrentRow()
 {
 	QAbstractItemView *v = view();
 	// While the chat list cursor is elsewhere, LINE moving its current row is not the user's doing.
-	if (!v || !v->isVisible() || !v->hasFocus() || hasCursor())
+	if (!v || !v->isVisible() || !v->hasFocus() || hasCursor() || preserveChatOpenScroll(v))
 		return;
 	const QModelIndex current = v->currentIndex();
 	if (!current.isValid())
 		return;
 	m_lastRead = current;
-	v->scrollTo(current);
+	if (!m_selectingVisibleRow)
+		v->scrollTo(current);
 	if (QAccessibleInterface *item = itemAt(current.row())) {
 		QAccessibleEvent event(item, QAccessible::Focus);
 		QAccessible::updateAccessibility(&event);
@@ -2116,6 +2118,54 @@ void LineAccessibleList::focusEdgeRow(bool last)
 		}
 	}
 	makeCurrent(target);
+}
+
+void LineAccessibleList::focusVisibleRowOnBacktab()
+{
+	checkModel();
+	QAbstractItemView *v = view();
+	if (!v)
+		return;
+	const QRect area = v->viewport()->rect();
+	const auto readable = [this](const QModelIndex &idx) {
+		QAccessibleInterface *item = idx.isValid() ? itemAt(idx.row()) : nullptr;
+		return item && !item->text(QAccessible::Name).isEmpty();
+	};
+	QModelIndex target;
+	if (m_lastRead.isValid() && area.intersects(v->visualRect(m_lastRead)) && readable(m_lastRead)) {
+		target = m_lastRead;
+	} else {
+		QModelIndex partlyVisible;
+		for (int y = area.top(), checked = 0; y <= area.bottom() && checked < 8;) {
+			const QModelIndex idx = v->indexAt(QPoint(area.center().x(), y));
+			if (!idx.isValid()) {
+				++y;
+				continue;
+			}
+			const QRect rect = v->visualRect(idx);
+			y = qMax(y + 1, rect.bottom() + 1);
+			++checked;
+			if (!readable(idx))
+				continue;
+			if (rect.top() >= area.top() && rect.bottom() <= area.bottom()) {
+				target = idx;
+				break;
+			}
+			if (!partlyVisible.isValid())
+				partlyVisible = idx;
+		}
+		if (!target.isValid())
+			target = partlyVisible;
+	}
+	if (!target.isValid())
+		return;
+	const bool autoScroll = v->hasAutoScroll();
+	const QPointer<QAbstractItemView> guard = v;
+	QScopedValueRollback<bool> selecting(m_selectingVisibleRow, true);
+	v->setAutoScroll(false);
+	v->setCurrentIndex(target);
+	if (guard)
+		guard->setAutoScroll(autoScroll);
 }
 
 bool LineAccessibleList::focusRememberedRow()
