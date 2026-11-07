@@ -4,6 +4,7 @@
 
 ### Keys
 - Alt+T in the messages now translates the selected message (Translate in LINE's message menu); voice message transcription moved to Alt+Shift+T.
+- Alt+C, Alt+L, Alt+F and Alt+1 / Alt+2 / Alt+3 also work in a chat opened in its own window: LINE's main window comes to the front and focus goes there. Alt+M and Alt+I in the main window with the chat room hidden go to the chat window.
 
 ### Voice messages to text
 - New: Alt+Shift+T on a voice message (or "Transcribe voice message" in its menu) turns it into text on this computer; the text opens in a window where it can be read, edited and copied. Off by default: turning it on in NVDA's settings, category LINE MR, downloads the speech model chosen there once. Six models: Typhoon Whisper Turbo (874 MB, the default: best for Thai, also English and Japanese, the least memory of the Typhoon models), Typhoon Whisper Medium and Large v3 (Thai only; Large v3 the most accurate, but very slow), and OpenAI's Whisper Small, Medium and Large v3 Turbo (many languages); or "Browse for a model file" for a whisper.cpp model of your own, which LINE MR checks before using it. The dialog before each transcription asks for the model and the language. See the guide, "Voice messages to text".
@@ -15,6 +16,8 @@
 - Several photos and videos can be saved or shared at once (#9): in a chat's Photos & videos window (chat menu), Space ticks the item under the cursor and NVDA says whether it is checked; Tab reaches LINE's bar under the grid (the number selected, Share, Send to Keep Memo, Download, Cancel). Download asks for a folder; Cancel unticks everything and returns to the grid. Enter still opens the item. An album sent in a chat has its photos there too: LINE itself saves several photos only from this window.
 
 ### Chat list
+- With the chat room hidden (Show or hide chat room), Enter or Space opens the chat in its own window at once and moves to its message input. Before, the first press only selected the chat and a second press was needed. Space now works like Enter in the chat list. "Show or hide chat room" says correctly whether the chat room is shown when no chat has been opened yet.
+- New: Shift+Enter in the chat list opens the chat in its own window (as "Open in new window" in the chat's menu) and moves to its message input.
 - The unread count reads "3 unread messages" (was "3 unread"), still at the end of the chat's row.
 - Groups and OpenChats say so after the chat's name: "DHCB, Group, 37 members, ...", "English talk, OpenChat, 3051 members, ..." (#5). Official accounts cannot be told apart from friends: LINE gives no sign of them.
 

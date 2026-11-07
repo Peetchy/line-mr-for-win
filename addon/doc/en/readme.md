@@ -38,7 +38,7 @@ For low-vision users, LINE MR draws a yellow frame with a black outline around t
 - Entering the login window reads its instructions (for example the QR-code instructions); NVDA+B reads them again.
 - LINE's window-shadow windows and its unnamed layout groups are hidden from object navigation.
 - Main window: sidebar tabs, chat header and message-bar buttons are named. The chat list reads "Selected" before the name of the chat that is open, then name, "Pinned" for pinned chats, "Group" or "OpenChat", member count, last message, time and unread count; the friend list reads names, member counts and group sections.
-- Chat list: Up/Down, Page Up/Page Down and Home/End browse chats quickly without opening them (opening a chat makes LINE pause for up to two seconds); Enter opens the chat and moves to its message input. The chat on the right changes only when you press Enter.
+- Chat list: Up/Down, Page Up/Page Down and Home/End browse chats quickly without opening them (opening a chat makes LINE pause for up to two seconds); Enter opens the chat and moves to its message input. The chat on the right changes only when you press Enter. Space works like Enter. With the chat room hidden (Show or hide chat room), Enter or Space opens the chat in its own window, as a double click does, and moves to its message input. Shift+Enter opens the chat in its own window (as "Open in new window" in its menu) and moves to its message input.
 - Messages: each message reads as sender (or "You"), text, time and read receipt; messages without text say what they are: photo, photo album, video, sticker, LINE emoji, voice message (with its length), file (with its name and size), location (with its address), contact (with the name) or call (with its length or status). Entering the list starts at the newest message; when you come back with Tab in the same chat, it returns to the message you read last; Shift+Tab from the message input stays where the chat is scrolled to (the message read last if it is still on screen, else the first message on screen), and opening a chat with Enter keeps LINE's place, for example its first unread message (Alt+M always goes to the newest). Up/Down move one message, Page Up/Page Down about a screen; Home goes to the oldest loaded message (LINE then loads older ones; press Home again to go further back), End to the newest; pressing Home or End again reads that message again. New messages from others are announced while LINE is in front. In one-to-one chats, received messages can start with the other person's name: turn on "Show the sender's name in one-to-one chats" in NVDA's settings, category LINE MR (off by default). To hear a sender's name only when it changes, not before each of their consecutive messages, turn on "Read the sender's name only when the sender changes" there.
 - Tab order in the chat list panel: Sort, Show or hide chat room (it says whether the open chat on the right is shown; hiding it narrows the window to the list), Create chat, the ad, the search field, then the chat list (Tab goes on to the open chat).
 - Sort (beside the chat list's search field): its options say which one is selected (Time received or Unread). After you choose one, focus moves to the first chat of the re-sorted list. With Unread, chats with unread messages come first, so the top of the list can look the same as before when your newest chats are unread anyway.
@@ -73,11 +73,11 @@ Nothing is played and nothing is sent to the internet: LINE keeps every voice me
 | Command | Action |
 |---|---|
 | Alt+1 / Alt+2 / Alt+3 | Friends / Chats / Add friends tab |
-| Alt+C | Move to the chat list (switches to the Chats tab first if needed) |
+| Alt+C | Move to the chat list (switches to the Chats tab first if needed) Also from a chat in its own window: LINE's main window comes to the front first |
 | Alt+L | Move to the chat list or friend list (whichever is shown) |
 | Alt+F | Move to the search field of the chat list or friend list |
-| Alt+M | Move to the messages of the open chat |
-| Alt+I | Move to the message input of the open chat |
+| Alt+M | Move to the messages of the open chat From the main window with the chat room hidden: the chat in its own window |
+| Alt+I | Move to the message input of the open chat From the main window with the chat room hidden: the chat in its own window |
 | Alt+R | In the messages: reply to the selected message and move to the message input |
 | Delete | In the messages: delete the selected message (as Delete in the message's menu; LINE deletes it only on this computer) |
 | Shift+Delete | In the messages: unsend the selected message (as Unsend in the message's menu) |
@@ -96,7 +96,7 @@ Commands can be changed under NVDA menu, Preferences, Input gestures, category "
 | Where | Keys |
 |---|---|
 | Everywhere | Tab / Shift+Tab move between controls; Space or Enter presses buttons, checkboxes and links |
-| Chat list | Up/Down, Page Up/Page Down, Home/End browse chats without opening them; Enter opens the chat and moves to its message input |
+| Chat list | Up/Down, Page Up/Page Down, Home/End browse chats without opening them; Enter opens the chat and moves to its message input; Shift+Enter opens it in its own window |
 | Messages | Up/Down: previous / next message; Page Up/Page Down: about a screen; Home: oldest loaded message (again: load older ones); End: newest message; Applications key or Shift+F10: the message's menu; Enter or Space: show the whole text of a long message (read it like in a word processor: Up/Down move by the lines LINE shows, a line break is only where the writer started a new line, Control+Up/Down move by paragraph; Escape goes back), play or pause a voice message, play the sound of a sound sticker again, open a photo or video in LINE's viewer (Tab moves through its buttons and thumbnails; Escape closes it and returns to the chat), open a file (PDF, Word, ...) in its program, open a link (the first web address in the message) in your web browser |
 | Message menu | Up/Down, Home/End move; Enter or Space chooses; Escape closes and returns to the message |
 | Chat search field | Enter: search (again from the newest match); Up/Down: older / newer match; LINE MR reads the result number and the message |

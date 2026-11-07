@@ -171,26 +171,57 @@ class AppModule(CallCommandsAppModule):
 
 	# ---- Main window commands ------------------------------------------------------------------
 
-	def _activate(self, tag, notFound):
-		obj = elements.find(tag)
-		if obj is None:
-			ui.message(notFound)
-			return None
-		try:
-			obj.doAction()
-		except Exception:
-			log.debugWarning("LINE MR: could not activate %s", tag, exc_info=True)
-		return obj
-
-	def _focus(self, tags, notFound):
+	def _goTo(self, tags, act, windowClasses=(elements.MAIN_WINDOW, elements.CHAT_WINDOW)):
+		"""Calls act(obj) with the first control tagged one of `tags`: in LINE's foreground window, else in
+		LINE's other windows of `windowClasses` (front to back), which then comes to the front first (from a
+		chat in its own window, Alt+C goes back to the main window's chat list). False if none has it."""
 		for tag in tags:
 			obj = elements.find(tag)
 			if obj is not None:
-				obj.setFocus()
-				return obj
+				act(obj)
+				return True
+		foreground = elements.foregroundClass()
+		for className in windowClasses:
+			for window in elements.windows(self.processID, className):
+				if className == foreground and elements.isForeground(window):
+					continue  # searched above
+				for tag in tags:
+					obj = elements.find(tag, window=window)
+					if obj is not None:
+						self._inFront(window, lambda obj=obj: act(obj))
+						return True
+		return False
+
+	def _inFront(self, window, act, triesLeft=20):
+		"""Brings a LINE window to the front, then calls act() (Qt gives an inactive window no focus)."""
+		if triesLeft == 20:
+			elements.bringToFront(window)
+		if elements.isForeground(window) or triesLeft <= 0:
+			act()
+		else:
+			core.callLater(50, self._inFront, window, act, triesLeft - 1)
+
+	def _activate(self, tag):
+		"""Presses a control of LINE's main window (sidebar tabs), bringing the window to the front."""
+		def press(obj):
+			try:
+				obj.doAction()
+			except Exception:
+				log.debugWarning("LINE MR: could not activate %s", tag, exc_info=True)
+
+		if not self._goTo((tag,), press, (elements.MAIN_WINDOW,)):
+			# Translators: Reported when a LINE command needs LINE's main window, which is closed (LINE
+			# keeps running in the notification area; a chat may be open in its own window).
+			ui.message(_("LINE's main window is closed. Open LINE from the notification area."))
+			return False
+		return True
+
+	def _focus(self, tags, notFound, windowClasses=(elements.MAIN_WINDOW, elements.CHAT_WINDOW)):
+		if self._goTo(tags, lambda obj: obj.setFocus(), windowClasses):
+			return True
 		if notFound:
 			ui.message(notFound)
-		return None
+		return False
 
 	@script(
 		# Translators: Describes the command that opens LINE's friends tab.
@@ -199,8 +230,7 @@ class AppModule(CallCommandsAppModule):
 		gesture="kb:alt+1",
 	)
 	def script_friendsTab(self, gesture):
-		# Translators: Reported when a LINE command needs the main window.
-		self._activate("gnb-friends", _("Not available here. Switch to LINE's main window."))
+		self._activate("gnb-friends")
 
 	@script(
 		# Translators: Describes the command that opens LINE's chats tab.
@@ -209,7 +239,7 @@ class AppModule(CallCommandsAppModule):
 		gesture="kb:alt+2",
 	)
 	def script_chatsTab(self, gesture):
-		self._activate("gnb-chat", _("Not available here. Switch to LINE's main window."))
+		self._activate("gnb-chat")
 
 	@script(
 		# Translators: Describes the command that opens LINE's add-friends tab.
@@ -218,7 +248,7 @@ class AppModule(CallCommandsAppModule):
 		gesture="kb:alt+3",
 	)
 	def script_addFriendsTab(self, gesture):
-		self._activate("gnb-add-friend", _("Not available here. Switch to LINE's main window."))
+		self._activate("gnb-add-friend")
 
 	@script(
 		# Translators: Describes the command that moves focus to LINE's chat or friend list.
@@ -237,14 +267,15 @@ class AppModule(CallCommandsAppModule):
 		gesture="kb:alt+c",
 	)
 	def script_focusChats(self, gesture):
-		if self._focus(("list_chats",), None) is not None:
+		# From a chat in its own window this goes back to the main window (_goTo).
+		if self._focus(("list_chats",), None, (elements.MAIN_WINDOW,)):
 			return
 		# Another tab is shown: switch to the chats tab, then go to its list once LINE has shown it.
-		if self._activate("gnb-chat", _("Not available here. Switch to LINE's main window.")) is None:
+		if not self._activate("gnb-chat"):
 			return
 
 		def focusList(triesLeft=5):
-			if self._focus(("list_chats",), None) is None and triesLeft > 0:
+			if not self._focus(("list_chats",), None, (elements.MAIN_WINDOW,)) and triesLeft > 0:
 				core.callLater(200, focusList, triesLeft - 1)
 
 		core.callLater(200, focusList)

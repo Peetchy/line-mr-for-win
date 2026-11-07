@@ -312,14 +312,28 @@ bool isChatRoomToggle(const QWidget *w)
 	return false;
 }
 
+// Told by the window's width, not by an open chat: with the room shown but no chat open (after LINE
+// starts) there is no ChatMessagePanel, and the window is still wide. Hidden, the list panel reaches
+// the window's right edge (546 px window, list panel ending at 546).
+} // namespace
+
+bool chatRoomHidden(const QWidget *window)
+{
+	if (!window || !inheritsClass(window, "AllInOneWindow"))
+		return false;
+	for (const QWidget *panel : window->findChildren<QWidget *>()) {
+		if (inheritsAnyClass(panel, { "MainChatPanel", "MainFriendPanel" }) && panel->isVisible())
+			return panel->mapTo(window, QPoint(panel->width(), 0)).x() >= window->width() - 40;
+	}
+	return false;
+}
+
+namespace {
+
 QString chatRoomToggleName(const QWidget *w)
 {
-	bool shown = false;
-	for (const QWidget *panel : w->window()->findChildren<QWidget *>()) {
-		if (inheritsClass(panel, "ChatMessagePanel") && panel->isVisible() && panel->width() > 0)
-			shown = true;
-	}
-	return label(shown ? "Show or hide chat room, chat room shown" : "Show or hide chat room, chat room hidden");
+	return label(chatRoomHidden(w->window()) ? "Show or hide chat room, chat room hidden"
+	                                         : "Show or hide chat room, chat room shown");
 }
 
 QString iconDerivedName(const QWidget *w)
