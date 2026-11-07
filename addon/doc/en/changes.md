@@ -13,12 +13,14 @@
 
 ### Chat list
 - The unread count reads "3 unread messages" (was "3 unread"), still at the end of the chat's row.
+- Groups and OpenChats say so after the chat's name: "DHCB, Group, 37 members, ...", "English talk, OpenChat, 3051 members, ..." (#5). Official accounts cannot be told apart from friends: LINE gives no sign of them.
 
 ### Settings
 - NVDA's settings, category LINE MR, show whether the bridge is running and have a button to disconnect it (use LINE as it is, without LINE MR) or to connect it again. LINE restarts either way.
 - Removing LINE MR in NVDA's Add-on Store now also removes the bridge from LINE, its call program and its photo viewer, and LINE MR's folder `%LOCALAPPDATA%\LineMR`. A running LINE keeps the bridge until it quits.
 
 ### Messages
+- Long messages and some received messages lost "React" in their menu: they were taken for notices (#3).
 - Opening a chat with Enter keeps LINE's place in it (for example the first unread message) instead of jumping to the newest; Shift+Tab from the message input back to the messages stays on screen (the message read last if visible, else the first one on screen). Contributed by wengweng0312 (#20).
 - In the messages, Alt+R replies to the selected message and moves to the message input, Delete deletes it and Shift+Delete unsends it (the items of LINE's message menu; LINE's own confirmation is left to you). Elsewhere these keys work as usual; they can be changed in NVDA's Input gestures (contributed by wengweng0312).
 - Choosing Reply in a message's menu moves to the message input (contributed by wengweng0312).

@@ -210,6 +210,9 @@ const LabelTranslations kLabels[] = {
 	{ "Background color", "สีพื้นหลัง", "背景色", "背景颜色", "背景顏色" },
 	{ "Font", "ฟอนต์", "フォント", "字体", "字型" },
 	{ "Pinned", "ปักหมุด", "ピン留め", "已置顶", "已置頂" },
+	// Chat kinds in the chat list (ChatData.type 3 / 5; LINE's own words for them).
+	{ "Group", "กลุ่ม", "グループ", "群组", "群組" },
+	{ "OpenChat", "โอเพนแชท", "オープンチャット", "社群", "社群" },
 	{ "Clear text", "ล้างข้อความ", "テキストをクリア", "清除文本", "清除文字" },
 	{ "Your nickname in this OpenChat", "ชื่อเล่นของคุณในโอเพนแชท", "このオープンチャットでのニックネーム", "你在此开放聊天中的昵称", "你在此社群中的暱稱" },
 	{ "Text field", "ช่องข้อความ", "テキスト入力欄", "文本框", "文字欄位" },

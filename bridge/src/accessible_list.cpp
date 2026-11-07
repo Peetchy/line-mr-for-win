@@ -1493,18 +1493,30 @@ public:
 	}
 
 	// The chat list: "Selected" before the name for the chat that is open (LINE's current row; the
-	// bridge's cursor is separate; user request: "เลือกอยู่ Apple, ปักหมุด, ..."), and "Pinned" right
-	// after the name (LINE draws a pin badge on the picture; ChatData has no property for it).
+	// bridge's cursor is separate; user request: "เลือกอยู่ Apple, ปักหมุด, ..."), then right after the
+	// name "Pinned" (LINE draws a pin badge on the picture; ChatData has no property for it) and the
+	// kind of chat (issue #5): ChatData.type 3 = group, 5 = OpenChat (green badge), 1 = one-to-one,
+	// Keep Memo and official accounts alike (nothing tells official accounts apart: same type, "u"
+	// ids, pictures from the same cache, no badge; LINE's Official accounts folder filters by data
+	// it does not expose).
 	QString withChatStatus(const QString &text, QObject *data) const
 	{
 		QString result = text;
-		if (chatPinned(data)) {
+		QStringList status;
+		if (chatPinned(data))
+			status << label("Pinned");
+		const int type = data->property("type").toInt();
+		if (type == 3)
+			status << label("Group");
+		else if (type == 5)
+			status << label("OpenChat");
+		if (!status.isEmpty()) {
 			const QString name = cleanText(data->property("name").toString());
-			const QString pinned = label("Pinned");
+			const QString added = status.join(QStringLiteral(", "));
 			if (!name.isEmpty() && text.startsWith(name))
-				result = name + QStringLiteral(", ") + pinned + text.mid(name.size());
+				result = name + QStringLiteral(", ") + added + text.mid(name.size());
 			else
-				result = pinned + QStringLiteral(", ") + text;
+				result = added + QStringLiteral(", ") + text;
 		}
 		if (m_view->currentIndex().row() == m_row && m_view->selectionModel()
 		    && m_view->selectionModel()->isSelected(index()))
@@ -1543,7 +1555,8 @@ public:
 		entry.age.start();
 		static int logged = 0;
 		if (logged++ < 12)
-			a11yLog("[list] chat row %d: %s", m_row, qPrintable(drawn.join(u' ')));
+			a11yLog("[list] chat row %d: type %d, members %d: %s", m_row, data->property("type").toInt(),
+			        data->property("memberCount").toInt(), qPrintable(drawn.join(u' ')));
 		return entry.pinned;
 	}
 
@@ -2976,7 +2989,7 @@ void judgeReactions(ProfileOffer &offer, QAbstractItemView *view, const QRect &r
 	// button while the mouse is over the message, and draws the button a moment later (see also
 	// addProfileMenuItem(), which looks again).
 	bool fileSize = false, time = false;
-	qreal minX = r.width(), maxRight = 0;
+	qreal minX = r.width(), maxRight = 0, timeLeft = r.width(), timeRight = -1;
 	for (const CapturedText &it : first.items) {
 		const QString t = cleanText(it.text);
 		if (t.isEmpty())
@@ -2984,6 +2997,8 @@ void judgeReactions(ProfileOffer &offer, QAbstractItemView *view, const QRect &r
 		fileSize = fileSize || isFileSize(t);
 		if (isTimeOrReceipt(t)) {
 			time = true;
+			timeLeft = qMin(timeLeft, it.pos.x());
+			timeRight = qMax(timeRight, it.pos.x() + it.width);
 			continue;
 		}
 		minX = qMin(minX, it.pos.x());
@@ -2992,8 +3007,13 @@ void judgeReactions(ProfileOffer &offer, QAbstractItemView *view, const QRect &r
 	QRectF lengthBubble;
 	const char *kind = messageKind(first, r, fileSize, &lengthBubble);
 	// Notices are centred and start well right of the senders' pictures; a wide received message
-	// (a link card) is about centred too, but starts beside the picture.
-	const bool centred = maxRight > 0 && minX > r.width() * 0.25 && qAbs((minX + maxRight) / 2 - r.width() / 2.0) < r.width() * 0.08;
+	// (a link card) is about centred too, but starts beside the picture. Long messages are about
+	// centred as well (issue #3: received messages in a Traditional Chinese LINE lost "React" while
+	// their menu offered the sender's profile): a time right beside the text (left of own bubbles,
+	// right of received ones), or a row rowSide() takes as received, is a message.
+	const bool timeBeside = time && (timeRight <= minX + 2 || timeLeft >= maxRight - 2);
+	const bool centred = offer.side != RowSide::Received && !timeBeside && maxRight > 0 && minX > r.width() * 0.25
+	                     && qAbs((minX + maxRight) / 2 - r.width() / 2.0) < r.width() * 0.08;
 	if (const QPointF content = messageContentPoint(first, r); !content.isNull())
 		sendHover(view->viewport(), QPointF(r.topLeft()) + content);
 	const CaptureResult hovered = captureRegionText(view->viewport(), r);
@@ -3004,7 +3024,7 @@ void judgeReactions(ProfileOffer &offer, QAbstractItemView *view, const QRect &r
 	}
 	if (kind && qstrcmp(kind, "Call message") == 0)
 		offer.noReaction = "a call";
-	else if (!button && (!time || centred))
+	else if (!button && ((!time && offer.side != RowSide::Received) || centred))
 		offer.noReaction = "a date or notice";
 	offer.reactable = !offer.noReaction;
 }
@@ -3696,7 +3716,7 @@ bool LineAccessibleList::saveMessage()
 	// is about centred too (a 370 px row: text 93-315), but its time sits right beside the bubble
 	// (left of own messages, right of received ones).
 	const bool timeBeside = time && (timeRight <= minX + 2 || timeLeft >= maxRight - 2);
-	const bool centred = !timeBeside && maxRight > 0 && minX > r.width() * 0.25
+	const bool centred = !timeBeside && rowSide(cap, r) != RowSide::Received && maxRight > 0 && minX > r.width() * 0.25
 	                     && qAbs((minX + maxRight) / 2 - r.width() / 2.0) < r.width() * 0.08;
 	const QString chat = chatNameFor(v);
 	const QString fileName = (chat.isEmpty() ? QStringLiteral("LINE") : chat) + u' '
