@@ -180,7 +180,7 @@ QString countPhrase(const QByteArray &name, int value)
 	if (name == "count") // SectionData: number of entries under a section header
 		return QString::number(value);
 	if (name == "unreadCount" || name == "badgeCount" || name == "newCount")
-		return label("%1 unread").arg(value > 999 ? QStringLiteral("999+") : QString::number(value));
+		return label("%1 unread messages").arg(value > 999 ? QStringLiteral("999+") : QString::number(value));
 	return QString();
 }
 
