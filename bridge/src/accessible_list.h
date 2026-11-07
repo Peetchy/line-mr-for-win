@@ -76,6 +76,7 @@ public:
 	// Coming back to the messages with Tab / Shift+Tab: makes the row the user last read current
 	// again. False (nothing changed) if there is none in this chat (LINE gives each chat a new model).
 	bool focusRememberedRow();
+	void focusVisibleRowOnBacktab();
 
 	// Up / Down / PageUp / PageDown in the message list: the previous / next row with text (a page:
 	// about a screen further). LINE moves from a row of its own that setCurrentIndex() does not
@@ -121,8 +122,20 @@ public:
 	// menu (voice messages, files: the first point was not on the part LINE reacts to), closes it
 	// and tries the message's other parts. False if no point can be placed.
 	bool openRowMenu();
-	// Internal commands dispatched by NVDA's remappable scripts: reply, delete, unsend.
+	// Internal commands dispatched by NVDA's remappable scripts: reply, delete, unsend, translate.
 	bool openMessageCommand(int command);
+	// The add-on's Save message command (Ctrl+S): photos, videos, files and voice messages through
+	// LINE's own "Save as..." (LINE asks where), text messages copied with LINE's Copy (whole, also
+	// when long; the clipboard is put back) and locations / contacts as read, for the add-on to save
+	// as a .txt file; stickers, calls, dates and notices are not supported (requestSave()).
+	bool saveMessage();
+	// "Transcribe voice message" (menu item, or the add-on's command): if `row` is a voice message,
+	// asks the add-on to record and transcribe it (requestTranscription()) and plays the message once
+	// the add-on records; otherwise tells the add-on it is not one. False without a message list.
+	bool transcribeVoiceMessage(int row);
+	// The voice message's length in seconds as drawn in its bubble, -1 if not shown, -2 if `row` is
+	// not a voice message.
+	int voiceMessageSeconds(int row);
 	// Applications key / Shift+F10 in the chat or friend list: Qt would open the menu of LINE's
 	// current row (the open chat), not of the row the bridge's cursor is on (the one NVDA read), so
 	// "Delete" could hit another chat. Right-clicks the cursor row instead and keeps the cursor
@@ -189,6 +202,7 @@ private:
 	QPersistentModelIndex m_cursor;
 	// The message row last read while the list had focus (focusRememberedRow()).
 	QPersistentModelIndex m_lastRead;
+	bool m_selectingVisibleRow = false;
 };
 
 // The message menu the keyboard opened (openRowMenu) gets one more item, "Show <sender>'s profile",

@@ -25,6 +25,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QPointer>
 #include <QtCore/QSet>
+#include <QtCore/QScopedValueRollback>
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
 #include <QtGui/QAccessible>
@@ -648,6 +649,9 @@ bool g_replyMenuPressed = false;
 // the chat has loaded) is sent on to the input. Tab, Escape, a click or an accessibility action
 // cancel it.
 QElapsedTimer g_editorFocusTimer;
+QElapsedTimer g_chatOpenTimer;
+QPointer<QWidget> g_chatOpenWindow;
+bool g_openingChatByEnter = false;
 
 bool editorFocusPending()
 {
@@ -1286,7 +1290,11 @@ public:
 				break;
 			}
 			if (isMessageList(w)) {
-				// Entering the messages (Tab, Shift+Tab, Alt+M) starts at the newest one; coming back
+				if (preserveChatOpenScroll(w)) {
+					m_browsingList = nullptr;
+					break;
+				}
+				// Entering with Alt+M starts at the newest message; Shift+Tab stays in the viewport. Coming back
 				// (focus sent back by the bridge, menu closed, window activated, click) keeps the place.
 				const Qt::FocusReason reason = static_cast<QFocusEvent *>(event)->reason();
 				const bool returning = (w == m_browsingList.data() && m_listKeyTimer.isValid()
@@ -1296,9 +1304,11 @@ public:
 				    // After a search LINE's current row is the match: start there.
 				    || chatSearchShowsResult(w);
 				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w))) {
-					// Tab / Shift+Tab back into the same chat: the message last read.
-					const bool tab = reason == Qt::TabFocusReason || reason == Qt::BacktabFocusReason;
-					if (returning)
+					// Shift+Tab preserves LINE's viewport, including the unread position.
+					const bool tab = reason == Qt::TabFocusReason;
+					if (reason == Qt::BacktabFocusReason)
+						list->focusVisibleRowOnBacktab();
+					else if (returning)
 						list->focusLastVisibleRow();
 					else if (!tab || !list->focusRememberedRow())
 						list->focusEdgeRow(true);
@@ -1327,6 +1337,8 @@ public:
 			}
 			break;
 		case QEvent::MouseButtonPress:
+			if (!g_openingChatByEnter)
+				g_chatOpenTimer.invalidate();
 			m_browsingList = nullptr; // the user went somewhere on purpose
 			if (event->spontaneous()) // not the bridge's own clicks (opening a chat, menu items)
 				g_editorFocusTimer.invalidate();
@@ -1372,6 +1384,7 @@ public:
 			}
 			break;
 		case QEvent::KeyPress: {
+			g_chatOpenTimer.invalidate();
 			auto *key = static_cast<QKeyEvent *>(event);
 			breadcrumb("key 0x%x in %s", key->key(), w->metaObject()->className());
 			if (key->key() == Qt::Key_Tab || key->key() == Qt::Key_Backtab || key->key() == Qt::Key_Escape)
@@ -1482,10 +1495,28 @@ public:
 			// remappable Alt+R/Delete/Shift+Delete commands and only send these from messages.
 			const auto commandModifiers = Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier;
 			if (isMessageList(w) && key->modifiers() == commandModifiers
-			    && key->key() >= Qt::Key_F9 && key->key() <= Qt::Key_F11) {
+			    && ((key->key() >= Qt::Key_F9 && key->key() <= Qt::Key_F11) || key->key() == Qt::Key_F7)) {
+				if (!key->isAutoRepeat()) {
+					// F9 reply, F10 delete, F11 unsend, F7 translate (Alt+T).
+					const int command = key->key() == Qt::Key_F7 ? 3 : key->key() - Qt::Key_F9;
+					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
+						list->openMessageCommand(command);
+				}
+				return true;
+			}
+			// The add-on's Save message command (Ctrl+S).
+			if (isMessageList(w) && key->modifiers() == commandModifiers && key->key() == Qt::Key_F8) {
 				if (!key->isAutoRepeat()) {
 					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
-						list->openMessageCommand(key->key() - Qt::Key_F9);
+						list->saveMessage();
+				}
+				return true;
+			}
+			// The add-on's Transcribe voice message command (Alt+Shift+T).
+			if (isMessageList(w) && key->modifiers() == commandModifiers && key->key() == Qt::Key_F12) {
+				if (!key->isAutoRepeat()) {
+					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
+						list->transcribeVoiceMessage(list->cursorRow());
 				}
 				return true;
 			}
@@ -1560,10 +1591,16 @@ public:
 			if (isLineListView(w)
 			    && (key->key() == Qt::Key_Space || key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)
 			    && !(key->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier))) {
-				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
-				    list && !key->isAutoRepeat()
-				    && (isMessageList(w) ? list->openSeeMore() || list->openLink() || list->openMessageContent()
-				                         : list->openSearchResult() || list->toggleCursorRow() || list->openPostMedia()))
+				auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w));
+				// Messages: never left to LINE. LINE acts on a row it keeps itself, which is not the one
+				// NVDA read (34): Enter on a text message opened a video the user had saved before.
+				if (list && isMessageList(w)) {
+					if (!key->isAutoRepeat() && !list->openSeeMore() && !list->openLink() && !list->openMessageContent())
+						a11yLog("[keyboard] message row %d: nothing to open", list->cursorRow());
+					return true;
+				}
+				if (list && !key->isAutoRepeat()
+				    && (list->openSearchResult() || list->toggleCursorRow() || list->openPostMedia()))
 					return true;
 			}
 			// The Applications key on a message: its menu (see the context menu event above). Handled on
@@ -1618,7 +1655,14 @@ public:
 					}
 					// Enter: open the chat under the cursor, go to it and start typing. LINE moves focus
 					// into the messages once the chat has loaded: FocusIn sends it on to the input.
-					const bool opened = list && list->openCursorRow();
+					// Arm before the synthetic click: opening can synchronously focus the messages.
+					g_chatOpenWindow = w->window();
+					g_chatOpenTimer.start();
+					m_browsingList = nullptr;
+					const bool opened = [&] {
+						QScopedValueRollback<bool> opening(g_openingChatByEnter, true);
+						return list && list->openCursorRow();
+					}();
 					m_browsingList = nullptr;
 					g_editorFocusTimer.start();
 					const QPointer<QWidget> window(w->window());
@@ -1918,6 +1962,14 @@ void setMenuRetry(std::function<void()> retry)
 int contextMenusShown()
 {
 	return g_menusShown;
+}
+
+// Suppress bridge scrolling during the intermediate message focus when Enter opens a chat.
+// The next user key/click cancels this window; explicit navigation is not delayed.
+bool preserveChatOpenScroll(const QWidget *list)
+{
+	return list && g_chatOpenWindow && list->window() == g_chatOpenWindow.data()
+	    && g_chatOpenTimer.isValid() && g_chatOpenTimer.elapsed() < 2000 && isMessageList(list);
 }
 
 bool isBrowsingList(const QWidget *list)

@@ -1,7 +1,8 @@
-# Reply / Delete / Unsend on the selected message (Alt+R, Delete, Shift+Delete; remappable).
+# Reply / Delete / Unsend / Translate / Save on the selected message (Alt+R, Delete, Shift+Delete,
+# Alt+T, Ctrl+S; remappable).
 #
 # The commands are NVDA scripts, so they can be changed in Input gestures. In the message list
-# they send the bridge a private key (Control+Alt+Shift+F9 / F10 / F11), and the bridge opens the
+# they send the bridge a private key (Control+Alt+Shift+F9 / F10 / F11 / F7), and the bridge opens the
 # message's menu and chooses LINE's own item (openMessageCommand() in accessible_list.cpp); it
 # never answers a confirmation LINE may show. Anywhere else the key goes to LINE unchanged.
 
@@ -18,6 +19,11 @@ _COMMAND_KEYS = {
 	"reply": "control+alt+shift+f9",
 	"delete": "control+alt+shift+f10",
 	"unsend": "control+alt+shift+f11",
+	"translate": "control+alt+shift+f7",
+	# Save message (saveMessage.py; the bridge decides how by the kind of message).
+	"save": "control+alt+shift+f8",
+	# Transcribe voice message (transcribe.py; the bridge checks that it is a voice message).
+	"transcribe": "control+alt+shift+f12",
 }
 
 # A held key repeats: the command runs once.
@@ -33,6 +39,12 @@ def _messageList(obj):
 			return obj
 		obj = obj.parent
 	return None
+
+
+def inMessageList(app):
+	"""True when the focus is in LINE's message list."""
+	focus = api.getFocusObject()
+	return focus.processID == app.processID and _messageList(focus) is not None
 
 
 def run(app, action, gesture):

@@ -83,6 +83,9 @@ To check that it works, press **NVDA+Shift+Control+L** in LINE: NVDA says whethe
 | Alt+M | Move to the messages of the open chat (starts at the newest) |
 | Alt+I | Move to the message input |
 | Alt+R / Delete / Shift+Delete | In the messages: reply to (and move to the input), delete or unsend the selected message |
+| Alt+T | In the messages: translate the selected message (Translate in LINE's message menu) |
+| Alt+Shift+T | In the messages: turn the selected voice message into text, on this computer (turn it on in NVDA's settings first: downloads the chosen speech model once, Typhoon Whisper Turbo by default; again: cancel) |
+| Ctrl+S | In the messages: save the selected message (photos, videos, files and voice messages with LINE's Save as; text, locations and contacts as a .txt file; stickers, calls, dates and notices are not supported) |
 | NVDA+Alt+1 … 9 | Read a recent message (1 = newest) |
 | Alt+A / Alt+D in LINE (NVDA+Shift+Control+A / D from any application) | Answer / decline an incoming LINE call; Alt+D in LINE ends the current call |
 | NVDA+Shift+Control+L | Report whether the bridge is running; press twice to copy a report for the developer |
@@ -92,7 +95,7 @@ To check that it works, press **NVDA+Shift+Control+L** in LINE: NVDA says whethe
 | Where | Keys |
 |---|---|
 | Chat list, friend list | Up/Down, Page Up/Page Down, Home/End browse without opening a chat; Enter opens it; Applications key or Shift+F10 opens the chat's menu |
-| Messages | Up/Down one message; Page Up/Page Down about a screen; Home the oldest loaded message (again: load older ones); End the newest; Enter or Space opens a link, photo, video, file, voice message or long text; Applications key or Shift+F10 the message's menu; Tab / Shift+Tab back into the chat returns to the message read last; Alt+R reply, Delete delete, Shift+Delete unsend |
+| Messages | Up/Down one message; Page Up/Page Down about a screen; Home the oldest loaded message (again: load older ones); End the newest; Enter or Space opens a link, photo, video, file, voice message or long text; Applications key or Shift+F10 the message's menu; Tab back into the chat returns to the message read last, Shift+Tab stays on screen; Alt+R reply, Delete delete, Shift+Delete unsend, Alt+Shift+T voice message to text |
 | Message menu | "React": Left/Right choose a reaction, Enter gives it ("Remove reaction" once you reacted); in groups "Show <name>'s profile" |
 | Chat search field | Enter searches; Up/Down go to older / newer matches; LINE MR reads the result; Alt+M moves to it |
 | Stickers and emoji | The first Enter selects one and plays LINE's preview; the second Enter sends it |

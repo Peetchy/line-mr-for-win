@@ -1,4 +1,4 @@
-"""Passes the optional message presentation settings to the bridge without restarting LINE."""
+"""Passes the optional message settings to the bridge without restarting LINE."""
 
 import os
 
@@ -7,11 +7,14 @@ from logHandler import log
 from . import bridge
 
 
-def writeSettings(senderNames, senderOnlyWhenChanged=False):
+def writeSettings(senderNames, senderOnlyWhenChanged=False, transcribe=False):
+	"""transcribe: voice message transcription is on and downloaded (the bridge then offers it in
+	message menus)."""
 	path = os.path.join(bridge.bridgeDataDir(), "message-settings.ini")
-	text = "[messages]\ndirectChatSenderNames=%s\nsenderOnlyWhenChanged=%s\n" % (
+	text = "[messages]\ndirectChatSenderNames=%s\nsenderOnlyWhenChanged=%s\ntranscribe=%s\n" % (
 		"true" if senderNames else "false",
 		"true" if senderOnlyWhenChanged else "false",
+		"true" if transcribe else "false",
 	)
 	try:
 		with open(path, encoding="ascii") as f:

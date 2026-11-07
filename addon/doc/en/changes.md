@@ -2,11 +2,26 @@
 
 ## Version 0.5.6
 
+### Keys
+- Alt+T in the messages now translates the selected message (Translate in LINE's message menu); voice message transcription moved to Alt+Shift+T.
+
+### Voice messages to text
+- New: Alt+Shift+T on a voice message (or "Transcribe voice message" in its menu) turns it into text on this computer; the text opens in a window where it can be read, edited and copied. Off by default: turning it on in NVDA's settings, category LINE MR, downloads the speech model chosen there once. Six models: Typhoon Whisper Turbo (874 MB, the default: best for Thai, also English and Japanese, the least memory of the Typhoon models), Typhoon Whisper Medium and Large v3 (Thai only; Large v3 the most accurate, but very slow), and OpenAI's Whisper Small, Medium and Large v3 Turbo (many languages); or "Browse for a model file" for a whisper.cpp model of your own, which LINE MR checks before using it. The dialog before each transcription asks for the model and the language. See the guide, "Voice messages to text".
+
+### Saving messages
+- New: Ctrl+S in the messages saves the selected message. Photos, videos, files and voice messages: LINE's own Save as (LINE asks where). Text messages (whole, also long ones), locations and contacts: a text file (.txt), LINE MR asks where. Stickers, calls, dates and notices: LINE MR says they cannot be saved. Elsewhere Ctrl+S works as usual; it can be changed in NVDA's Input gestures.
+
+### Chat list
+- The unread count reads "3 unread messages" (was "3 unread"), still at the end of the chat's row.
+- Groups and OpenChats say so after the chat's name: "DHCB, Group, 37 members, ...", "English talk, OpenChat, 3051 members, ..." (#5). Official accounts cannot be told apart from friends: LINE gives no sign of them.
+
 ### Settings
 - NVDA's settings, category LINE MR, show whether the bridge is running and have a button to disconnect it (use LINE as it is, without LINE MR) or to connect it again. LINE restarts either way.
 - Removing LINE MR in NVDA's Add-on Store now also removes the bridge from LINE, its call program and its photo viewer, and LINE MR's folder `%LOCALAPPDATA%\LineMR`. A running LINE keeps the bridge until it quits.
 
 ### Messages
+- Long messages and some received messages lost "React" in their menu: they were taken for notices (#3).
+- Opening a chat with Enter keeps LINE's place in it (for example the first unread message) instead of jumping to the newest; Shift+Tab from the message input back to the messages stays on screen (the message read last if visible, else the first one on screen). Contributed by wengweng0312 (#20).
 - In the messages, Alt+R replies to the selected message and moves to the message input, Delete deletes it and Shift+Delete unsends it (the items of LINE's message menu; LINE's own confirmation is left to you). Elsewhere these keys work as usual; they can be changed in NVDA's Input gestures (contributed by wengweng0312).
 - Choosing Reply in a message's menu moves to the message input (contributed by wengweng0312).
 - While replying, the bar above the message input is reachable: Shift+Tab from the message input goes to Cancel reply and Go to the original message. Cancel reply returns to the message input.
