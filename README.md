@@ -93,7 +93,7 @@ To check that it works, press **NVDA+Shift+Control+L** in LINE: NVDA says whethe
 | Where | Keys |
 |---|---|
 | Chat list, friend list | Up/Down, Page Up/Page Down, Home/End browse without opening a chat; Enter opens it; Applications key or Shift+F10 opens the chat's menu |
-| Messages | Up/Down one message; Page Up/Page Down about a screen; Home the oldest loaded message (again: load older ones); End the newest; Enter or Space opens a link, photo, video, file, voice message or long text; Applications key or Shift+F10 the message's menu; Tab / Shift+Tab back into the chat returns to the message read last; Alt+R reply, Delete delete, Shift+Delete unsend, Alt+T voice message to text |
+| Messages | Up/Down one message; Page Up/Page Down about a screen; Home the oldest loaded message (again: load older ones); End the newest; Enter or Space opens a link, photo, video, file, voice message or long text; Applications key or Shift+F10 the message's menu; Tab back into the chat returns to the message read last, Shift+Tab stays on screen; Alt+R reply, Delete delete, Shift+Delete unsend, Alt+T voice message to text |
 | Message menu | "React": Left/Right choose a reaction, Enter gives it ("Remove reaction" once you reacted); in groups "Show <name>'s profile" |
 | Chat search field | Enter searches; Up/Down go to older / newer matches; LINE MR reads the result; Alt+M moves to it |
 | Stickers and emoji | The first Enter selects one and plays LINE's preview; the second Enter sends it |

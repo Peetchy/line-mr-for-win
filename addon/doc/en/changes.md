@@ -13,6 +13,7 @@
 - Removing LINE MR in NVDA's Add-on Store now also removes the bridge from LINE, its call program and its photo viewer, and LINE MR's folder `%LOCALAPPDATA%\LineMR`. A running LINE keeps the bridge until it quits.
 
 ### Messages
+- Opening a chat with Enter keeps LINE's place in it (for example the first unread message) instead of jumping to the newest; Shift+Tab from the message input back to the messages stays on screen (the message read last if visible, else the first one on screen). Contributed by wengweng0312 (#20).
 - In the messages, Alt+R replies to the selected message and moves to the message input, Delete deletes it and Shift+Delete unsends it (the items of LINE's message menu; LINE's own confirmation is left to you). Elsewhere these keys work as usual; they can be changed in NVDA's Input gestures (contributed by wengweng0312).
 - Choosing Reply in a message's menu moves to the message input (contributed by wengweng0312).
 - While replying, the bar above the message input is reachable: Shift+Tab from the message input goes to Cancel reply and Go to the original message. Cancel reply returns to the message input.
