@@ -302,6 +302,10 @@ msgstr "ความหนาไฮไลต์ (&W):"
 #. Translators: Describes the command that replies to the message NVDA read last.
 msgid "Replies to the selected message and moves to the message input"
 msgstr "ตอบกลับข้อความที่เลือก แล้วไปที่ช่องพิมพ์ข้อความ"
+#. Translators: Describes the command that opens the reactions for the message NVDA read last.
+msgid "Opens the reactions of the selected message (React in the message menu)"
+msgstr "เปิดการแสดงความรู้สึกของข้อความที่เลือก (แสดงความรู้สึก ในเมนูข้อความ)"
+
 
 #. Translators: Describes the command that deletes the selected message (LINE deletes it
 #. only on this computer).
@@ -367,8 +371,8 @@ msgid "Restarting LINE..."
 msgstr "กำลังเริ่ม LINE ใหม่..."
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
-msgid "Transcribes the selected voice message into text; cancels a running transcription"
-msgstr "แปลงข้อความเสียงที่เลือกเป็นข้อความ กดอีกครั้งระหว่างแปลงเพื่อยกเลิก"
+msgid "Transcribes the selected voice message or video into text; cancels a running transcription"
+msgstr "แปลงข้อความเสียงหรือวิดีโอที่เลือกเป็นข้อความ กดอีกครั้งระหว่างแปลงเพื่อยกเลิก"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
 msgid "Voice message transcription"
@@ -435,12 +439,12 @@ msgid "Transcription cancelled."
 msgstr "ยกเลิกการแปลงแล้ว"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
-msgid "Not a voice message."
-msgstr "ไม่ใช่ข้อความเสียง"
+msgid "Not a voice message or video."
+msgstr "ไม่ใช่ข้อความเสียงหรือวิดีโอ"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
-msgid "A voice message is being transcribed. Alt+Shift+T cancels it."
-msgstr "กำลังแปลงข้อความเสียงอยู่ กด Alt+Shift+T เพื่อยกเลิก"
+msgid "A transcription is running. Alt+Shift+T cancels it."
+msgstr "กำลังแปลงอยู่ กด Alt+Shift+T เพื่อยกเลิก"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
 msgid "Voice message text"
@@ -729,3 +733,73 @@ msgstr "ภาษาไทยเท่านั้น แม่นยำที�
 #. Translators: the Translate command (Alt+T)
 msgid "Translates the selected message (Translate in LINE's message menu)"
 msgstr "แปลข้อความที่เลือก (คำสั่งแปลในเมนูข้อความของ LINE)"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Transcribes the video shown into text; cancels a running transcription"
+msgstr "ถอดเสียงวิดีโอที่แสดงอยู่เป็นข้อความ กดอีกครั้งระหว่างแปลงเพื่อยกเลิก"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "No speech was recognised in the video."
+msgstr "ไม่พบคำพูดในวิดีโอ"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Transcribing the video failed."
+msgstr "ถอดเสียงวิดีโอไม่สำเร็จ"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "LINE did not save the video. Close other LINE windows and try again."
+msgstr "LINE ไม่ได้บันทึกวิดีโอ ปิดหน้าต่างอื่นของ LINE แล้วลองอีกครั้ง"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "The video's sound cannot be read."
+msgstr "อ่านเสียงของวิดีโอไม่ได้"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "This video is {minutes} minutes long. It is converted to text on this computer, which may take a long time: about {estimate} minutes. Continue?"
+msgstr "วิดีโอนี้ยาว {minutes} นาที การแปลงเป็นข้อความทำบนเครื่องนี้ จึงอาจใช้เวลานาน ประมาณ {estimate} นาที ต้องการทำต่อไหม"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "This voice message is {minutes} minutes long. It is converted to text on this computer, which may take a long time: about {estimate} minutes. Continue?"
+msgstr "ข้อความเสียงนี้ยาว {minutes} นาที การแปลงเป็นข้อความทำบนเครื่องนี้ จึงอาจใช้เวลานาน ประมาณ {estimate} นาที ต้องการทำต่อไหม"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Long recording"
+msgstr "เสียงยาว"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Video text"
+msgstr "ข้อความจากวิดีโอ"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Getting the video from LINE..."
+msgstr "กำลังดึงวิดีโอจาก LINE..."
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Getting the video from LINE: {size} MB"
+msgstr "กำลังดึงวิดีโอจาก LINE: {size} MB"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Transcribe video"
+msgstr "ถอดเสียงวิดีโอเป็นข้อความ"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "&Language spoken in the video:"
+msgstr "&ภาษาที่พูดในวิดีโอ:"
+
+msgid "This message cannot be replied to."
+msgstr "ข้อความนี้ตอบกลับไม่ได้"
+
+msgid "This message takes no reactions."
+msgstr "ข้อความนี้แสดงความรู้สึกไม่ได้"
+
+msgid "This message cannot be deleted."
+msgstr "ข้อความนี้ลบไม่ได้"
+
+msgid "This message cannot be unsent."
+msgstr "ข้อความนี้ยกเลิกไม่ได้"
+
+msgid "This message cannot be translated."
+msgstr "ข้อความนี้แปลไม่ได้"
+
+msgid "Not available for this message."
+msgstr "ใช้กับข้อความนี้ไม่ได้"

@@ -3,6 +3,7 @@
 #include "a11y_announce.h"
 #include "a11y_diagnostics.h"
 #include "a11y_log.h"
+#include "file_dialog_fill.h"
 #include "accessible_list.h"
 #include "accessible_quick.h"
 #include "accessible_widgets.h"
@@ -189,6 +190,44 @@ bool saveViewerMedia(QWidget *viewer)
 	return false;
 }
 
+// Video transcription in the viewer (Alt+Shift+T there, or asked for from Photos & videos / Notes):
+// tells the add-on the video's length; once the add-on asks for the file (it has no cached copy),
+// the video is paused and saved into the add-on's folder through the Download button's Save As.
+void transcribeViewerVideo(QWidget *viewer)
+{
+	const int seconds = qRound(viewerVideoSeconds(viewer));
+	if (seconds <= 0) {
+		requestTranscription(QStringLiteral("notvoice"), -1);
+		return;
+	}
+	pauseViewerVideo(viewer);
+	requestTranscription(QStringLiteral("ok"), seconds, QStringLiteral("video"));
+	QPointer<QWidget> guard(viewer);
+	auto *timer = new QTimer(viewer);
+	auto *since = new QElapsedTimer;
+	since->start();
+	QObject::connect(timer, &QTimer::timeout, viewer, [guard, timer, since] {
+		if (!guard || !guard->isVisible() || since->elapsed() > 120000) {
+			timer->deleteLater();
+			delete since;
+			return;
+		}
+		if (!transcriptionPlayRequested())
+			return;
+		timer->deleteLater();
+		delete since;
+		pauseViewerVideo(guard);
+		if (transcriptionTarget().isEmpty()) {
+			reportFileFetch(false);
+			return;
+		}
+		fillNextFileDialog(transcriptionTarget(), [](bool ok) { reportFileFetch(ok); });
+		if (!saveViewerMedia(guard))
+			reportFileFetch(false);
+	});
+	timer->start(100);
+}
+
 void viewerShown(QWidget *w)
 {
 	// "Save as..." chosen in LINE (a post's menu in Notes) just before this window showed: save once
@@ -207,6 +246,31 @@ void viewerShown(QWidget *w)
 			if (QDateTime::currentMSecsSinceEpoch() - at < 15000)
 				saveViewerMedia(viewer);
 		});
+	}
+	// "Transcribe" on a video in Photos & videos or Notes opened this window: once the video's length
+	// shows in the player.
+	QFile transcribeRequest(bridgeDirectory() + QStringLiteral("viewer-transcribe-request"));
+	if (transcribeRequest.open(QIODevice::ReadOnly)) {
+		const qint64 at = transcribeRequest.readAll().trimmed().toLongLong();
+		transcribeRequest.close();
+		transcribeRequest.remove();
+		if (QDateTime::currentMSecsSinceEpoch() - at < 15000) {
+			auto tries = std::make_shared<int>(0);
+			auto *timer = new QTimer(w);
+			QObject::connect(timer, &QTimer::timeout, w, [viewer, timer, tries] {
+				if (!viewer || !viewer->isVisible() || ++*tries > 25) {
+					timer->deleteLater();
+					if (viewer && viewer->isVisible())
+						transcribeViewerVideo(viewer); // no video: the add-on says so
+					return;
+				}
+				if (viewerVideoSeconds(viewer) <= 0)
+					return;
+				timer->deleteLater();
+				transcribeViewerVideo(viewer);
+			});
+			timer->start(200);
+		}
 	}
 	const HWND front = GetForegroundWindow();
 	if (front && isLineWindow(front)) {
@@ -1523,10 +1587,11 @@ public:
 			// remappable Alt+R/Delete/Shift+Delete commands and only send these from messages.
 			const auto commandModifiers = Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier;
 			if (isMessageList(w) && key->modifiers() == commandModifiers
-			    && ((key->key() >= Qt::Key_F9 && key->key() <= Qt::Key_F11) || key->key() == Qt::Key_F7)) {
+			    && ((key->key() >= Qt::Key_F9 && key->key() <= Qt::Key_F11) || key->key() == Qt::Key_F7
+			        || key->key() == Qt::Key_F6)) {
 				if (!key->isAutoRepeat()) {
-					// F9 reply, F10 delete, F11 unsend, F7 translate (Alt+T).
-					const int command = key->key() == Qt::Key_F7 ? 3 : key->key() - Qt::Key_F9;
+					// F9 reply, F10 delete, F11 unsend, F7 translate (Alt+T), F6 react (Alt+Shift+R).
+					const int command = key->key() == Qt::Key_F7 ? 3 : key->key() == Qt::Key_F6 ? 4 : key->key() - Qt::Key_F9;
 					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
 						list->openMessageCommand(command);
 				}
@@ -1540,13 +1605,28 @@ public:
 				}
 				return true;
 			}
-			// The add-on's Transcribe voice message command (Alt+Shift+T).
-			if (isMessageList(w) && key->modifiers() == commandModifiers && key->key() == Qt::Key_F12) {
-				if (!key->isAutoRepeat()) {
-					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
-						list->transcribeVoiceMessage(list->cursorRow());
+			// The add-on's Transcribe command (Alt+Shift+T): voice messages and videos in a chat, videos in
+			// Photos & videos and Notes (opened in the viewer first) and in the viewer itself.
+			if (key->modifiers() == commandModifiers && key->key() == Qt::Key_F12) {
+				if (isMessageList(w)) {
+					if (!key->isAutoRepeat()) {
+						if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
+							list->transcribeVoiceMessage(list->cursorRow());
+					}
+					return true;
 				}
-				return true;
+				if (isContentList(w) || isPostList(w)) {
+					if (!key->isAutoRepeat()) {
+						if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
+							list->openVideoForTranscription();
+					}
+					return true;
+				}
+				if (isViewerWindow(w->window())) {
+					if (!key->isAutoRepeat())
+						transcribeViewerVideo(w->window());
+					return true;
+				}
 			}
 			if (!isLineListView(w) || !isListNavigationKey(key->key()))
 				m_browsingList = nullptr;

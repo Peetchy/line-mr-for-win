@@ -302,6 +302,10 @@ msgstr "強調表示の太さ(&W):"
 #. Translators: Describes the command that replies to the message NVDA read last.
 msgid "Replies to the selected message and moves to the message input"
 msgstr "選択したメッセージに返信し、メッセージ入力欄へ移動します"
+#. Translators: Describes the command that opens the reactions for the message NVDA read last.
+msgid "Opens the reactions of the selected message (React in the message menu)"
+msgstr "選択したメッセージのリアクションを開く (メッセージ メニューの「リアクション」)"
+
 
 #. Translators: Describes the command that deletes the selected message (LINE deletes it
 #. only on this computer).
@@ -367,8 +371,8 @@ msgid "Restarting LINE..."
 msgstr "LINE を再起動しています..."
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
-msgid "Transcribes the selected voice message into text; cancels a running transcription"
-msgstr "選択したボイスメッセージを文字に起こします。処理中に押すと中止します"
+msgid "Transcribes the selected voice message or video into text; cancels a running transcription"
+msgstr "選択したボイスメッセージまたは動画を文字に起こします。実行中に押すとキャンセルします"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
 msgid "Voice message transcription"
@@ -435,12 +439,12 @@ msgid "Transcription cancelled."
 msgstr "文字起こしを中止しました。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
-msgid "Not a voice message."
-msgstr "ボイスメッセージではありません。"
+msgid "Not a voice message or video."
+msgstr "ボイスメッセージでも動画でもありません。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
-msgid "A voice message is being transcribed. Alt+Shift+T cancels it."
-msgstr "ボイスメッセージを文字に起こしている最中です。Alt+Shift+T で中止します。"
+msgid "A transcription is running. Alt+Shift+T cancels it."
+msgstr "文字起こしの実行中です。Alt+Shift+T でキャンセルします。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
 msgid "Voice message text"
@@ -729,3 +733,73 @@ msgstr "タイ語のみ、最も正確、とても遅い"
 #. Translators: the Translate command (Alt+T)
 msgid "Translates the selected message (Translate in LINE's message menu)"
 msgstr "選択したメッセージを翻訳します (LINE のメッセージメニューの「翻訳」)"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Transcribes the video shown into text; cancels a running transcription"
+msgstr "表示中の動画の音声を文字に起こします。実行中に押すとキャンセルします"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "No speech was recognised in the video."
+msgstr "動画から音声を認識できませんでした。"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Transcribing the video failed."
+msgstr "動画の文字起こしに失敗しました。"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "LINE did not save the video. Close other LINE windows and try again."
+msgstr "LINE が動画を保存しませんでした。LINE のほかのウィンドウを閉じて、もう一度お試しください。"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "The video's sound cannot be read."
+msgstr "動画の音声を読み取れません。"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "This video is {minutes} minutes long. It is converted to text on this computer, which may take a long time: about {estimate} minutes. Continue?"
+msgstr "この動画の長さは {minutes} 分です。文字起こしはこのコンピューター上で行うため、時間がかかることがあります (約 {estimate} 分)。続けますか?"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "This voice message is {minutes} minutes long. It is converted to text on this computer, which may take a long time: about {estimate} minutes. Continue?"
+msgstr "このボイスメッセージの長さは {minutes} 分です。文字起こしはこのコンピューター上で行うため、時間がかかることがあります (約 {estimate} 分)。続けますか?"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Long recording"
+msgstr "長い録音"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Video text"
+msgstr "動画のテキスト"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Getting the video from LINE..."
+msgstr "LINE から動画を取得しています..."
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Getting the video from LINE: {size} MB"
+msgstr "LINE から動画を取得しています: {size} MB"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Transcribe video"
+msgstr "動画の音声を文字に起こす"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "&Language spoken in the video:"
+msgstr "動画で話されている言語(&L):"
+
+msgid "This message cannot be replied to."
+msgstr "このメッセージには返信できません。"
+
+msgid "This message takes no reactions."
+msgstr "このメッセージにはリアクションできません。"
+
+msgid "This message cannot be deleted."
+msgstr "このメッセージは削除できません。"
+
+msgid "This message cannot be unsent."
+msgstr "このメッセージは送信取消できません。"
+
+msgid "This message cannot be translated."
+msgstr "このメッセージは翻訳できません。"
+
+msgid "Not available for this message."
+msgstr "このメッセージでは使えません。"

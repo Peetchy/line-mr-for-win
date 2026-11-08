@@ -319,6 +319,15 @@ class AppModule(CallCommandsAppModule):
 		messageActions.run(self, "reply", gesture)
 
 	@script(
+		# Translators: Describes the command that opens the reactions for the message NVDA read last.
+		description=_("Opens the reactions of the selected message (React in the message menu)"),
+		category=SCRIPT_CATEGORY,
+		gesture="kb:alt+shift+r",
+	)
+	def script_reactMessage(self, gesture):
+		messageActions.run(self, "react", gesture)
+
+	@script(
 		# Translators: Describes the command that deletes the selected message (LINE deletes it
 		# only on this computer).
 		description=_("Deletes the selected message (Delete in LINE's message menu)"),
@@ -359,9 +368,9 @@ class AppModule(CallCommandsAppModule):
 		messageActions.run(self, "save", gesture)
 
 	@script(
-		# Translators: Describes the command that turns the selected voice message into text (pressed
-		# again while it works, it cancels).
-		description=_("Transcribes the selected voice message into text; cancels a running transcription"),
+		# Translators: Describes the command that turns the selected voice message or video into text
+		# (pressed again while it works, it cancels).
+		description=_("Transcribes the selected voice message or video into text; cancels a running transcription"),
 		category=SCRIPT_CATEGORY,
 		gesture="kb:alt+shift+t",
 	)
@@ -372,12 +381,13 @@ class AppModule(CallCommandsAppModule):
 		if problem:
 			# Off or not downloaded: said in the message list (a failed download starts again), elsewhere
 			# the key is LINE's.
-			if not messageActions.inMessageList(self):
+			if not (messageActions.inMessageList(self) or messageActions.inMediaList(self)):
 				gesture.send()
 			elif not transcribe.retryDownload():
 				ui.message(problem)
 			return
-		messageActions.run(self, "transcribe", gesture)
+		# Videos in Photos & videos and Notes too: the bridge opens them in LINE's viewer first.
+		messageActions.run(self, "transcribe", gesture, mediaLists=True)
 
 	@script(
 		# Translators: Describes the commands that read recent messages (1 is the newest).

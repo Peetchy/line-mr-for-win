@@ -48,3 +48,26 @@ Measured on an i5-1235U (10 threads): an 8 s English clip in 30 s with the full 
 Thai voice message in 8-10 s with `-ac 400` (the add-on shortens the window for recordings under
 29 s). For Turbo, q5_0 (574 MB) was slower than q8_0 (874 MB) here, f16 slower still; Large v3 is
 q5_0 to keep its memory use near the others'.
+
+## Adding a model to the list
+
+The add-on reads the list of models from `speech-models.json` at the root of this repository (main
+branch, fetched from raw.githubusercontent.com when NVDA starts and when the settings or the dialog
+before a transcription open), so a new model shows to every user without an add-on update. Add an
+entry and push to main:
+
+- `id`: lowercase letters, digits, `.`, `_`, `-` (not `custom`); kept in the user's settings, so
+  never reuse or rename one.
+- `name`: shown as is (not translated).
+- `file`: the file name on disk (`*.bin`); `url` must end with `/<file>` and start with
+  `https://github.com/Peetchy/line-mr-for-win/releases/download/` or `https://huggingface.co/`.
+- `sha256` (lowercase hex) and `size` (bytes): checked after the download. For Hugging Face, the
+  LFS oid of the tree API is the SHA-256.
+- `strength`: `bestForThai`, `thaiOnly`, `thaiOnlyAccurate` or `manyLanguages` (the add-on has the
+  translated words); or `note`: `{"en": "...", "th": "..."}` with words of its own (at most 120
+  characters each).
+- `speed` (optional): first guess of seconds of work per second of audio (Turbo 3, Large v3 16).
+
+An entry that breaks a rule makes the add-on ignore the whole file and keep its last good copy (or
+its built-in list), so check it with a JSON validator first. Models the add-on knows from its own
+list (`BUILTIN` in `addon/appModules/line/speechModel.py`) stay offered even if the file drops them.

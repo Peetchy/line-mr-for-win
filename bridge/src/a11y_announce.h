@@ -23,17 +23,25 @@ void announceIncomingCall(const QString &text);
 // call window's, whose controls are hidden while the mouse is elsewhere).
 void startEndCallListener(QObject *context);
 
-// Voice message transcription (the add-on records LINE's sound and transcribes it; LINE plays the
-// message): writes %LOCALAPPDATA%\LineMR\transcribe-request.txt (lines "status <ok|notvoice|busy>",
-// "seconds <length or -1>", "pid <LINE's process>", tab-separated) and signals
+// Voice message and video transcription (the add-on transcribes LINE's copy of the message, else
+// records LINE's sound while LINE plays a voice message / has LINE save a video into a temporary
+// folder): writes %LOCALAPPDATA%\LineMR\transcribe-request.txt (lines "status <ok|notvoice|busy>",
+// "seconds <length or -1>", "pid <LINE's process>", "kind <voice|video>", tab-separated) and signals
 // "Local\lineMR.transcribeRequest".
-void requestTranscription(const QString &status, int seconds);
-// True once the add-on has signalled "Local\lineMR.transcribePlay" (it is recording now); the
-// signal is consumed.
+void requestTranscription(const QString &status, int seconds, const QString &kind = QStringLiteral("voice"));
+// True once the add-on has signalled "Local\lineMR.transcribePlay" (it is recording now, or waits for
+// the video's file); the signal is consumed.
 bool transcriptionPlayRequested();
+// The file a voice message or video is to be saved to for transcription (the add-on's
+// transcribe-target.txt), or "".
+QString transcriptionTarget();
+// How asking LINE to save that file went: writes transcribe-fetch.txt ("saving": LINE's Save As was
+// answered, LINE downloads and writes the file; "failed": no Save As item or dialog).
+void reportFileFetch(bool saving);
 
 // The add-on's Save message command (Ctrl+S): writes %LOCALAPPDATA%\LineMR\save-request.txt
-// (lines "status <text|media|nosave|unsupported|busy>", "kind <message kind>", "name <suggested
+// (lines "status <text|media|nosave|unsupported|busy|unavailable>", "kind <message kind, or the
+// message command (Reply, React ...) LINE does not offer for the message>", "name <suggested
 // file name>", tab-separated), the text to save (status text) to save-text.txt (UTF-8), and signals
 // "Local\lineMR.saveRequest". The add-on asks where to save the text, or says why nothing is saved.
 void requestSave(const QString &status, const QString &kind, const QString &name = QString(), const QString &text = QString());
