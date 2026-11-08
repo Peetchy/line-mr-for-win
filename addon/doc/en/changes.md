@@ -1,6 +1,6 @@
 # What's new in LINE MR
 
-## Version 0.5.6
+## Version 0.6.0
 
 ### Keys
 - New: Alt+Shift+R in the messages opens the reactions of the selected message ("React" in its menu); if you have reacted already, it opens them to take yours back.
