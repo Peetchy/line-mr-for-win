@@ -1332,6 +1332,7 @@ public:
 				    // After a search LINE's current row is the match: start there.
 				    || chatSearchShowsResult(w);
 				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w))) {
+					if (chatSearchShowsResult(w)) list->resetCursor();
 					// Shift+Tab preserves LINE's viewport, including the unread position.
 					const bool tab = reason == Qt::TabFocusReason;
 					if (reason == Qt::BacktabFocusReason)
@@ -1372,8 +1373,9 @@ public:
 				g_editorFocusTimer.invalidate();
 			// A click opens a chat itself: the chat list cursor follows LINE's current row again.
 			if (QWidget *view = isLineListView(w) ? w : w->parentWidget(); view && isLineListView(view)) {
-				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(view)))
-					list->resetCursor();
+				if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(view));
+				    list && (!isMessageList(view) || event->spontaneous()))
+					list->resetCursor(); // Real pointer navigation releases reading intent; menu clicks retain it.
 			}
 			break;
 		case QEvent::ContextMenu: {

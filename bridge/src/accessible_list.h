@@ -205,7 +205,8 @@ private:
 	QList<QMetaObject::Connection> m_connections;
 	QList<QMetaObject::Connection> m_modelConnections;
 	QPointer<QAbstractItemModel> m_model;
-	// Follows its chat when LINE re-sorts the list (new messages move chats to the top).
+	// Follows its row when re-sorted/prepended. Also pins the message-reading position after
+	// Backtab, independently of delayed native current-index notifications.
 	QPersistentModelIndex m_cursor;
 	// The message row last read while the list had focus (focusRememberedRow()).
 	QPersistentModelIndex m_lastRead;
