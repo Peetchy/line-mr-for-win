@@ -5,6 +5,7 @@
 #include "a11y_announce.h"
 #include "a11y_event_filter.h"
 #include "a11y_log.h"
+#include "file_dialog_fill.h"
 #include "line_introspect.h"
 #include "voice_bubble.h"
 #include "message_direction.h"
@@ -16,6 +17,7 @@
 #include <QtCore/QDateTime>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
+#include <QtCore/QFileInfo>
 #include <QtCore/QItemSelectionModel>
 #include <QtCore/QMimeData>
 #include <QtCore/QMetaProperty>
@@ -1421,6 +1423,7 @@ struct ProfileOffer {
 	bool reactable = false; // "React" is offered (not for dates, notices, calls)
 	bool reacted = false;   // the user has reacted: "Remove reaction" instead
 	bool voice = false;     // a voice message: "Transcribe voice message"
+	bool video = false;     // a video message: "Transcribe video"
 	const char *noReaction = nullptr; // why not, for the log
 } g_profileOffer;
 
@@ -3050,12 +3053,12 @@ void addProfileMenuItem(QWidget *menu)
 	} else {
 		a11yLog("[menu] no reaction item: row %d (%s)", offer.index.row(), offer.noReaction ? offer.noReaction : "empty row");
 	}
-	// Voice messages: "Transcribe voice message" (the add-on records and transcribes them), only while
-	// the feature is on in the add-on's settings.
-	if (offer.voice && messageSettings().transcribe) {
+	// Voice messages and videos: "Transcribe voice message" / "Transcribe video" (the add-on transcribes
+	// them), only while the feature is on in the add-on's settings.
+	if ((offer.voice || offer.video) && messageSettings().transcribe) {
 		QPointer<QAbstractItemView> view = offer.view;
 		QPersistentModelIndex index = offer.index;
-		addExtraMenuItem(menu, label("Transcribe voice message"), [view, index] {
+		addExtraMenuItem(menu, label(offer.video ? "Transcribe video" : "Transcribe voice message"), [view, index] {
 			auto *l = view ? dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(view.data())) : nullptr;
 			if (!l || !index.isValid() || !l->transcribeVoiceMessage(index.row()))
 				a11yLog("[transcribe] message row %d could not be looked at", index.isValid() ? index.row() : -1);
@@ -3192,7 +3195,13 @@ bool LineAccessibleList::openRowMenu()
 	QRectF bubble;
 	const char *kind = messageKind(cap, r, false, &bubble);
 	g_profileOffer.voice = kind && qstrcmp(kind, "Voice message") == 0;
+	g_profileOffer.video = kind && qstrcmp(kind, "Video") == 0;
 	judgeReactions(g_profileOffer, v, r, cap);
+	// Keep Memo has no reactions (LINE draws no reaction button there).
+	if (g_profileOffer.reactable && inKeepMemo()) {
+		g_profileOffer.reactable = false;
+		g_profileOffer.noReaction = "Keep Memo";
+	}
 	g_profileOffer.at.start();
 	const QList<QPointF> points = messageMenuPoints(cap, r);
 	if (points.isEmpty())
@@ -3376,9 +3385,10 @@ struct PendingMessageCommand {
 	QStringList labels;
 	QElapsedTimer at;
 	// What the item is chosen for: a plain command, or Save message (LINE's "Save as...", or Copy
-	// for the add-on to save the text).
-	enum Purpose { Command, SaveAs, CopyText } purpose = Command;
-	QString kind;     // the message kind, for the add-on's messages
+	// for the add-on to save the text), or "Save as..." into the add-on's folder for transcribing, or
+	// "Open folder" for a file the add-on has deleted (LINE then offers "Save as..." again).
+	enum Purpose { Command, SaveAs, CopyText, FetchFile, OpenFolder } purpose = Command;
+	QString kind;     // the message kind, or the command (Reply ...), for the add-on's messages
 	QString fileName; // suggested name of the text file
 } g_messageCommand;
 
@@ -3761,6 +3771,8 @@ bool LineAccessibleList::openReactions(int row, bool remove)
 		}
 		if (button.isEmpty() || hovered.skipped) {
 			a11yLog("[reaction] row %d: no reaction button (pictures %s)", index.row(), qPrintable(seen.join(QLatin1Char(' '))));
+			// The add-on says so (else nothing at all happened for the user).
+			requestSave(QStringLiteral("unavailable"), QStringLiteral("React"));
 			return;
 		}
 		const QPointF at = QPointF(rect.topLeft()) + button.center();
@@ -3800,19 +3812,24 @@ bool LineAccessibleList::openReactions(int row, bool remove)
 bool LineAccessibleList::openMessageCommand(int command)
 {
 	QAbstractItemView *v = view();
-	if (!v || !v->hasFocus() || !v->currentIndex().isValid() || command < 0 || command > 3)
+	if (!v || !v->hasFocus() || !v->currentIndex().isValid() || command < 0 || command > 4)
 		return false;
 	if (g_messageCommand.source && g_messageCommand.at.isValid() && g_messageCommand.at.elapsed() < 2000)
 		return true;
-	static const QStringList labels[] = {
+	const QStringList labels[] = {
 		{ QStringLiteral("Reply"), QStringLiteral("回覆"), QStringLiteral("回复"), QStringLiteral("回復"), QStringLiteral("返信"), QStringLiteral("ตอบกลับ") },
 		{ QStringLiteral("Delete"), QStringLiteral("刪除"), QStringLiteral("删除"), QStringLiteral("削除"), QStringLiteral("ลบ") },
 		{ QStringLiteral("Unsend"), QStringLiteral("收回"), QStringLiteral("撤回"), QStringLiteral("送信取消"), QStringLiteral("送信を取り消す"), QStringLiteral("ยกเลิกข้อความ"), QStringLiteral("ยกเลิกการส่ง") },
 		{ QStringLiteral("Translate"), QStringLiteral("翻譯"), QStringLiteral("翻译"), QStringLiteral("翻訳"), QStringLiteral("แปล") },
+		// The bridge's own item (addProfileMenuItem()): React, or Remove reaction once the user has reacted.
+		{ label("React"), label("Remove reaction") },
 	};
 	g_messageCommand.source = v;
 	g_messageCommand.row = v->currentIndex();
 	g_messageCommand.labels = labels[command];
+	// For the add-on's "not available" message.
+	static const char *const names[] = { "Reply", "Delete", "Unsend", "Translate", "React" };
+	g_messageCommand.kind = QString::fromLatin1(names[command]);
 	g_messageCommand.at.start();
 	a11yLog("[message-command] requested command=%d row=%d", command, v->currentIndex().row());
 	if (!openRowMenu()) {
@@ -3905,7 +3922,55 @@ bool LineAccessibleList::saveMessage()
 	return true;
 }
 
-int LineAccessibleList::voiceMessageSeconds(int row)
+void LineAccessibleList::openVideoForTranscription()
+{
+	QAbstractItemView *v = view();
+	const int row = cursorRow();
+	QAccessibleInterface *item = v && row >= 0 ? itemAt(row) : nullptr;
+	// Items read "Video, ..." and posts "..., Video, ..." / "2 photos, 1 video" (label in LINE's language).
+	const QString name = item ? item->text(QAccessible::Name) : QString();
+	if (!name.contains(label("Video"), Qt::CaseInsensitive)) {
+		requestTranscription(QStringLiteral("notvoice"), -1);
+		return;
+	}
+	QFile request(bridgeDirectory() + QStringLiteral("viewer-transcribe-request"));
+	if (request.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+		request.write(QByteArray::number(QDateTime::currentMSecsSinceEpoch()));
+		request.close();
+	}
+	const bool opened = isPostList(v) ? openPostMedia() : clickCursorRow();
+	a11yLog("[transcribe] row %d: video %s in the viewer", row, opened ? "opened" : "could not be opened");
+	if (!opened) {
+		request.remove();
+		requestTranscription(QStringLiteral("notvoice"), -1);
+	}
+}
+
+bool LineAccessibleList::fetchMessageFile(int row, bool video)
+{
+	QAbstractItemView *v = view();
+	if (!v || !v->model() || row < 0 || transcriptionTarget().isEmpty())
+		return false;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	static const QStringList saveAs = { QStringLiteral("Save as"), QStringLiteral("บันทึกเป็น"), QStringLiteral("名前を付けて保存"),
+		                                QStringLiteral("另存为"), QStringLiteral("另存新檔"), QStringLiteral("另存為") };
+	g_messageCommand.source = v;
+	g_messageCommand.row = idx;
+	g_messageCommand.labels = saveAs;
+	g_messageCommand.purpose = PendingMessageCommand::FetchFile;
+	g_messageCommand.kind = video ? QStringLiteral("Video") : QStringLiteral("Voice message");
+	g_messageCommand.at.start();
+	if (v->currentIndex() != idx)
+		v->setCurrentIndex(idx);
+	a11yLog("[transcribe] row %d: saving the %s for transcription", row, video ? "video" : "voice message");
+	if (!openRowMenu()) {
+		g_messageCommand = PendingMessageCommand();
+		return false;
+	}
+	return true;
+}
+
+int LineAccessibleList::voiceMessageSeconds(int row, QString *kindOut)
 {
 	QAbstractItemView *v = view();
 	if (!v || !v->model() || row < 0)
@@ -3916,9 +3981,12 @@ int LineAccessibleList::voiceMessageSeconds(int row)
 	const CaptureResult cap = captureRegionText(v->viewport(), r);
 	QRectF bubble;
 	const char *kind = cap.skipped ? nullptr : messageKind(cap, r, false, &bubble);
-	if (!kind || qstrcmp(kind, "Voice message") != 0)
+	const bool video = kind && qstrcmp(kind, "Video") == 0;
+	if (!kind || (!video && qstrcmp(kind, "Voice message") != 0))
 		return -2;
-	// Its length ("00:07") is drawn inside the bubble.
+	if (kindOut)
+		*kindOut = video ? QStringLiteral("video") : QStringLiteral("voice");
+	// Its length ("00:07") is drawn inside the bubble (a video's on its thumbnail).
 	static const QRegularExpression clock(QStringLiteral("^(?:(\\d{1,2}):)?(\\d{1,2}):(\\d{2})$"));
 	for (const CapturedText &it : cap.items) {
 		const QRegularExpressionMatch m = clock.match(cleanText(it.text));
@@ -3935,6 +4003,134 @@ struct PendingTranscription {
 	QPersistentModelIndex index;
 	QElapsedTimer at;
 } g_transcription;
+// Counts requests: a newer one ends the timer of an older one still waiting for a second signal.
+int g_transcriptionId = 0;
+
+// A file LINE saved for a transcription. LINE then offers "Open folder" instead of "Save as..." for
+// that message, also after the add-on has deleted the file (also after switching chats), until
+// "Open folder" is pressed: LINE then finds the file gone, shows nothing (no window, no Explorer:
+// checked with screenshots 2026-11-08) and offers "Save as..." again. So once the file is gone the
+// bridge presses it while LINE is in the background, or at the next transcription of that message.
+struct SavedFile {
+	QPointer<QAbstractItemView> view;
+	QPersistentModelIndex index;
+	QString path;
+	bool seen = false; // LINE has written it
+	QElapsedTimer since;
+};
+QList<SavedFile> g_savedFiles;
+// Where the user was in that list (current row, focus widget), put back after the bridge's menu.
+QPersistentModelIndex g_openFolderReturnTo;
+QPointer<QWidget> g_openFolderFocus;
+
+const QStringList &openFolderLabels()
+{
+	// Only the Thai one seen.
+	static const QStringList labels = { QStringLiteral("Open folder"), QStringLiteral("เปิดโฟลเดอร์"), QStringLiteral("フォルダを開く"),
+		                                QStringLiteral("フォルダーを開く"), QStringLiteral("打开文件夹"), QStringLiteral("開啟資料夾"),
+		                                QStringLiteral("打開資料夾") };
+	return labels;
+}
+
+bool savedFileGone(const QModelIndex &index)
+{
+	for (const SavedFile &f : g_savedFiles) {
+		if (f.index == index)
+			return f.seen && !QFileInfo::exists(f.path);
+	}
+	return false;
+}
+
+void forgetSavedFile(const QModelIndex &index)
+{
+	g_savedFiles.removeIf([&index](const SavedFile &f) { return f.index == index; });
+}
+
+void returnFromOpenFolder()
+{
+	const QPersistentModelIndex back = g_openFolderReturnTo;
+	const QPointer<QWidget> focus = g_openFolderFocus;
+	g_openFolderReturnTo = QPersistentModelIndex();
+	g_openFolderFocus = nullptr;
+	QTimer::singleShot(500, qApp, [back, focus] {
+		if (back.isValid()) {
+			for (QWidget *w : QApplication::allWidgets()) {
+				auto *v = qobject_cast<QAbstractItemView *>(w);
+				if (v && v->model() == back.model() && v->currentIndex() != back) {
+					v->setCurrentIndex(back);
+					v->scrollTo(back);
+					break;
+				}
+			}
+		}
+		if (focus && focus->isVisible())
+			focus->setFocus(Qt::OtherFocusReason);
+	});
+}
+
+// Every second while files are remembered: notes when LINE has written them and presses "Open folder"
+// for one the add-on has deleted, only while LINE is in the background (the menu takes the focus).
+void pressOpenFolderForDeletedFiles()
+{
+	g_savedFiles.removeIf([](const SavedFile &f) {
+		return !f.view || !f.index.isValid() || f.index.model() != f.view->model() || (!f.seen && f.since.elapsed() > 600000);
+	});
+	for (SavedFile &f : g_savedFiles) {
+		if (!f.seen && QFileInfo::exists(f.path))
+			f.seen = true;
+	}
+	if (QGuiApplication::applicationState() == Qt::ApplicationActive || g_messageCommand.source || g_transcription.view
+	    || contextMenuVisible() || QApplication::activeModalWidget() || QApplication::activePopupWidget())
+		return;
+	for (const SavedFile &f : std::as_const(g_savedFiles)) {
+		if (!f.seen || QFileInfo::exists(f.path) || !f.view->isVisible())
+			continue;
+		QAbstractItemView *v = f.view;
+		const QPersistentModelIndex index = f.index;
+		forgetSavedFile(index); // one try; else the next transcription presses it
+		auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(v));
+		if (!list)
+			return;
+		g_openFolderReturnTo = v->currentIndex();
+		g_openFolderFocus = v->window()->focusWidget();
+		g_messageCommand.source = v;
+		g_messageCommand.row = index;
+		g_messageCommand.labels = openFolderLabels();
+		g_messageCommand.purpose = PendingMessageCommand::OpenFolder;
+		g_messageCommand.at.start();
+		if (v->currentIndex() != index)
+			v->setCurrentIndex(index);
+		a11yLog("[transcribe] row %d: the saved file is gone; pressing Open folder so LINE offers Save as again", index.row());
+		if (!list->openRowMenu()) {
+			g_messageCommand = PendingMessageCommand();
+			returnFromOpenFolder();
+		}
+		return; // one at a time
+	}
+}
+
+void rememberSavedFile(QAbstractItemView *view, const QPersistentModelIndex &index, const QString &path)
+{
+	if (!view || !index.isValid() || path.isEmpty())
+		return;
+	forgetSavedFile(index);
+	SavedFile f;
+	f.view = view;
+	f.index = index;
+	f.path = path;
+	f.since.start();
+	g_savedFiles.append(f);
+	static QTimer *timer = nullptr;
+	if (!timer) {
+		timer = new QTimer(qApp);
+		QObject::connect(timer, &QTimer::timeout, qApp, [] {
+			pressOpenFolderForDeletedFiles();
+			if (g_savedFiles.isEmpty())
+				timer->stop();
+		});
+	}
+	timer->start(1000);
+}
 } // namespace
 
 bool LineAccessibleList::transcribeVoiceMessage(int row)
@@ -3946,7 +4142,8 @@ bool LineAccessibleList::transcribeVoiceMessage(int row)
 		requestTranscription(QStringLiteral("busy"), -1);
 		return true;
 	}
-	const int seconds = voiceMessageSeconds(row);
+	QString kind;
+	const int seconds = voiceMessageSeconds(row, &kind);
 	if (seconds == -2) {
 		requestTranscription(QStringLiteral("notvoice"), -1);
 		return true;
@@ -3954,12 +4151,22 @@ bool LineAccessibleList::transcribeVoiceMessage(int row)
 	g_transcription.view = v;
 	g_transcription.index = v->model()->index(row, 0, v->rootIndex());
 	g_transcription.at.start();
-	requestTranscription(QStringLiteral("ok"), seconds);
+	const int id = ++g_transcriptionId;
+	requestTranscription(QStringLiteral("ok"), seconds, kind);
 	// The add-on starts recording LINE's sound and then signals; the message is played only then, so
-	// its beginning is recorded. Given up after 10 s (the add-on refused: no recognizer, ...).
+	// its beginning is recorded. Given up after 10 s (the add-on refused: no recognizer, ...); the
+	// add-on's dialogs (long recording, language) may keep the user a while: 120 s.
+	// With a target file named by the add-on, nothing is played: LINE saves the message's own file
+	// there ("Save as..." in its menu), so the file is surely this message's (matching LINE's cache by
+	// length took another message of the same length). If that fails, the add-on removes the target
+	// and signals again: a voice message is then played (and recorded); a video is not.
 	auto *timer = new QTimer(v);
-	QObject::connect(timer, &QTimer::timeout, v, [timer] {
-		if (!g_transcription.view || !g_transcription.index.isValid() || g_transcription.at.elapsed() > 10000) {
+	QObject::connect(timer, &QTimer::timeout, v, [timer, id, video = kind == QLatin1StringView("video"), fetched = false, since = QElapsedTimer()]() mutable {
+		if (id != g_transcriptionId) {
+			timer->deleteLater();
+			return;
+		}
+		if (!g_transcription.view || !g_transcription.index.isValid() || (fetched ? since : g_transcription.at).elapsed() > 120000) {
 			g_transcription = PendingTranscription();
 			timer->deleteLater();
 			return;
@@ -3968,11 +4175,26 @@ bool LineAccessibleList::transcribeVoiceMessage(int row)
 			return;
 		QAbstractItemView *view = g_transcription.view;
 		const QModelIndex index = g_transcription.index;
-		g_transcription = PendingTranscription();
-		timer->deleteLater();
 		if (view->currentIndex() != index)
 			view->setCurrentIndex(index);
 		auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(view));
+		if (!fetched && !transcriptionTarget().isEmpty()) {
+			fetched = true;
+			if (!list || !list->fetchMessageFile(index.row(), video))
+				reportFileFetch(false);
+			if (!video) {
+				// Waits for the add-on's second signal, if the save fails.
+				since.start();
+				return;
+			}
+		}
+		g_transcription = PendingTranscription();
+		timer->deleteLater();
+		if (video) {
+			if (!fetched)
+				reportFileFetch(false);
+			return;
+		}
 		const bool played = list && list->openMessageContent();
 		a11yLog("[transcribe] row %d: %s", index.row(), played ? "playing" : "could not be played");
 	});
@@ -3991,27 +4213,46 @@ QWidget *takePendingMenuChoice(const QList<QWidget *> &items)
 		const PendingMessageCommand command = g_messageCommand;
 		g_messageCommand = PendingMessageCommand(); // consume once; never continue into a confirmation
 		if (!valid) {
-			if (command.purpose != PendingMessageCommand::Command)
+			if (command.purpose == PendingMessageCommand::OpenFolder)
+				returnFromOpenFolder();
+			else if (command.purpose == PendingMessageCommand::FetchFile)
+				reportFileFetch(false);
+			else if (command.purpose != PendingMessageCommand::Command)
 				requestSave(QStringLiteral("nosave"), command.kind);
 			return nullptr;
 		}
-		for (QWidget *item : items) {
-			QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(item);
-			QString text = iface ? cleanText(iface->text(QAccessible::Name)).remove(u'&').trimmed() : QString();
-			while (text.endsWith(u'.') || text.endsWith(QChar(0x2026)))
-				text.chop(1);
-			if (item->isEnabled() && wanted.contains(text.trimmed())) {
-				a11yLog("[message-command] activating %s", qUtf8Printable(text));
-				if (command.purpose == PendingMessageCommand::CopyText)
-					captureCopiedText(command.kind, command.fileName);
-				else if (command.purpose == PendingMessageCommand::SaveAs)
-					requestSave(QStringLiteral("media"), command.kind);
-				return item;
+		auto itemNamed = [&items](const QStringList &names) -> QWidget * {
+			for (QWidget *item : items) {
+				QAccessibleInterface *iface = QAccessible::queryAccessibleInterface(item);
+				QString text = iface ? cleanText(iface->text(QAccessible::Name)).remove(u'&').trimmed() : QString();
+				while (text.endsWith(u'.') || text.endsWith(QChar(0x2026)))
+					text.chop(1);
+				if (item->isEnabled() && names.contains(text.trimmed())) {
+					a11yLog("[message-command] activating %s", qUtf8Printable(text));
+					return item;
+				}
 			}
+			return nullptr;
+		};
+		if (QWidget *item = itemNamed(wanted)) {
+			if (command.purpose == PendingMessageCommand::CopyText) {
+				captureCopiedText(command.kind, command.fileName);
+			} else if (command.purpose == PendingMessageCommand::SaveAs) {
+				requestSave(QStringLiteral("media"), command.kind);
+			} else if (command.purpose == PendingMessageCommand::FetchFile) {
+				const QString target = transcriptionTarget();
+				fillNextFileDialog(target, [view = source, row = command.row, target](bool ok) {
+					reportFileFetch(ok);
+					if (ok)
+						rememberSavedFile(view, row, target);
+				});
+			} else if (command.purpose == PendingMessageCommand::OpenFolder) {
+				returnFromOpenFolder();
+			}
+			return item;
 		}
-		if (command.purpose != PendingMessageCommand::Command) {
-			// Save message: no Save as / Copy here (an expired file): close the menu, the add-on says so.
-			a11yLog("[save] no %s in the menu", command.purpose == PendingMessageCommand::SaveAs ? "Save as" : "Copy");
+		if (command.purpose == PendingMessageCommand::OpenFolder) {
+			a11yLog("[transcribe] no Open folder in the menu");
 			if (!items.isEmpty()) {
 				QPointer<QWidget> menu = items.first()->window();
 				QTimer::singleShot(0, qApp, [menu] {
@@ -4019,11 +4260,51 @@ QWidget *takePendingMenuChoice(const QList<QWidget *> &items)
 						menu->hide();
 				});
 			}
-			requestSave(QStringLiteral("nosave"), command.kind);
+			returnFromOpenFolder();
 			return nullptr;
 		}
-		// Not offered for this message (Unsend on someone else's): the menu stays open for the user.
-		a11yLog("[message-command] command unavailable for this row");
+		if (command.purpose == PendingMessageCommand::FetchFile && savedFileGone(command.row)) {
+			// The add-on deleted the file of an earlier transcription before the bridge could press
+			// "Open folder" (LINE was in front): press it now, then ask for "Save as..." again.
+			if (QWidget *item = itemNamed(openFolderLabels())) {
+				forgetSavedFile(command.row);
+				const bool video = command.kind == QLatin1StringView("Video");
+				const QPersistentModelIndex row = command.row;
+				QTimer::singleShot(500, qApp, [source, row, video] {
+					auto *list = source ? dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(source)) : nullptr;
+					if (!list || !row.isValid() || !list->fetchMessageFile(row.row(), video))
+						reportFileFetch(false);
+				});
+				return item;
+			}
+		}
+		if (command.purpose != PendingMessageCommand::Command) {
+			// Save message: no Save as / Copy here (an expired file): close the menu, the add-on says so.
+			a11yLog("[save] no %s in the menu", command.purpose == PendingMessageCommand::CopyText ? "Copy" : "Save as");
+			if (!items.isEmpty()) {
+				QPointer<QWidget> menu = items.first()->window();
+				QTimer::singleShot(0, qApp, [menu] {
+					if (menu)
+						menu->hide();
+				});
+			}
+			if (command.purpose == PendingMessageCommand::FetchFile)
+				reportFileFetch(false);
+			else
+				requestSave(QStringLiteral("nosave"), command.kind);
+			return nullptr;
+		}
+		// Not offered for this message (Reply in Keep Memo, Unsend on someone else's): the menu is closed
+		// and the add-on says so (left open, it read as if the command had opened the menu).
+		a11yLog("[message-command] %s unavailable for this row", qPrintable(command.kind));
+		if (!items.isEmpty()) {
+			QPointer<QWidget> menu = items.first()->window();
+			QTimer::singleShot(0, qApp, [menu] {
+				if (menu)
+					menu->hide();
+			});
+		}
+		requestSave(QStringLiteral("unavailable"), command.kind);
 		return nullptr;
 	}
 	if (g_menuChoice.texts.isEmpty() || !g_menuChoice.at.isValid() || g_menuChoice.at.elapsed() > 5000)

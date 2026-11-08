@@ -735,4 +735,31 @@ void videoWidgetFocused(QWidget *quickWidget)
 	});
 }
 
+namespace {
+QWidget *shownVideoWidget(QWidget *viewer)
+{
+	for (QWidget *w : viewer ? viewer->findChildren<QWidget *>() : QList<QWidget *>()) {
+		if (inheritsClass(w, "QQuickWidget") && showsVideo(w))
+			return w;
+	}
+	return nullptr;
+}
+} // namespace
+
+double viewerVideoSeconds(QWidget *viewer)
+{
+	QWidget *video = shownVideoWidget(viewer);
+	QQuickItem *slider = video ? controlItem(video, PositionSlider) : nullptr;
+	return slider ? totalSeconds(slider) : 0;
+}
+
+void pauseViewerVideo(QWidget *viewer)
+{
+	QWidget *video = shownVideoWidget(viewer);
+	QQuickItem *button = video ? controlItem(video, PlayButton) : nullptr;
+	// The footer button shows Pause (not player-play) while the video plays.
+	if (button && !sourceOf(button).contains(QLatin1StringView("player-play")))
+		togglePlay(button);
+}
+
 } // namespace line_a11y

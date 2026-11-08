@@ -19,6 +19,8 @@ from logHandler import log
 from NVDAObjects.UIA import UIA
 from scriptHandler import script
 
+from . import layoutKeys
+
 addonHandler.initTranslation()
 
 #: Same category as the app module's other commands.
@@ -179,6 +181,10 @@ def declineOrEnd(endCall):
 
 class CallCommandsAppModule(appModuleHandler.AppModule):
 	"""Alt+A / Alt+D in LINE's processes. Without a LINE call the keys go to LINE."""
+
+	def getScript(self, gesture):
+		# Alt+C etc. also with a Thai (or other non-Latin) keyboard layout (layoutKeys.py).
+		return layoutKeys.getScript(self, gesture, super().getScript)
 
 	@script(
 		# Translators: Describes the command (in LINE) that answers an incoming LINE call.

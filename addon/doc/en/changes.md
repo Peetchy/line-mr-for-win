@@ -1,12 +1,18 @@
 # What's new in LINE MR
 
-## Version 0.5.6
+## Version 0.6.0
 
 ### Keys
+- New: Alt+Shift+R in the messages opens the reactions of the selected message ("React" in its menu); if you have reacted already, it opens them to take yours back.
+- Letter and digit commands (Alt+C, Alt+M, Alt+1 ...) also work while the keyboard is in Thai or another non-Latin layout: the key at the same place as on an English keyboard counts, so there is no need to switch to English first.
 - Alt+T in the messages now translates the selected message (Translate in LINE's message menu); voice message transcription moved to Alt+Shift+T.
 - Alt+C, Alt+L, Alt+F and Alt+1 / Alt+2 / Alt+3 also work in a chat opened in its own window: LINE's main window comes to the front and focus goes there. Alt+M and Alt+I in the main window with the chat room hidden go to the chat window.
 
 ### Voice messages to text
+- Videos can be turned into text too: Alt+Shift+T on a video in a chat (its menu: "Transcribe video"), in Photos & videos, in Notes or in LINE's viewer. LINE has to save the video into LINE MR's folder; the file is deleted afterwards. A voice message or video longer than 5 minutes asks first, since converting runs on this computer and may take long.
+- Transcription always uses the file of the selected message: LINE saves it into LINE MR's folder (%LOCALAPPDATA%\LineMR\media; a Save As window flashes by) and the file is deleted once the text is ready; nothing is played. LINE then offers "Open folder" instead of "Save as..." for that message; once the file is deleted, LINE MR presses "Open folder" in the background (nothing opens), so the menu has "Save as..." again. Before, LINE MR could take another message of the same length from LINE's cache and show its text instead. A voice message LINE cannot save (expired) is played and recorded as before.
+- The text of a voice message or video appears while it is converted (every 30 seconds of sound) and can be read and edited meanwhile; new lines are added at the end without moving the cursor, and your changes are kept.
+- Recordings longer than 30 seconds are cut at their pauses before converting, so words are no longer repeated or lost every 30 seconds. Copy appears when the text is complete. The list of speech models comes from LINE MR's repository on GitHub: new models appear in the settings and the dialog without updating the add-on.
 - New: Alt+Shift+T on a voice message (or "Transcribe voice message" in its menu) turns it into text on this computer; the text opens in a window where it can be read, edited and copied. Off by default: turning it on in NVDA's settings, category LINE MR, downloads the speech model chosen there once. Six models: Typhoon Whisper Turbo (874 MB, the default: best for Thai, also English and Japanese, the least memory of the Typhoon models), Typhoon Whisper Medium and Large v3 (Thai only; Large v3 the most accurate, but very slow), and OpenAI's Whisper Small, Medium and Large v3 Turbo (many languages); or "Browse for a model file" for a whisper.cpp model of your own, which LINE MR checks before using it. The dialog before each transcription asks for the model and the language. See the guide, "Voice messages to text".
 
 ### Saving messages

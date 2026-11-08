@@ -329,6 +329,9 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		#: What the check of the user's own model file said (shown as its state).
 		self._customModelState = ""
 		self._fillModels(transcribe.selectedModel().id)
+		# A model added to the published list (speech-models.json in the repository) shows without an
+		# add-on update.
+		transcribe.refreshModels(self._modelsChanged)
 		self.transcribeModel.Bind(wx.EVT_CHOICE, lambda evt: self._refreshSpeechModel())
 		# Translators: Button in the add-on's settings: choose a speech model file downloaded by the user.
 		self.browseModel = group.addItem(wx.Button(box, label=_("&Browse for a model file...")))
@@ -371,6 +374,12 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		self.transcribeModel.SetItems([transcribe.modelLabel(m) for m in self._models])
 		ids = [m.id for m in self._models]
 		self.transcribeModel.SetSelection(ids.index(selectId) if selectId in ids else 0)
+
+	def _modelsChanged(self):
+		if not self:
+			return
+		self._fillModels(self._chosenModel().id)
+		self._refreshSpeechModel()
 
 	def _chosenModel(self):
 		return self._models[max(0, self.transcribeModel.GetSelection())]
@@ -578,6 +587,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		settingsDialogs.NVDASettingsDialog.categoryClasses.append(LineMRSettingsPanel)
 		# The bridge's defaults are the add-on's; a changed setting (or another NVDA profile) is passed on.
 		_applyHighlightSettings()
+		# The published list of speech models, so the settings show any new one at once.
+		try:
+			from appModules.line import speechModel
+
+			speechModel.refreshCatalog()
+		except Exception:
+			log.error("LINE MR: cannot fetch the list of speech models", exc_info=True)
 		self._timer = None
 		if config.conf[CONFIG_SECTION]["checkForUpdates"] and not _installedFromStore():
 			self._timer = wx.CallLater(STARTUP_DELAY_MS, _checker.check, False)

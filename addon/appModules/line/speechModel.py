@@ -3,7 +3,7 @@
 #   - lineMR-whisper-x64.zip (GitHub release "whisper-1"; tools/whisper/README.md says how it is
 #     made): whisper.cpp's whisper-cli.exe and its DLLs, built with the C runtime linked in (the
 #     official builds need the Visual C++ runtime, which not every PC has);
-#   - one speech model of `MODELS`, chosen in the settings (or in the dialog before a transcription):
+#   - one speech model of `models()`, chosen in the settings (or in the dialog before a transcription):
 #     OpenAI's Whisper models as whisper.cpp publishes them on Hugging Face (ggerganov/whisper.cpp),
 #     or SCB 10X's Typhoon Whisper models (trained further on Thai; MIT), converted for whisper.cpp
 #     and published with the add-on's release "whisper-1". All are 8-bit (q8_0) except Typhoon
@@ -13,9 +13,19 @@
 # Everything goes to %LOCALAPPDATA%\LineMR\whisper (removed with the add-on, installTasks.py).
 # Downloads resume after an interruption (HTTP Range) and are checked against their SHA-256 before
 # use; `installed.txt` records which program build is complete.
+#
+# The list of models is published in the repository (speech-models.json on the main branch, see
+# `CATALOG_URL`), so a model added there shows in the settings and the dialog without an add-on
+# update: `refreshCatalog()` fetches it when they open (and at NVDA start) and keeps the last good
+# copy in %LOCALAPPDATA%\LineMR\speech-models.json; `BUILTIN` is used until then. Entries are
+# checked strictly (`_parseCatalog`): downloads only from this repository's releases or Hugging Face,
+# a SHA-256 and a size for every file.
 
 import hashlib
+import json
 import os
+import re
+import time
 import shutil
 import struct
 import threading
@@ -40,15 +50,25 @@ PROGRAM_ZIP = ("lineMR-whisper-x64.zip", "928347788f7d29fb643519a016f41838e8c0fd
 _TIMEOUT = 30
 
 
+#: What a model is good at, shown with its name (transcribe.modelLabel() has the translations).
+STRENGTHS = ("bestForThai", "thaiOnly", "thaiOnlyAccurate", "manyLanguages")
+
+
 class Model:
-	def __init__(self, id, name, file, sha256, size, baseUrl):
+	def __init__(self, id, name, file, sha256, size, baseUrl="", url=None, strength="manyLanguages", speed=None, note=None):
 		self.id = id
 		#: Shown to the user (not translated: model names).
 		self.name = name
 		self.file = file
 		self.sha256 = sha256
 		self.size = size
-		self.url = baseUrl + file
+		self.url = url or baseUrl + file
+		#: One of STRENGTHS.
+		self.strength = strength
+		#: First guess of seconds of work per second of audio (learnt per computer afterwards), or None.
+		self.speed = speed
+		#: {language code: text} replacing the strength's words, from the published list, or None.
+		self.note = note
 
 	@property
 	def path(self):
@@ -65,23 +85,147 @@ class Model:
 			return False
 
 
-#: The choices: the default first, then the other Typhoon models, then Whisper by size. Typhoon
-#: Turbo was the only model of the first version (its file name is unchanged, so it is not
-#: downloaded again).
-MODELS = (
+#: The choices this version knows (speech-models.json in the repository lists the same and newer ones):
+#: the default first, then the other Typhoon models, then Whisper by size. Typhoon Turbo was the only
+#: model of the first version (its file name is unchanged, so it is not downloaded again). Speeds were
+#: measured on an i5-1235U with 10 threads, model loading included (Turbo and Medium: 8 s of Thai in
+#: 20-24 s, 36 s in 91 s; Large v3: 33 s and 587 s; Whisper's own models assumed alike).
+BUILTIN = (
 	Model("typhoon-turbo", "Typhoon Whisper Turbo", "ggml-typhoon-whisper-turbo-q8_0.bin",
-		"4797a76f85ad1d7681d1716984bd1a37ffcd58e866e4540e83d06ca72db941a4", 874188075, _RELEASE_URL),
+		"4797a76f85ad1d7681d1716984bd1a37ffcd58e866e4540e83d06ca72db941a4", 874188075, _RELEASE_URL,
+		strength="bestForThai", speed=3.0),
 	Model("typhoon-medium", "Typhoon Whisper Medium", "ggml-typhoon-whisper-medium-q8_0.bin",
-		"c315d595bc9d1283e148f4c4ba42b9db34ba017b5113faba74c2be9d6b6e16e8", 823369796, _RELEASE_URL),
+		"c315d595bc9d1283e148f4c4ba42b9db34ba017b5113faba74c2be9d6b6e16e8", 823369796, _RELEASE_URL,
+		strength="thaiOnly", speed=3.0),
 	Model("typhoon-large", "Typhoon Whisper Large v3", "ggml-typhoon-whisper-large-v3-q5_0.bin",
-		"0cc61237b9eff9d8bffa8fe665add2f6c320551083878d8c7edc9fe53423fbe2", 1081140203, _RELEASE_URL),
+		"0cc61237b9eff9d8bffa8fe665add2f6c320551083878d8c7edc9fe53423fbe2", 1081140203, _RELEASE_URL,
+		strength="thaiOnlyAccurate", speed=16.0),
 	Model("whisper-small", "Whisper Small", "ggml-small-q8_0.bin",
-		"49c8fb02b65e6049d5fa6c04f81f53b867b5ec9540406812c643f177317f779f", 264464607, _HF_URL),
+		"49c8fb02b65e6049d5fa6c04f81f53b867b5ec9540406812c643f177317f779f", 264464607, _HF_URL,
+		strength="manyLanguages", speed=1.0),
 	Model("whisper-medium", "Whisper Medium", "ggml-medium-q8_0.bin",
-		"42a1ffcbe4167d224232443396968db4d02d4e8e87e213d3ee2e03095dea6502", 823369779, _HF_URL),
+		"42a1ffcbe4167d224232443396968db4d02d4e8e87e213d3ee2e03095dea6502", 823369779, _HF_URL,
+		strength="manyLanguages", speed=3.0),
 	Model("whisper-turbo", "Whisper Large v3 Turbo", "ggml-large-v3-turbo-q8_0.bin",
-		"317eb69c11673c9de1e1f0d459b253999804ec71ac4c23c17ecf5fbe24e259a1", 874188075, _HF_URL),
+		"317eb69c11673c9de1e1f0d459b253999804ec71ac4c23c17ecf5fbe24e259a1", 874188075, _HF_URL,
+		strength="manyLanguages", speed=3.0),
 )
+
+#: The published list of models (raw file of the repository's main branch).
+CATALOG_URL = "https://raw.githubusercontent.com/Peetchy/line-mr-for-win/main/speech-models.json"
+#: Where a listed model may be downloaded from.
+_URL_PREFIXES = ("https://github.com/Peetchy/line-mr-for-win/releases/download/", "https://huggingface.co/")
+_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,47}$")
+_FILE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\.bin$")
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+#: The published list is fetched at most this often (seconds); GitHub's raw files are cached ~5 minutes.
+_CATALOG_INTERVAL = 30
+_catalog = None
+_catalogLock = threading.Lock()
+_catalogFetched = 0.0
+
+
+def _catalogPath():
+	return os.path.join(bridge.bridgeDataDir(), "speech-models.json")
+
+
+def _parseCatalog(data):
+	"""The models of a published list (JSON text); raises ValueError for anything not as expected."""
+	doc = json.loads(data)
+	if not isinstance(doc, dict) or doc.get("schema") != 1 or not isinstance(doc.get("models"), list):
+		raise ValueError("not a speech model list of schema 1")
+	models, ids, files = [], set(), set()
+	for entry in doc["models"]:
+		if not isinstance(entry, dict):
+			raise ValueError("entry is not an object")
+		id, name, file = entry.get("id"), entry.get("name"), entry.get("file")
+		url, sha256, size = entry.get("url"), entry.get("sha256"), entry.get("size")
+		if not (isinstance(id, str) and _ID.match(id) and id != CUSTOM and id not in ids):
+			raise ValueError("bad id %r" % (id,))
+		if not (isinstance(name, str) and 0 < len(name) <= 80):
+			raise ValueError("bad name for %s" % id)
+		if not (isinstance(file, str) and _FILE.match(file) and file not in files):
+			raise ValueError("bad file for %s" % id)
+		if not (isinstance(url, str) and url.startswith(_URL_PREFIXES) and url.endswith("/" + file)):
+			raise ValueError("bad url for %s" % id)
+		if not (isinstance(sha256, str) and _SHA256.match(sha256)):
+			raise ValueError("bad sha256 for %s" % id)
+		if not (isinstance(size, int) and 1000000 <= size <= 10_000_000_000):
+			raise ValueError("bad size for %s" % id)
+		strength = entry.get("strength", "manyLanguages")
+		if strength not in STRENGTHS:
+			raise ValueError("bad strength for %s" % id)
+		speed = entry.get("speed")
+		if speed is not None and not (isinstance(speed, (int, float)) and 0.05 <= speed <= 100):
+			raise ValueError("bad speed for %s" % id)
+		note = entry.get("note")
+		if note is not None and not (
+			isinstance(note, dict) and all(isinstance(k, str) and isinstance(v, str) and len(v) <= 120 for k, v in note.items())
+		):
+			raise ValueError("bad note for %s" % id)
+		ids.add(id)
+		files.add(file)
+		models.append(Model(id, name, file, sha256, size, url=url, strength=strength, speed=speed, note=note))
+	if not models:
+		raise ValueError("no models")
+	return models
+
+
+def models():
+	"""The models to choose from: the published list (last good copy), then any built-in model it no
+	longer lists (a user may have chosen or downloaded it); the built-in list until one was fetched."""
+	global _catalog
+	with _catalogLock:
+		if _catalog is None:
+			try:
+				with open(_catalogPath(), encoding="utf-8") as f:
+					_catalog = _parseCatalog(f.read())
+			except (OSError, ValueError):
+				_catalog = []
+		listed = list(_catalog)
+	if not listed:
+		return list(BUILTIN)
+	ids = {m.id for m in listed}
+	return listed + [m for m in BUILTIN if m.id not in ids]
+
+
+def refreshCatalog(onChanged=None):
+	"""Fetches the published list in the background; onChanged() (on that thread) when the models
+	differ from before. Nothing happens if it was fetched less than _CATALOG_INTERVAL s ago."""
+	global _catalogFetched
+	now = time.monotonic()
+	if _catalogFetched and now - _catalogFetched < _CATALOG_INTERVAL:
+		return
+	_catalogFetched = now
+
+	def fetch():
+		global _catalog
+		try:
+			request = urllib.request.Request(CATALOG_URL, headers={"User-Agent": "lineMR", "Cache-Control": "no-cache"})
+			with urllib.request.urlopen(request, timeout=10) as response:
+				data = response.read(256 * 1024 + 1)
+			if len(data) > 256 * 1024:
+				raise ValueError("list too large")
+			text = data.decode("utf-8")
+			fetched = _parseCatalog(text)
+		except Exception as e:
+			log.debugWarning("LINE MR: speech model list not fetched: %s", e)
+			return
+		before = [(m.id, m.name, m.url, m.sha256, m.size, m.strength, m.note) for m in models()]
+		with _catalogLock:
+			_catalog = fetched
+		try:
+			with open(_catalogPath(), "w", encoding="utf-8") as f:
+				f.write(text)
+		except OSError:
+			pass
+		after = [(m.id, m.name, m.url, m.sha256, m.size, m.strength, m.note) for m in models()]
+		if after != before:
+			log.info("LINE MR: speech model list updated: %s", ", ".join(m.id for m in fetched))
+			if onChanged:
+				onChanged()
+
+	threading.Thread(target=fetch, name="lineMR.speechModelList", daemon=True).start()
 #: The setting's value for a model file chosen by the user (its path is a setting of its own).
 CUSTOM = "custom"
 #: The default: of the Typhoon models the one that needs the least memory (Turbo has 4 decoder layers
@@ -121,7 +265,7 @@ def model(id, customPath=""):
 	default."""
 	if id == CUSTOM and customPath:
 		return CustomModel(customPath)
-	for m in MODELS:
+	for m in models():
 		if m.id == id:
 			return m
 	return model(DEFAULT)
@@ -159,7 +303,7 @@ def downloadMB(m):
 
 
 def downloadedModels():
-	return [m for m in MODELS if m.downloaded()]
+	return [m for m in models() if m.downloaded()]
 
 
 def remove():
@@ -172,7 +316,7 @@ def removeModel(m):
 	"""Deletes one downloaded model (and its partial download); never the user's own file."""
 	if isinstance(m, CustomModel):
 		return
-	if _download is not None and _download.model is m:
+	if _download is not None and _download.model is not None and _download.model.id == m.id:
 		cancelDownload()
 	for path in (m.path, m.path + ".part"):
 		try:
@@ -289,7 +433,7 @@ def startDownload(m, onDone):
 	on the download thread once the files are complete. False when nothing was started."""
 	global _download
 	if _download is not None:
-		if _download.model is m:
+		if (_download.model is None and m is None) or (_download.model is not None and m is not None and _download.model.id == m.id):
 			return False
 		cancelDownload()
 	if programInstalled() and (m is None or m.downloaded()):

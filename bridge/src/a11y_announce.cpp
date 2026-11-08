@@ -62,18 +62,39 @@ void announceIncomingCall(const QString &text)
 	a11yLog("[announce] incoming call signalled (%d)", int(ok));
 }
 
-void requestTranscription(const QString &status, int seconds)
+void requestTranscription(const QString &status, int seconds, const QString &kind)
 {
 	QFile f(bridgeDirectory() + QStringLiteral("transcribe-request.txt"));
 	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
 		return;
-	f.write(QStringLiteral("status\t%1\nseconds\t%2\npid\t%3\n").arg(status).arg(seconds).arg(GetCurrentProcessId()).toUtf8());
+	f.write(QStringLiteral("status\t%1\nseconds\t%2\npid\t%3\nkind\t%4\n")
+	            .arg(status)
+	            .arg(seconds)
+	            .arg(GetCurrentProcessId())
+	            .arg(kind)
+	            .toUtf8());
 	f.close();
 	// A play request left over from an earlier, abandoned transcription must not start this one.
 	transcriptionPlayRequested();
 	static const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, L"Local\\lineMR.transcribeRequest");
 	const BOOL ok = event && SetEvent(event);
-	a11yLog("[transcribe] request signalled: %s, %d s (%d)", qPrintable(status), seconds, int(ok));
+	a11yLog("[transcribe] request signalled: %s, %s, %d s (%d)", qPrintable(status), qPrintable(kind), seconds, int(ok));
+}
+
+QString transcriptionTarget()
+{
+	QFile f(bridgeDirectory() + QStringLiteral("transcribe-target.txt"));
+	if (!f.open(QIODevice::ReadOnly))
+		return QString();
+	return QString::fromUtf8(f.readAll()).trimmed();
+}
+
+void reportFileFetch(bool saving)
+{
+	QFile f(bridgeDirectory() + QStringLiteral("transcribe-fetch.txt"));
+	if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+		f.write(saving ? "saving" : "failed");
+	a11yLog("[transcribe] file save %s", saving ? "started" : "failed");
 }
 
 void requestSave(const QString &status, const QString &kind, const QString &name, const QString &text)
