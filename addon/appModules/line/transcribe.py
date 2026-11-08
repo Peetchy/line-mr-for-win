@@ -8,20 +8,35 @@
 #    and signals Local\lineMR.transcribeRequest.
 # 2. Unless the user turned it off, a dialog asks for the speech model and the message's language
 #    (`LanguageDialog`).
-# 3. A `Job` thread looks for LINE's own copy of the message (voiceCache.py: LINE keeps every voice
-#    message it has played as an .m4a file; found by its length) and decodes it (lineMR_audio.exe
-#    decode): nothing is played. A message never played has no copy: then lineMR_audio.exe capture
-#    starts (WASAPI process loopback of LINE's process tree), Local\lineMR.transcribePlay makes the
-#    bridge click the message's play button, LINE downloads the file while it plays, and the job
-#    uses the file as soon as it is complete; the loopback recording is only the last resort (it
-#    lost all but the first 6 s of a 36 s message once).
+# 3. A `Job` thread has LINE save the message's own file (`_fetchFile()`): it writes a new file name
+#    ("voice-<ms>.m4a" in %LOCALAPPDATA%\LineMR\media) to transcribe-target.txt and signals
+#    Local\lineMR.transcribePlay; the bridge chooses "Save as..." in the message's menu and answers
+#    LINE's Save As with that name (file_dialog_fill.cpp), and the job waits for exactly that file,
+#    complete and of the message's length, and decodes it (lineMR_audio.exe decode): nothing is
+#    played. LINE's cache was used before, matched by length only, and gave another message of the
+#    same length (2026-11-08). The file is deleted when the job ends; the folder stays, because LINE
+#    then offers "Open folder" instead of "Save as..." for that message and a temporary folder would
+#    no longer exist. If LINE cannot save it (expired, no item), the target is removed and
+#    the play signal sent again: lineMR_audio.exe capture records LINE's process tree (WASAPI process
+#    loopback) while the bridge plays the message, and a file LINE downloads into its cache during
+#    this play is used as soon as it is complete (`_NewVoiceFile`).
 # 4. The recording stops at the message's length (or after silence; silence after the last sound is
-#    cut off: Whisper makes up words in long silence), then whisper-cli.exe reads the WAV file and
-#    prints one segment per line as it goes. Windows' own recognizers were tried first: Microsoft
+#    cut off: Whisper makes up words in long silence). Whisper hears 30 s at a time and repeated or
+#    lost words where its windows met (user question): a longer recording is first cut into pieces
+#    of at most 29.5 s at its quietest moments (lineMR_audio split), and whisper-cli.exe reads all
+#    pieces in one run (the model loads once), printing one segment per line as it goes. Windows' own recognizers were tried first: Microsoft
 #    has no Thai recognizer, and Windows voice typing (Win+H) cannot be started by a program.
 # 5. `TranscriptDialog` opens when the job starts and shows its state (waiting, listening n of m
-#    seconds, converting with an estimated percentage), then the text in an
-#    editable field with Copy and Close; Cancel / Escape while it works cancels the job.
+#    seconds, converting with an estimated percentage) and the text in an editable field with Copy:
+#    each line Whisper prints is added at the end as it comes (user request), while the user may
+#    read and edit what is there; the caret and selection stay where the user has them, and the end
+#    never replaces the field. Cancel / Escape while it works cancels the job; Close afterwards.
+#
+# Videos (in a chat, Photos & videos, Notes or LINE's viewer) go the same way with kind "video" (in
+# the viewer through its Download button; transcribe-fetch.txt says whether the bridge answered the
+# dialog), without the playing fallback. The temporary folder is deleted afterwards.
+# lineMR_audio decode reads the video's sound track.
+# Recordings longer than five minutes are confirmed first (converting runs on this computer).
 #
 # Nothing here runs on NVDA's main thread except speech and the dialog (queueHandler /
 # wx.CallAfter); the worker waits on child processes with timeouts and can be cancelled (Alt+Shift+T
@@ -31,7 +46,9 @@ import ctypes
 import json
 import os
 import re
+import shutil
 import subprocess
+import tempfile
 import threading
 import time
 from ctypes import wintypes
@@ -63,6 +80,8 @@ WHISPER_LANGUAGES = ("nvda", "auto", "th", "en", "ja", "zh")
 #: Whisper works on 30 s windows; a shorter recording with a known language is given a shorter
 #: window (audio context, 50 per second), which made a 7 s Thai message 3x faster with the same text.
 _FULL_WINDOW_SECONDS = 30
+#: Longest piece a recording is cut into (lineMR_audio split): each fits one Whisper window.
+_PIECE_SECONDS = 29.5
 
 
 def whisperLanguage(language=None):
@@ -85,6 +104,12 @@ _START_ALLOWANCE = 8
 #: 30 s window of audio; large models on slow computers need a few minutes for one). Slow models get
 #: two windows' worth of their expected time (`_speed()`).
 _ENGINE_SILENCE_TIMEOUT = 300
+#: Recordings longer than this are confirmed first (user request: converting takes long).
+_LONG_SECONDS = 5 * 60
+#: Video download through LINE's Save As: the bridge answers within this many seconds (menu, dialog),
+#: and a file that stops growing for _DOWNLOAD_STALL seconds before it is complete is given up.
+_FETCH_START = 30
+_DOWNLOAD_STALL = 120
 
 _kernel32 = ctypes.WinDLL("kernel32")
 _kernel32.CreateEventW.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR)
@@ -116,10 +141,11 @@ class _LineProcess:
 	"""A child process whose stdout is read line by line (UTF-8) on the calling thread; stderr lines
 	go to `onStderr` (on a reader thread) if given."""
 
-	def __init__(self, args, onStderr=None):
+	def __init__(self, args, onStderr=None, cwd=None):
 		self.args = args
 		self.proc = subprocess.Popen(
 			args,
+			cwd=cwd,
 			stdin=subprocess.PIPE,
 			stdout=subprocess.PIPE,
 			stderr=subprocess.PIPE if onStderr else subprocess.DEVNULL,
@@ -280,15 +306,26 @@ class WhisperEngine:
 		self.name = m.name
 		self.language = whisperLanguage(language)
 
-	def run(self, wav, cancelled, onProgress):
-		"""Yields lines of text; onProgress(percent) as Whisper reports it (after each 30 s window)."""
+	def run(self, wavs, cancelled, onProgress, cwd=None):
+		"""Yields lines of text (one per segment) of the files `wavs` in order (names relative to `cwd`);
+		onProgress(percent) as Whisper reports it (after each 30 s window, for each file)."""
 		threads = max(1, min(8, (os.cpu_count() or 2) - 1))
-		args = [self.program, "-m", self.model, "-f", wav, "-l", self.language, "-nt", "-np", "-pp", "-t", str(threads)]
-		seconds = _wavSeconds(wav)
+		# With timestamps: each segment is a line of its own, printed as each 30 s window is done (measured:
+		# 90 s of speech, lines at 37, 75 and 116 s). With -nt (no timestamps) whisper-cli printed all
+		# segments on one line, so the text arrived only at the end. The timestamps are taken off.
+		args = [self.program, "-m", self.model, "-l", self.language, "-np", "-pp", "-t", str(threads)]
+		for wav in wavs:
+			args += ["-f", wav]
+		seconds = _wavSeconds(os.path.join(cwd or "", wavs[0])) if len(wavs) == 1 else 0
 		if self.language != "auto" and 0 < seconds < _FULL_WINDOW_SECONDS - 1:
-			args += ["-ac", str(int((seconds + 1) * 50))]
+			# A shortened window with timestamps made Whisper repeat the last words to the window's end
+			# (user report 2026-11-08: an 8 s message read twice; a Thai TTS clip spoken once: "สองครั้งก็เปิด"
+			# x15). With -nt the same window reads it once, as fast (12.6 s, full window 36.9 s). One piece
+			# is one line anyway.
+			args += ["-ac", str(int((seconds + 1) * 50)), "-nt"]
+		progress = _Progress(len(wavs), onProgress)
 		try:
-			proc = _LineProcess(args, lambda line: _whisperProgress(line, onProgress))
+			proc = _LineProcess(args, progress.onStderr, cwd)
 		except OSError:
 			log.error("LINE MR: cannot start Whisper", exc_info=True)
 			raise TranscriptionError(
@@ -298,7 +335,7 @@ class WhisperEngine:
 		try:
 			timeout = max(_ENGINE_SILENCE_TIMEOUT, 2 * _FULL_WINDOW_SECONDS * _speed(self.modelId, self.language))
 			for line in proc.lines(timeout, cancelled):
-				text = line.strip()
+				text = _TIMESTAMPS.sub("", line).strip()
 				# Whisper's notes for non-speech ("[BLANK_AUDIO]", "[Music]", "(laughs)").
 				if not text or (text[0] in "[(" and text[-1] in "])"):
 					continue
@@ -317,13 +354,29 @@ class WhisperEngine:
 
 
 _PROGRESS = re.compile(r"progress\s*=\s*(\d+)%")
+#: A segment's times in front of its text: "[00:00:03.500 --> 00:00:06.680]   ".
+_TIMESTAMPS = re.compile(r"^\s*\[\d+:\d\d(?::\d\d)?[.,]\d+\s*-->\s*[^\]]*\]\s*")
 
 
-def _whisperProgress(line, onProgress):
-	# "whisper_print_progress_callback: progress =  68%" (-pp; may pass 100 with a shortened window).
-	match = _PROGRESS.search(line)
-	if match:
-		onProgress(int(match.group(1)))
+class _Progress:
+	"""Whisper's progress over several files: "whisper_print_progress_callback: progress =  68%" (-pp;
+	may pass 100 with a shortened window) is the current file's share, and 100 % ends a file (-np keeps
+	whisper-cli from naming the file it starts)."""
+
+	def __init__(self, files, onProgress):
+		self.files = max(1, files)
+		self.done = 0
+		self.onProgress = onProgress
+
+	def onStderr(self, line):
+		match = _PROGRESS.search(line)
+		if not match:
+			return
+		percent = min(100, int(match.group(1)))
+		if percent >= 100:
+			self.done = min(self.files, self.done + 1)
+			percent = 0
+		self.onProgress(int((self.done + percent / 100) * 100 / self.files))
 
 
 def _wavSeconds(path):
@@ -344,17 +397,9 @@ def _engineTimeout():
 # it is done. The window shows an estimate instead: seconds of work per second of audio, learnt on
 # this computer (transcribe-speed.json), separately for a fixed language and for detection.
 
-#: First guess per model: seconds of work per second of audio with a fixed language (detection about
-#: doubles it), measured on an i5-1235U with 10 threads, model loading included (Turbo and Medium:
-#: 8 s of Thai in 20-24 s, 36 s in 91 s; Large v3: 33 s and 587 s; Whisper's own models assumed alike).
-_DEFAULT_SPEED = {
-	"typhoon-medium": 3.0,
-	"typhoon-turbo": 3.0,
-	"typhoon-large": 16.0,
-	"whisper-small": 1.0,
-	"whisper-medium": 3.0,
-	"whisper-turbo": 3.0,
-}
+#: First guess when a model has none (speechModel.Model.speed): seconds of work per second of audio
+#: with a fixed language (detection about doubles it).
+_DEFAULT_SPEED = 3.0
 #: Short messages cost about as much as this many seconds of audio (loading the model).
 _MIN_AUDIO_SECONDS = 5
 
@@ -387,7 +432,7 @@ def _speed(modelId, language):
 	key = _speedKey(modelId, language)
 	if key in speeds:
 		return speeds[key]
-	fixed = _DEFAULT_SPEED.get(modelId, 3.0)
+	fixed = getattr(speechModel.model(modelId), "speed", None) or _DEFAULT_SPEED
 	return fixed * 2 if language == "auto" else fixed
 
 
@@ -429,18 +474,47 @@ def _fail(text):
 	queueHandler.queueFunction(queueHandler.eventQueue, report)
 
 
+def mediaDir():
+	"""Where LINE saves the files to transcribe (%LOCALAPPDATA%\\LineMR\\media); kept, emptied after each job."""
+	return os.path.join(bridge.bridgeDataDir(), "media")
+
+
+def _removeMedia(stem):
+	"""Deletes the voice message / video files starting with stem ("" = all) from mediaDir()."""
+	try:
+		names = os.listdir(mediaDir())
+	except OSError:
+		return
+	for name in names:
+		if name.startswith(stem) and (name.startswith("voice-") or name.startswith("video-")):
+			try:
+				os.remove(os.path.join(mediaDir(), name))
+			except OSError:
+				log.debug("LINE MR: could not delete %s", name)
+
+
 class Job(threading.Thread):
 	"""Records and transcribes one voice message. Its progress (`phase`, `recorded`, `progress`,
 	`convertingSince`) is read by the window's timer; the result goes to the window."""
 
-	WAITING, RECORDING, CONVERTING = range(3)
+	WAITING, RECORDING, CONVERTING, DOWNLOADING = range(4)
 
-	def __init__(self, pid, seconds, language=None, modelId=None):
+	def __init__(self, pid, seconds, language=None, modelId=None, kind="voice"):
 		super().__init__(name="lineMR.transcribe", daemon=True)
 		self.pid = pid
 		self.seconds = seconds
+		#: "voice" (a voice message) or "video".
+		self.kind = kind
+		#: Bytes of the video LINE has saved so far.
+		self.downloaded = 0
+		#: Name LINE saves the message's file under (without extension), in mediaDir().
+		self._stem = None
 		self.language = language
 		self.modelId = modelId
+		#: The speech model's name, shown above the text.
+		self.engineName = ""
+		#: Folder of the pieces the recording was cut into (deleted afterwards).
+		self._pieces = None
 		self._cancelled = False
 		self._capture = None
 		self.phase = self.WAITING
@@ -465,11 +539,15 @@ class Job(threading.Thread):
 		wav = os.path.join(bridge.bridgeDataDir(), "transcribe-%d.wav" % os.getpid())
 		try:
 			engine = WhisperEngine(self.language, self.modelId)
+			self.engineName = engine.name
 			wx.CallAfter(TranscriptDialog.open, self)
-			source = voiceCache.find(self.seconds)
-			if source:
-				log.info("LINE MR: transcribing LINE's cached copy of a %d s voice message", self.seconds)
-			else:
+			# LINE saves the message's own file for every job (user request 2026-11-08): LINE's cache,
+			# matched by length, gave another message of the same length.
+			source = self._fetchFile()
+			if not source and not self._cancelled and self.kind != "video":
+				# No "Save as..." (expired) or the save failed: LINE plays the message and its sound is
+				# recorded (the bridge plays on this second signal, as the target is gone).
+				self._clearTarget()
 				source = self._record(wav)
 			if self._cancelled:
 				return
@@ -479,16 +557,24 @@ class Job(threading.Thread):
 			if self._cancelled:
 				return
 			if not lines:
-				# Translators: Reported when speech recognition found no words in a voice message.
-				self._failed(_("No speech was recognised in the voice message."))
+				if self.kind == "video":
+					# Translators: Reported when speech recognition found no words in a video.
+					self._failed(_("No speech was recognised in the video."))
+				else:
+					# Translators: Reported when speech recognition found no words in a voice message.
+					self._failed(_("No speech was recognised in the voice message."))
 				return
 			wx.CallAfter(TranscriptDialog.finished, self, "\n".join(lines), engine.name)
 		except TranscriptionError as e:
 			self._failed(str(e))
 		except Exception:
 			log.error("LINE MR: transcription failed", exc_info=True)
-			# Translators: Reported when transcribing failed for an unexpected reason (details in NVDA's log).
-			self._failed(_("Transcribing the voice message failed."))
+			if self.kind == "video":
+				# Translators: Reported when transcribing a video failed for an unexpected reason (details in NVDA's log).
+				self._failed(_("Transcribing the video failed."))
+			else:
+				# Translators: Reported when transcribing failed for an unexpected reason (details in NVDA's log).
+				self._failed(_("Transcribing the voice message failed."))
 		finally:
 			if self._capture:
 				self._capture.kill()
@@ -496,6 +582,10 @@ class Job(threading.Thread):
 				os.remove(wav)
 			except OSError:
 				pass
+			if self._stem:
+				_removeMedia(self._stem)
+			if self._pieces:
+				shutil.rmtree(self._pieces, ignore_errors=True)
 			_job = None
 
 	def _failed(self, text):
@@ -566,21 +656,110 @@ class Job(threading.Thread):
 			)
 		return None
 
+	@staticmethod
+	def _clearTarget():
+		try:
+			os.remove(os.path.join(bridge.bridgeDataDir(), "transcribe-target.txt"))
+		except OSError:
+			pass
+
+	def _fetchFile(self):
+		"""Has LINE save the message's file (voice message or video) into mediaDir() under a
+		name of its own (kind + time in milliseconds; the bridge answers LINE's Save As); its path once
+		LINE has written it completely and its length fits the message. A video that cannot be had
+		raises TranscriptionError; for a voice message None (the caller then records it)."""
+		video = self.kind == "video"
+		folder = mediaDir()
+		os.makedirs(folder, exist_ok=True)
+		# Files of a job that did not end (NVDA closed meanwhile): only one job runs at a time.
+		_removeMedia("")
+		stem = self._stem = "%s-%d" % (self.kind, time.time() * 1000)
+		target = os.path.join(folder, stem + (".mp4" if video else ".m4a"))
+		dataDir = bridge.bridgeDataDir()
+		with open(os.path.join(dataDir, "transcribe-target.txt"), "w", encoding="utf-8") as f:
+			f.write(target)
+		fetchState = os.path.join(dataDir, "transcribe-fetch.txt")
+		try:
+			os.remove(fetchState)
+		except OSError:
+			pass
+		self.phase = self.DOWNLOADING
+		_signalPlay()
+		try:
+			return self._waitForFile(target, stem, fetchState)
+		except TranscriptionError:
+			if video:
+				raise
+			log.info("LINE MR: LINE did not save the voice message; playing it instead")
+			return None
+
+	def _waitForFile(self, target, stem, fetchState):
+		# Translators: Reported when LINE could not be made to save a video for transcription.
+		notSaved = _("LINE did not save the video. Close other LINE windows and try again.")
+		start = lastGrowth = time.monotonic()
+		saving = False
+		lastSize = -1
+		while not self._cancelled:
+			time.sleep(0.5)
+			try:
+				with open(fetchState, encoding="utf-8") as f:
+					state = f.read().strip()
+			except OSError:
+				state = ""
+			if state == "failed":
+				raise TranscriptionError(notSaved)
+			saving = saving or state == "saving"
+			now = time.monotonic()
+			if not saving and now - start > _FETCH_START:
+				raise TranscriptionError(notSaved)
+			# The name given, or that name with an extension LINE changed.
+			folder = os.path.dirname(target)
+			files = [os.path.join(folder, name) for name in os.listdir(folder) if name.startswith(stem)]
+			files = [path for path in files if os.path.isfile(path)]
+			if not files:
+				if saving and now - lastGrowth > _DOWNLOAD_STALL:
+					raise TranscriptionError(notSaved)
+				continue
+			path = target if target in files else max(files, key=os.path.getsize)
+			try:
+				size = os.path.getsize(path)
+			except OSError:
+				continue
+			self.downloaded = size
+			if size != lastSize:
+				lastSize, lastGrowth = size, now
+				continue
+			info = voiceCache.mp4Info(path)
+			if info and info[1]:
+				log.info("LINE MR: LINE saved the %s (%d bytes, %.1f s)", self.kind, size, info[0])
+				if self.seconds > 0 and abs(info[0] - self.seconds) > voiceCache.TOLERANCE:
+					# Never transcribe another message's sound.
+					log.warning("LINE MR: the saved file is %.1f s long, the message %d s", info[0], self.seconds)
+					raise TranscriptionError(notSaved)
+				return path
+			if now - lastGrowth > _DOWNLOAD_STALL:
+				raise TranscriptionError(notSaved)
+		return None
+
 	def _decode(self, source, wav):
-		"""LINE's .m4a copy to the WAV file Whisper reads."""
+		"""LINE's .m4a copy (or the video) to the WAV file Whisper reads."""
 		os.makedirs(os.path.dirname(wav), exist_ok=True)
+		if self.kind == "video":
+			# Translators: Reported when the sound of a video cannot be read.
+			unreadable = _("The video's sound cannot be read.")
+		else:
+			# Translators: Reported when LINE's copy of a voice message cannot be read.
+			unreadable = _("LINE's copy of the voice message cannot be read.")
 		proc = _LineProcess([helperPath(), "decode", source, wav])
 		try:
-			for line in proc.lines(60, self.cancelled):
+			# Media Foundation prints only when done: an hour of video takes about a minute.
+			for line in proc.lines(600 if self.kind == "video" else 60, self.cancelled):
 				kind, _sep, value = line.partition("\t")
 				if kind == "error":
-					log.warning("LINE MR: decoding LINE's copy of the voice message failed: %s", value)
-					raise TranscriptionError(
-						# Translators: Reported when LINE's copy of a voice message cannot be read.
-						_("LINE's copy of the voice message cannot be read.")
-					)
+					log.warning("LINE MR: decoding LINE's copy of the %s failed: %s", self.kind, value)
+					raise TranscriptionError(unreadable)
 		except TimeoutError:
-			raise TranscriptionError(_("LINE's copy of the voice message cannot be read.")) from None
+			raise TranscriptionError(unreadable) from None
 		finally:
 			proc.kill()
 
@@ -594,10 +773,41 @@ class Job(threading.Thread):
 		self.convertingSince = time.monotonic()
 		# Translators: Spoken when the recording is done and speech recognition starts.
 		_speak(_("Converting to text..."))
-		lines = list(engine.run(wav, self.cancelled, self._setProgress))
+		wavs, cwd = self._split(wav, audioSeconds)
+		lines = []
+		for text in engine.run(wavs, self.cancelled, self._setProgress, cwd):
+			lines.append(text)
+			# Into the window as it comes (Whisper prints each 30 s window's segments when it is done).
+			wx.CallAfter(TranscriptDialog.addText, self, text)
 		if not self._cancelled:
 			_learnSpeed(audioSeconds, engine.modelId, engine.language, time.monotonic() - self.convertingSince)
 		return lines
+
+	def _split(self, wav, audioSeconds):
+		"""([file names], folder) of the pieces a recording longer than a Whisper window is cut into at its
+		quietest moments; ([wav], None) for a short one or if cutting fails (Whisper then reads it whole)."""
+		if audioSeconds <= _PIECE_SECONDS:
+			return [wav], None
+		self._pieces = tempfile.mkdtemp(prefix="lineMR-pieces-")
+		names = []
+		proc = _LineProcess([helperPath(), "split", wav, self._pieces, str(_PIECE_SECONDS)])
+		try:
+			for line in proc.lines(120, self.cancelled):
+				kind, _sep, value = line.partition("\t")
+				if kind == "chunk":
+					names.append(value.split("\t")[0])
+				elif kind == "error":
+					log.warning("LINE MR: cutting the recording failed: %s", value)
+					return [wav], None
+		except TimeoutError:
+			log.warning("LINE MR: cutting the recording timed out")
+			return [wav], None
+		finally:
+			proc.kill()
+		if not names:
+			return [wav], None
+		log.info("LINE MR: %.0f s of sound cut into %d pieces at pauses", audioSeconds, len(names))
+		return names, self._pieces
 
 	def percent(self):
 		"""Converting progress: Whisper's when it has reported, else the estimate; at most 99."""
@@ -688,12 +898,12 @@ def _onRequest():
 		ui.message(problem)
 		return
 	if status == "notvoice":
-		# Translators: Reported when Transcribe voice message is used on another kind of message.
-		ui.message(_("Not a voice message."))
+		# Translators: Reported when Transcribe is used on something that is neither a voice message nor a video.
+		ui.message(_("Not a voice message or video."))
 		return
 	if status == "busy" or _job is not None:
 		# Translators: Reported when a transcription is asked for while one runs.
-		ui.message(_("A voice message is being transcribed. Alt+Shift+T cancels it."))
+		ui.message(_("A transcription is running. Alt+Shift+T cancels it."))
 		return
 	if status != "ok":
 		return
@@ -702,17 +912,54 @@ def _onRequest():
 		seconds = int(request.get("seconds", "-1"))
 	except ValueError:
 		return
-	if _conf()["transcribeAskLanguage"]:
-		LanguageDialog.ask(lambda language, modelId: _start(pid, seconds, language, modelId))
+	kind = "video" if request.get("kind") == "video" else "voice"
+
+	def choose():
+		if _conf()["transcribeAskLanguage"]:
+			LanguageDialog.ask(lambda language, modelId: _start(pid, seconds, language, modelId, kind), kind)
+		else:
+			_start(pid, seconds, None, None, kind)
+
+	_confirmLong(seconds, kind, choose)
+
+
+def _confirmLong(seconds, kind, proceed):
+	"""Runs proceed() at once, or for a recording over five minutes after the user agreed: converting
+	runs on this computer and takes a while (the estimate is learnt per model, see estimateSeconds())."""
+	if seconds <= _LONG_SECONDS:
+		proceed()
+		return
+	estimate = estimateSeconds(seconds, selectedModel().id, whisperLanguage())
+	values = {"minutes": max(1, round(seconds / 60)), "estimate": max(1, round(estimate / 60))}
+	if kind == "video":
+		# Translators: Asked before a long video is transcribed ({minutes}: its length, {estimate}: expected
+		# minutes of converting).
+		text = _(
+			"This video is {minutes} minutes long. It is converted to text on this computer, which may take a long "
+			"time: about {estimate} minutes. Continue?"
+		).format(**values)
 	else:
-		_start(pid, seconds, None, None)
+		# Translators: Asked before a long voice message is transcribed ({minutes}: its length, {estimate}:
+		# expected minutes of converting).
+		text = _(
+			"This voice message is {minutes} minutes long. It is converted to text on this computer, which may take "
+			"a long time: about {estimate} minutes. Continue?"
+		).format(**values)
+
+	def ask():
+		# Translators: Title of the question asked before a long recording is transcribed.
+		if gui.messageBox(text, _("Long recording"), wx.OK | wx.CANCEL | wx.ICON_INFORMATION) == wx.OK:
+			proceed()
+
+	# Not inside NVDA's queue processing: a modal dialog there freezes NVDA's core (see saveMessage.py).
+	wx.CallAfter(ask)
 
 
-def _start(pid, seconds, language, modelId):
+def _start(pid, seconds, language, modelId, kind="voice"):
 	global _job
 	if _job is not None:
 		return
-	_job = Job(pid, seconds, language, modelId)
+	_job = Job(pid, seconds, language, modelId, kind)
 	_job.start()
 
 
@@ -791,14 +1038,25 @@ class TranscriptDialog(wx.Dialog):
 			dlg._showText(text, engineName)
 
 	@classmethod
+	def addText(cls, job, text):
+		dlg = cls._forJob(job)
+		if dlg:
+			dlg._appendText(text)
+
+	@classmethod
 	def failed(cls, job, text):
 		dlg = cls._forJob(job)
 		if dlg:
 			dlg._showFailure(text)
 
 	def __init__(self, parent, job):
-		# Translators: Title of the window that shows a voice message's text.
-		super().__init__(parent, title=_("Voice message text"))
+		if job.kind == "video":
+			# Translators: Title of the window that shows the text of a video's speech.
+			title = _("Video text")
+		else:
+			# Translators: Title of the window that shows a voice message's text.
+			title = _("Voice message text")
+		super().__init__(parent, title=title)
 		self.job = job
 		self._working = True
 		self._lastBeep = time.monotonic()
@@ -809,7 +1067,8 @@ class TranscriptDialog(wx.Dialog):
 		sizer.Add(self.status, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=8)
 		self.gauge = wx.Gauge(self, range=100)
 		sizer.Add(self.gauge, flag=wx.EXPAND | wx.ALL, border=8)
-		self.textLabel = wx.StaticText(self)
+		# Translators: Label of the text field holding a voice message's text; says which engine made it.
+		self.textLabel = wx.StaticText(self, label=_("&Text (made by {engine}, may contain mistakes):").format(engine=job.engineName))
 		sizer.Add(self.textLabel, flag=wx.LEFT | wx.RIGHT, border=8)
 		self.text = wx.TextCtrl(self, style=wx.TE_MULTILINE | wx.TE_RICH2, size=(520, 260))
 		sizer.Add(self.text, proportion=1, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=8)
@@ -825,9 +1084,8 @@ class TranscriptDialog(wx.Dialog):
 		self.SetEscapeId(wx.ID_CANCEL)
 		self.Bind(wx.EVT_CLOSE, self._onClose)
 		self.SetSizerAndFit(sizer)
-		# The text and Copy appear with the result.
-		for control in (self.textLabel, self.text, self.copy):
-			control.Hide()
+		# Copy appears once the text is complete (user request); the field fills and can be edited before.
+		self.copy.Hide()
 		self.Layout()
 		self.CentreOnScreen()
 		self._update()
@@ -838,7 +1096,13 @@ class TranscriptDialog(wx.Dialog):
 
 	def _update(self):
 		job = self.job
-		if job.phase == Job.WAITING:
+		if job.phase == Job.DOWNLOADING and job.kind == "video" and job.downloaded:
+			# Translators: State of a video transcription while LINE downloads the video ({size}: megabytes so far).
+			status, percent = _("Getting the video from LINE: {size} MB").format(size=round(job.downloaded / 1048576, 1)), None
+		elif job.phase in (Job.WAITING, Job.DOWNLOADING) and job.kind == "video":
+			# Translators: State of a video transcription while the video is looked for.
+			status, percent = _("Getting the video from LINE..."), None
+		elif job.phase in (Job.WAITING, Job.DOWNLOADING):
 			# Translators: State of a voice message transcription while the message is fetched from LINE.
 			status, percent = _("Getting the voice message from LINE..."), None
 		elif job.phase == Job.RECORDING:
@@ -876,20 +1140,33 @@ class TranscriptDialog(wx.Dialog):
 		# Translators: Button that closes the voice message window once the work is done.
 		self.closeButton.SetLabel(_("Close"))
 
+	def _appendText(self, text):
+		"""Adds a line at the end without moving the user's caret or selection (they may be editing)."""
+		field = self.text
+		start, end = field.GetSelection()
+		last = field.GetLastPosition()
+		if last > 0 and field.GetRange(last - 1, last) not in ("\n", "\r"):
+			text = "\n" + text
+		field.AppendText(text)
+		field.SetSelection(start, end)
+		field.ShowPosition(start)
+
 	def _showText(self, text, engineName):
 		self._stop()
 		# Translators: State of a voice message transcription when the text is ready.
-		self._setStatus(_("Done"))
+		done = _("Done")
+		self._setStatus(done)
 		self.gauge.SetValue(100)
-		# Translators: Label of the text field holding a voice message's text; says which engine made it.
-		self.textLabel.SetLabel(_("&Text (made by {engine}, may contain mistakes):").format(engine=engineName))
-		self.text.SetValue(text)
-		for control in (self.textLabel, self.text, self.copy):
-			control.Show()
-		self.Fit()
+		self.copy.Show()
 		self.Layout()
-		self.text.SetFocus()
-		self.text.SetInsertionPoint(0)
+		# The lines are already in the field (addText), maybe edited: never replaced.
+		if not self.text.GetValue():
+			self.text.SetValue(text)
+		if self.FindFocus() is self.text:
+			ui.message(done)  # the user is reading or editing: leave the caret where it is
+		else:
+			self.text.SetFocus()
+			self.text.SetInsertionPoint(0)
 
 	def _showFailure(self, text):
 		self._stop()
@@ -916,32 +1193,44 @@ class LanguageDialog(wx.Dialog):
 	_instance = None
 
 	@classmethod
-	def ask(cls, onChosen):
+	def ask(cls, onChosen, kind="voice"):
 		"""On NVDA's main thread; onChosen(language code, model id) after OK, nothing after Cancel."""
 		if cls._instance:
 			cls._instance.Raise()
 			return
 		gui.mainFrame.prePopup()
-		cls._instance = dlg = cls(gui.mainFrame, onChosen)
+		cls._instance = dlg = cls(gui.mainFrame, onChosen, kind)
 		dlg.Show()
 		dlg.Raise()
 		gui.mainFrame.postPopup()
 
-	def __init__(self, parent, onChosen):
-		# Translators: Title of the dialog asked before a voice message is transcribed.
-		super().__init__(parent, title=_("Transcribe voice message"))
+	def __init__(self, parent, onChosen, kind="voice"):
+		if kind == "video":
+			# Translators: Title of the dialog asked before a video is transcribed.
+			title = _("Transcribe video")
+		else:
+			# Translators: Title of the dialog asked before a voice message is transcribed.
+			title = _("Transcribe voice message")
+		super().__init__(parent, title=title)
 		self._onChosen = onChosen
 		sizer = wx.BoxSizer(wx.VERTICAL)
 		# Translators: Label of the list of speech models asked before a voice message is transcribed.
 		sizer.Add(wx.StaticText(self, label=_("Speech &model:")), flag=wx.LEFT | wx.TOP | wx.RIGHT, border=8)
 		self._models = modelChoices(_conf()["transcribeCustomModel"])
 		self.model = wx.Choice(self, choices=[modelLabel(m) for m in self._models])
+		# A model added to the published list shows here without an add-on update.
+		refreshModels(self._modelsChanged)
 		ids = [m.id for m in self._models]
 		configured = selectedModel().id
 		self.model.SetSelection(ids.index(configured) if configured in ids else 0)
 		sizer.Add(self.model, flag=wx.EXPAND | wx.LEFT | wx.RIGHT, border=8)
-		# Translators: Label of the list of languages asked before a voice message is transcribed.
-		sizer.Add(wx.StaticText(self, label=_("&Language of the voice message:")), flag=wx.LEFT | wx.TOP | wx.RIGHT, border=8)
+		if kind == "video":
+			# Translators: Label of the list of languages asked before a video is transcribed.
+			languageLabel = _("&Language spoken in the video:")
+		else:
+			# Translators: Label of the list of languages asked before a voice message is transcribed.
+			languageLabel = _("&Language of the voice message:")
+		sizer.Add(wx.StaticText(self, label=languageLabel), flag=wx.LEFT | wx.TOP | wx.RIGHT, border=8)
 		self._codes = list(WHISPER_LANGUAGES)
 		self.language = wx.Choice(self, choices=languageLabels())
 		configured = _conf()["transcribeLanguage"]
@@ -959,6 +1248,15 @@ class LanguageDialog(wx.Dialog):
 		self.SetSizerAndFit(sizer)
 		self.CentreOnScreen()
 		self.model.SetFocus()
+
+	def _modelsChanged(self):
+		if not self:
+			return
+		chosen = self._models[max(0, self.model.GetSelection())].id
+		self._models = modelChoices(_conf()["transcribeCustomModel"])
+		self.model.SetItems([modelLabel(m) for m in self._models])
+		ids = [m.id for m in self._models]
+		self.model.SetSelection(ids.index(chosen) if chosen in ids else 0)
 
 	def _onOk(self, evt):
 		language = self._codes[max(0, self.language.GetSelection())]
@@ -982,11 +1280,32 @@ class LanguageDialog(wx.Dialog):
 
 
 def modelChoices(customPath):
-	"""The models to choose from: speechModel.MODELS, then the user's own file if one was chosen."""
-	models = list(speechModel.MODELS)
+	"""The models to choose from: speechModel.models() (the published list), then the user's own file if
+	one was chosen."""
+	models = speechModel.models()
 	if customPath:
 		models.append(speechModel.CustomModel(customPath))
 	return models
+
+
+def _noteFor(m):
+	"""The published list's own words for a model in NVDA's language ("th", then "en"), or ""."""
+	note = getattr(m, "note", None)
+	if not note:
+		return ""
+	import languageHandler
+
+	language = languageHandler.getLanguage()
+	for key in (language, language.split("_")[0], "en"):
+		if note.get(key):
+			return note[key]
+	return ""
+
+
+def refreshModels(onChanged):
+	"""Fetches the published model list; onChanged() on NVDA's main thread if it brought changes (the
+	settings panel and the dialog list the models again, keeping the choice)."""
+	speechModel.refreshCatalog(lambda: wx.CallAfter(onChanged))
 
 
 def modelLabel(m):
@@ -994,23 +1313,28 @@ def modelLabel(m):
 	if m.id == speechModel.CUSTOM:
 		# Translators: A speech model choice: a model file the user chose ({name} = its file name).
 		return _("Your model file: {name}").format(name=m.name)
-	if m.id == "typhoon-medium":
-		# Translators: Part of a speech model's name: it writes every language in Thai letters (Typhoon Medium).
-		strength = _("Thai only")
-	elif m.id == "typhoon-large":
-		# Translators: Part of a speech model's name: writes every language in Thai letters, the most accurate for Thai, but many times slower (Typhoon Large v3).
-		strength = _("Thai only, most accurate, very slow")
-	elif m.id.startswith("typhoon"):
-		# Translators: Part of a speech model's name: trained further on Thai (Typhoon models).
-		strength = _("best for Thai")
-	else:
-		# Translators: Part of a speech model's name: OpenAI's general Whisper models.
-		strength = _("many languages")
+	# The published list's own words win; else the translated words for its kind.
+	strength = _noteFor(m) or _strengthLabel(m.strength)
 	if m.downloaded():
 		# Translators: A downloaded speech model ({name}; {strength} = what it is good at; {size} in megabytes).
 		return _("{name} ({strength}, {size} MB, downloaded)").format(name=m.name, strength=strength, size=m.megabytes)
 	# Translators: A speech model not downloaded yet ({name}; {strength} = what it is good at; {size} in megabytes).
 	return _("{name} ({strength}, {size} MB download)").format(name=m.name, strength=strength, size=m.megabytes)
+
+
+def _strengthLabel(strength):
+	"""Words for one of speechModel.STRENGTHS."""
+	if strength == "thaiOnly":
+		# Translators: Part of a speech model's name: it writes every language in Thai letters (Typhoon Medium).
+		return _("Thai only")
+	if strength == "thaiOnlyAccurate":
+		# Translators: Part of a speech model's name: writes every language in Thai letters, the most accurate for Thai, but many times slower (Typhoon Large v3).
+		return _("Thai only, most accurate, very slow")
+	if strength == "bestForThai":
+		# Translators: Part of a speech model's name: trained further on Thai (Typhoon models).
+		return _("best for Thai")
+	# Translators: Part of a speech model's name: OpenAI's general Whisper models.
+	return _("many languages")
 
 
 def languageLabels():

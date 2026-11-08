@@ -302,6 +302,10 @@ msgstr "突出显示宽度(&W):"
 #. Translators: Describes the command that replies to the message NVDA read last.
 msgid "Replies to the selected message and moves to the message input"
 msgstr "回复所选消息并移到消息输入框"
+#. Translators: Describes the command that opens the reactions for the message NVDA read last.
+msgid "Opens the reactions of the selected message (React in the message menu)"
+msgstr "打开所选消息的回应(消息菜单中的“回应”)"
+
 
 #. Translators: Describes the command that deletes the selected message (LINE deletes it
 #. only on this computer).
@@ -367,8 +371,8 @@ msgid "Restarting LINE..."
 msgstr "正在重新启动 LINE..."
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
-msgid "Transcribes the selected voice message into text; cancels a running transcription"
-msgstr "将所选语音消息转为文字；转换过程中再按一次则取消"
+msgid "Transcribes the selected voice message or video into text; cancels a running transcription"
+msgstr "将所选语音消息或视频转为文字;转写进行中时按下则取消"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
 msgid "Voice message transcription"
@@ -435,12 +439,12 @@ msgid "Transcription cancelled."
 msgstr "已取消转换。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
-msgid "Not a voice message."
-msgstr "不是语音消息。"
+msgid "Not a voice message or video."
+msgstr "不是语音消息或视频。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
-msgid "A voice message is being transcribed. Alt+Shift+T cancels it."
-msgstr "正在转换语音消息。按 Alt+Shift+T 取消。"
+msgid "A transcription is running. Alt+Shift+T cancels it."
+msgstr "正在转写。按 Alt+Shift+T 取消。"
 
 #. Translators: voice message transcription (appModules/line/transcribe.py, settings)
 msgid "Voice message text"
@@ -729,3 +733,73 @@ msgstr "仅限泰语，最准确，但非常慢"
 #. Translators: the Translate command (Alt+T)
 msgid "Translates the selected message (Translate in LINE's message menu)"
 msgstr "翻译所选消息（LINE 消息菜单中的“翻译”）"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Transcribes the video shown into text; cancels a running transcription"
+msgstr "将正在显示的视频语音转为文字;转写进行中时按下则取消"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "No speech was recognised in the video."
+msgstr "视频中未识别到语音。"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Transcribing the video failed."
+msgstr "视频转写失败。"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "LINE did not save the video. Close other LINE windows and try again."
+msgstr "LINE 未保存该视频。请关闭 LINE 的其他窗口后重试。"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "The video's sound cannot be read."
+msgstr "无法读取视频的声音。"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "This video is {minutes} minutes long. It is converted to text on this computer, which may take a long time: about {estimate} minutes. Continue?"
+msgstr "此视频长 {minutes} 分钟。转为文字在本机上进行,可能需要较长时间:约 {estimate} 分钟。是否继续?"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "This voice message is {minutes} minutes long. It is converted to text on this computer, which may take a long time: about {estimate} minutes. Continue?"
+msgstr "此语音消息长 {minutes} 分钟。转为文字在本机上进行,可能需要较长时间:约 {estimate} 分钟。是否继续?"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Long recording"
+msgstr "录音较长"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Video text"
+msgstr "视频文字"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Getting the video from LINE..."
+msgstr "正在从 LINE 获取视频..."
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Getting the video from LINE: {size} MB"
+msgstr "正在从 LINE 获取视频:{size} MB"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "Transcribe video"
+msgstr "将视频语音转为文字"
+
+#. Translators: video transcription (appModules/line/transcribe.py)
+msgid "&Language spoken in the video:"
+msgstr "视频中说的语言(&L):"
+
+msgid "This message cannot be replied to."
+msgstr "无法回复此消息。"
+
+msgid "This message takes no reactions."
+msgstr "此消息无法回应。"
+
+msgid "This message cannot be deleted."
+msgstr "无法删除此消息。"
+
+msgid "This message cannot be unsent."
+msgstr "无法撤回此消息。"
+
+msgid "This message cannot be translated."
+msgstr "无法翻译此消息。"
+
+msgid "Not available for this message."
+msgstr "不适用于此消息。"

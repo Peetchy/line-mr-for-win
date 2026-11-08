@@ -1,0 +1,65 @@
+{
+	"schema": 1,
+	"models": [
+		{
+			"id": "typhoon-turbo",
+			"name": "Typhoon Whisper Turbo",
+			"file": "ggml-typhoon-whisper-turbo-q8_0.bin",
+			"url": "https://github.com/Peetchy/line-mr-for-win/releases/download/whisper-1/ggml-typhoon-whisper-turbo-q8_0.bin",
+			"sha256": "4797a76f85ad1d7681d1716984bd1a37ffcd58e866e4540e83d06ca72db941a4",
+			"size": 874188075,
+			"strength": "bestForThai",
+			"speed": 3.0
+		},
+		{
+			"id": "typhoon-medium",
+			"name": "Typhoon Whisper Medium",
+			"file": "ggml-typhoon-whisper-medium-q8_0.bin",
+			"url": "https://github.com/Peetchy/line-mr-for-win/releases/download/whisper-1/ggml-typhoon-whisper-medium-q8_0.bin",
+			"sha256": "c315d595bc9d1283e148f4c4ba42b9db34ba017b5113faba74c2be9d6b6e16e8",
+			"size": 823369796,
+			"strength": "thaiOnly",
+			"speed": 3.0
+		},
+		{
+			"id": "typhoon-large",
+			"name": "Typhoon Whisper Large v3",
+			"file": "ggml-typhoon-whisper-large-v3-q5_0.bin",
+			"url": "https://github.com/Peetchy/line-mr-for-win/releases/download/whisper-1/ggml-typhoon-whisper-large-v3-q5_0.bin",
+			"sha256": "0cc61237b9eff9d8bffa8fe665add2f6c320551083878d8c7edc9fe53423fbe2",
+			"size": 1081140203,
+			"strength": "thaiOnlyAccurate",
+			"speed": 16.0
+		},
+		{
+			"id": "whisper-small",
+			"name": "Whisper Small",
+			"file": "ggml-small-q8_0.bin",
+			"url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q8_0.bin",
+			"sha256": "49c8fb02b65e6049d5fa6c04f81f53b867b5ec9540406812c643f177317f779f",
+			"size": 264464607,
+			"strength": "manyLanguages",
+			"speed": 1.0
+		},
+		{
+			"id": "whisper-medium",
+			"name": "Whisper Medium",
+			"file": "ggml-medium-q8_0.bin",
+			"url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q8_0.bin",
+			"sha256": "42a1ffcbe4167d224232443396968db4d02d4e8e87e213d3ee2e03095dea6502",
+			"size": 823369779,
+			"strength": "manyLanguages",
+			"speed": 3.0
+		},
+		{
+			"id": "whisper-turbo",
+			"name": "Whisper Large v3 Turbo",
+			"file": "ggml-large-v3-turbo-q8_0.bin",
+			"url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q8_0.bin",
+			"sha256": "317eb69c11673c9de1e1f0d459b253999804ec71ac4c23c17ecf5fbe24e259a1",
+			"size": 874188075,
+			"strength": "manyLanguages",
+			"speed": 3.0
+		}
+	]
+}

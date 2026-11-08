@@ -107,6 +107,12 @@ def _repairHelperBridges():
 
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
+	def getScript(self, gesture):
+		# NVDA+Shift+Control+A / D also with a Thai (or other non-Latin) keyboard layout.
+		from appModules.line import layoutKeys
+
+		return layoutKeys.getScript(self, gesture, super().getScript)
+
 	def __init__(self):
 		super().__init__()
 		self._volumeKeeper = None

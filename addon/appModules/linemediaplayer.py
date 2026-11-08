@@ -6,11 +6,13 @@ import threading
 
 import addonHandler
 import appModuleHandler
+import keyboardHandler
 import queueHandler
 import ui
 from logHandler import log
+from scriptHandler import script
 
-from .line import bridge, chooseOverlayClasses
+from .line import SCRIPT_CATEGORY, bridge, chooseOverlayClasses, transcribe
 from .line.calls import CallCommandsAppModule
 
 addonHandler.initTranslation()
@@ -41,3 +43,21 @@ class AppModule(CallCommandsAppModule):
 
 	def chooseNVDAObjectOverlayClasses(self, obj, clsList):
 		chooseOverlayClasses(obj, clsList)
+
+	@script(
+		# Translators: Describes the command that turns the video shown in LINE's viewer into text (pressed
+		# again while it works, it cancels).
+		description=_("Transcribes the video shown into text; cancels a running transcription"),
+		category=SCRIPT_CATEGORY,
+		gesture="kb:alt+shift+t",
+	)
+	def script_transcribeVideo(self, gesture):
+		if transcribe.cancel():
+			return
+		problem = transcribe.unavailableMessage()
+		if problem:
+			if not transcribe.retryDownload():
+				ui.message(problem)
+			return
+		# The viewer's bridge reads the video's length and pauses it (a photo: "Not a voice message or video").
+		keyboardHandler.KeyboardInputGesture.fromName(transcribe.COMMAND_KEY).send()

@@ -1,19 +1,16 @@
-# LINE's copies of voice messages: once a voice message has been played, LINE keeps it in
+# LINE's MPEG-4 files: once a voice message has been played, LINE keeps it in
 # %LOCALAPPDATA%\LINE\Cache\<hash>\<hash>\m\<x>\<name> as AAC in an MPEG-4 file (brand "M4A ", no
-# extension; videos are "*_temp.mp4" with brand "mp42"). Nothing in a file name ties it to a message,
-# so the message is found by its length: the bridge reads it from the bubble ("00:36"), the file's
-# `mvhd` box holds it exactly (36.16 s). A message never played has no file: playing it makes LINE
-# download it.
+# extension; videos it has shown are "*_temp.mp4" with brand "mp42"). Nothing in a file name ties it
+# to a message: choosing a cached file by its length alone took another message of the same length
+# (2026-11-08), so transcribe.py has LINE save the message's own file instead, and uses the cache
+# only for a file LINE writes while it plays the message (`duration()`). `mp4Info()` checks that a
+# saved file is complete and of the message's length.
 
 import os
 import struct
 
-from logHandler import log
-
 #: How far the file's length may be from the whole seconds drawn in the bubble.
-_TOLERANCE = 1.2
-#: Voice messages are small (LINE's limit is a few minutes of AAC); larger files are videos.
-_MAX_BYTES = 20 * 1024 * 1024
+TOLERANCE = 1.2
 
 
 def cacheDir():
@@ -40,41 +37,38 @@ def duration(path):
 	return length / timescale if timescale else None
 
 
-def voiceFiles():
-	"""{path: (seconds, size, modified)} of every voice file in LINE's cache."""
-	found = {}
-	for dirpath, _dirs, files in os.walk(cacheDir()):
-		for name in files:
-			path = os.path.join(dirpath, name)
-			try:
-				st = os.stat(path)
-			except OSError:
-				continue
-			if st.st_size > _MAX_BYTES or st.st_size < 64:
-				continue
-			seconds = duration(path)
-			if seconds is not None:
-				found[path] = (seconds, st.st_size, st.st_mtime)
-	return found
-
-
-def matching(files, seconds):
-	"""Paths of `files` (from voiceFiles()) whose length fits a message of `seconds` (drawn as m:ss,
-	so the whole seconds, rounded down or to the nearest)."""
-	return [path for path, (length, _size, _mtime) in files.items() if abs(length - seconds) <= _TOLERANCE]
-
-
-def find(seconds):
-	"""The cached file of a voice message of `seconds`, if exactly one fits; else None."""
-	if seconds <= 0:
-		return None
+def mp4Info(path):
+	"""(seconds, complete) of an MPEG-4 file (complete: its top-level boxes fill the file and include
+	`moov` and `mdat`, so it is not still being written), or None for anything else."""
 	try:
-		candidates = matching(voiceFiles(), seconds)
-	except Exception:
-		log.debugWarning("LINE MR: cannot look through LINE's cache", exc_info=True)
+		size = os.path.getsize(path)
+		with open(path, "rb") as f:
+			offset, seconds, boxes = 0, None, set()
+			while offset + 8 <= size:
+				f.seek(offset)
+				header = f.read(16)
+				boxSize, kind = struct.unpack(">I4s", header[:8])
+				if boxSize == 1 and len(header) >= 16:
+					boxSize = struct.unpack(">Q", header[8:16])[0]
+				elif boxSize == 0:
+					boxSize = size - offset
+				if boxSize < 8 or (offset == 0 and kind != b"ftyp"):
+					return None
+				boxes.add(kind)
+				if kind == b"moov":
+					f.seek(offset + 8)
+					data = f.read(min(boxSize - 8, 1 << 16))
+					i = data.find(b"mvhd")
+					if i >= 0 and len(data) >= i + 36:
+						if data[i + 4] == 1:
+							timescale, length = struct.unpack(">IQ", data[i + 24 : i + 36])
+						else:
+							timescale, length = struct.unpack(">II", data[i + 16 : i + 24])
+						seconds = length / timescale if timescale else None
+				offset += boxSize
+	except (OSError, struct.error):
 		return None
-	if len(candidates) == 1:
-		return candidates[0]
-	if candidates:
-		log.info("LINE MR: %d cached voice messages are %d seconds long; playing the message to find it", len(candidates), seconds)
-	return None
+	if seconds is None:
+		return None
+	return seconds, offset == size and b"moov" in boxes and b"mdat" in boxes
+

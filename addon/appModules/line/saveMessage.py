@@ -8,6 +8,8 @@
 #     "text"): this module asks where to save it as a .txt file;
 #   - stickers, calls, dates, notices: "unsupported"; no Save as / Copy in the menu (an expired
 #     file): "nosave".
+# The same channel says when Alt+R / Alt+Shift+R / Delete / Shift+Delete / Alt+T find no such item
+# in LINE's menu for the message (status "unavailable", kind = the command).
 # It writes %LOCALAPPDATA%\LineMR\save-request.txt + save-text.txt and signals
 # Local\lineMR.saveRequest.
 
@@ -77,6 +79,25 @@ def _fileName(name):
 	return name[:120] + ".txt"
 
 
+def _sayUnavailable(command):
+	"""Alt+R, Alt+Shift+R, Delete, Shift+Delete, Alt+T on a message LINE offers no such item for (Reply
+	and reactions in Keep Memo, Unsend on someone else's message, dates)."""
+	messages = {
+		# Translators: Reported when Alt+R is pressed on a message that cannot be replied to (for example in Keep Memo).
+		"Reply": _("This message cannot be replied to."),
+		# Translators: Reported when Alt+Shift+R is pressed on a message that takes no reactions (Keep Memo, dates, notices, calls).
+		"React": _("This message takes no reactions."),
+		# Translators: Reported when Delete is pressed on a message LINE cannot delete.
+		"Delete": _("This message cannot be deleted."),
+		# Translators: Reported when Shift+Delete is pressed on a message that cannot be unsent (someone else's, or too old).
+		"Unsend": _("This message cannot be unsent."),
+		# Translators: Reported when Alt+T is pressed on a message LINE cannot translate.
+		"Translate": _("This message cannot be translated."),
+	}
+	# Translators: Reported when a message command is not offered by LINE for the selected message.
+	ui.message(messages.get(command) or _("Not available for this message."))
+
+
 def _onRequest():
 	"""On NVDA's main thread: the bridge looked at the message."""
 	request = _readRequest()
@@ -96,6 +117,8 @@ def _onRequest():
 	elif status == "nosave":
 		# Translators: Reported when LINE offers no way to save a message (for example an expired file).
 		ui.message(_("LINE offers no way to save this message (it may have expired)."))
+	elif status == "unavailable":
+		_sayUnavailable(request.get("kind"))
 	elif status == "busy":
 		# Translators: Reported when the message could not be looked at (LINE was busy); pressing again usually works.
 		ui.message(_("LINE is busy. Press Ctrl+S again."))
