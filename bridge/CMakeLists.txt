@@ -15,6 +15,7 @@ add_library(line_a11y MODULE
     src/a11y_log.cpp
     src/text_capture.cpp
     src/line_introspect.cpp
+    src/line_strings.cpp
     src/qt_signal_utils.cpp
     src/accessible_list.cpp
     src/accessible_widgets.cpp

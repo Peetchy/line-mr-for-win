@@ -1,6 +1,7 @@
 #include "line_introspect.h"
 
 #include "a11y_log.h"
+#include "line_strings.h"
 #include "text_capture.h"
 
 #include <QtCore/QDir>
@@ -1171,8 +1172,26 @@ QString spokenDuration(const QString &clock)
 	return parts.join(separator);
 }
 
+// Labels that name a LINE control in LINE's own words (user request): LINE's text for that control
+// (line_strings.h), the bridge's translation only when LINE has none.
+static const char *lineTextKey(const char *english)
+{
+	static const QHash<QByteArray, const char *> keys = {
+		// The floating button under the chat list (LINE's tooltip).
+		{ "Create chat", "TalkChatlistFloatingCreateChat" },
+		// The arrow beside the chat list's search field: LINE's tooltip names what a press does.
+		{ "Show or hide chat room, chat room shown", "ChatlistAllinoneCloseBtn" },
+		{ "Show or hide chat room, chat room hidden", "ChatlistAllinoneOpenBtn" },
+	};
+	return keys.value(QByteArray(english), nullptr);
+}
+
 QString label(const char *english)
 {
+	if (const char *key = lineTextKey(english)) {
+		if (QString text = lineText(key); !text.isEmpty())
+			return text;
+	}
 	const QString en = QString::fromUtf8(english);
 	if (uiLanguage() == UiLanguage::English)
 		return en;

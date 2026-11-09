@@ -3,6 +3,8 @@
 #include "a11y_announce.h"
 #include "a11y_log.h"
 #include "accessible_quick.h"
+#include "line_introspect.h"
+#include "line_strings.h"
 #include "text_capture.h"
 
 #include <QtCore/QAbstractItemModel>
@@ -16,6 +18,9 @@
 #include <QtCore/QRegularExpression>
 #include <QtCore/QTextStream>
 #include <QtCore/QTimer>
+#include <QtGui/QEnterEvent>
+#include <QtGui/QMouseEvent>
+#include <QtGui/QHelpEvent>
 #include <QtGui/QAccessible>
 #include <QtWidgets/QAbstractItemView>
 #include <QtWidgets/QApplication>
@@ -464,6 +469,57 @@ void pollExportRequest()
 	}
 }
 
+// Creating %LOCALAPPDATA%\LineMR\xlt-probe writes LINE's string table (line_strings.h: key, text in
+// LINE's language) to xlt-probe.txt, to find the key of a text LINE shows.
+void pollXltProbe()
+{
+	const QString request = bridgeDirectory() + QStringLiteral("xlt-probe");
+	if (!QFile::exists(request))
+		return;
+	QFile::remove(request);
+	QFile f(bridgeDirectory() + QStringLiteral("xlt-probe.txt"));
+	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
+		return;
+	QTextStream out(&f);
+	out.setEncoding(QStringConverter::Utf8);
+	for (const QString &line : lineTextTable())
+		out << line << '\n';
+	a11yLog("[diag] xlt probe written");
+}
+
+// hover-probe holds part of an icon source: the mouse "enters" that visible widget, and 1.5 s later
+// the widget dump shows what LINE displayed (its tooltip, an LcToolTip window): the text, and so the
+// key of LINE's string table, that names the control.
+void pollHoverProbe()
+{
+	QFile request(bridgeDirectory() + QStringLiteral("hover-probe"));
+	if (!request.exists() || !request.open(QIODevice::ReadOnly | QIODevice::Text))
+		return;
+	const QString icon = QString::fromUtf8(request.readAll()).trimmed();
+	request.close();
+	request.remove();
+	for (QWidget *w : QApplication::allWidgets()) {
+		if (!w->isVisible() || !iconSource(w).contains(icon))
+			continue;
+		if (w->width() < 12 && w->parentWidget())
+			w = w->parentWidget(); // an arrow inside its button
+		const QPointF local = QRectF(w->rect()).center();
+		const QPointF scene = w->mapTo(w->window(), local);
+		const QPointF global = w->mapToGlobal(local);
+		w->setAttribute(Qt::WA_UnderMouse, true);
+		QEnterEvent enter(local, scene, global);
+		QCoreApplication::sendEvent(w, &enter);
+		QMouseEvent move(QEvent::MouseMove, local, scene, global, Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+		QCoreApplication::sendEvent(w, &move);
+		QHelpEvent help(QEvent::ToolTip, local.toPoint(), global.toPoint());
+		QCoreApplication::sendEvent(w, &help);
+		a11yLog("[diag] hover probe on %s", qUtf8Printable(iconSource(w)));
+		QTimer::singleShot(1500, qApp, [] { writeWidgetDump(); });
+		return;
+	}
+	a11yLog("[diag] hover probe: no visible widget with %s", qUtf8Printable(icon));
+}
+
 } // namespace
 
 void writeWidgetDump()
@@ -492,6 +548,8 @@ void startDiagnostics(QApplication *app)
 	QObject::connect(timer, &QTimer::timeout, timer, &pollCallAnnounceTest);
 	QObject::connect(timer, &QTimer::timeout, timer, &pollTypeProbe);
 	QObject::connect(timer, &QTimer::timeout, timer, &pollExportRequest);
+	QObject::connect(timer, &QTimer::timeout, timer, &pollXltProbe);
+	QObject::connect(timer, &QTimer::timeout, timer, &pollHoverProbe);
 	timer->start(kPollIntervalMs);
 }
 
