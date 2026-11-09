@@ -1,8 +1,8 @@
-# Reply / React / Delete / Unsend / Translate / Save on the selected message (Alt+R, Alt+Shift+R,
-# Delete, Shift+Delete, Alt+T, Ctrl+S; remappable).
+# Reply / React / Delete / Unsend / Translate / Save / Download from YouTube on the selected message
+# (Alt+R, Alt+Shift+R, Delete, Shift+Delete, Alt+T, Ctrl+S, Alt+Shift+Y; remappable).
 #
 # The commands are NVDA scripts, so they can be changed in Input gestures. In the message list
-# they send the bridge a private key (Control+Alt+Shift+F9 / F6 / F10 / F11 / F7), and the bridge opens the
+# they send the bridge a private key (Control+Alt+Shift+F9 / F6 / F10 / F11 / F7 / F5), and the bridge opens the
 # message's menu and chooses LINE's own item (openMessageCommand() in accessible_list.cpp); it
 # never answers a confirmation LINE may show. Anywhere else the key goes to LINE unchanged.
 
@@ -26,6 +26,8 @@ _COMMAND_KEYS = {
 	"save": "control+alt+shift+f8",
 	# Transcribe voice message (transcribe.py; the bridge checks that it is a voice message).
 	"transcribe": "control+alt+shift+f12",
+	# Download from YouTube (youtube.py; the bridge finds the message's YouTube link).
+	"youtube": "control+alt+shift+f5",
 }
 
 # A held key repeats: the command runs once.

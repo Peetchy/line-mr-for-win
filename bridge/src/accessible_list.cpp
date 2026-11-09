@@ -60,6 +60,7 @@ struct MessageSettings {
 	bool directChatSenderNames = false;
 	bool senderOnlyWhenChanged = false;
 	bool transcribe = false; // voice message transcription is on (its model is downloaded)
+	bool youtube = true;     // "Download video from YouTube" is offered for YouTube links
 };
 
 const MessageSettings &messageSettings()
@@ -72,6 +73,7 @@ const MessageSettings &messageSettings()
 		settings.directChatSenderNames = ini.value(QStringLiteral("messages/directChatSenderNames"), false).toBool();
 		settings.senderOnlyWhenChanged = ini.value(QStringLiteral("messages/senderOnlyWhenChanged"), false).toBool();
 		settings.transcribe = ini.value(QStringLiteral("messages/transcribe"), false).toBool();
+		settings.youtube = ini.value(QStringLiteral("messages/youtube"), true).toBool();
 	}
 	return settings;
 }
@@ -1414,6 +1416,49 @@ QString senderNameAbove(const CaptureResult &cap, const QRect &rowRect, const QR
 	return QString();
 }
 
+// A message row's drawn lines top to bottom (fragments on one baseline joined), without times and
+// receipts.
+QStringList drawnLines(const CaptureResult &cap)
+{
+	QList<CapturedText> items = cap.items;
+	std::stable_sort(items.begin(), items.end(), [](const CapturedText &a, const CapturedText &b) {
+		return qAbs(a.pos.y() - b.pos.y()) >= 1 ? a.pos.y() < b.pos.y() : a.pos.x() < b.pos.x();
+	});
+	QStringList lines;
+	qreal lastY = -1e9;
+	for (const CapturedText &it : std::as_const(items)) {
+		if (it.text.trimmed().isEmpty())
+			continue;
+		if (!lines.isEmpty() && qAbs(it.pos.y() - lastY) < 1)
+			lines.last() += it.text;
+		else
+			lines << it.text;
+		lastY = it.pos.y();
+	}
+	lines.removeIf([](const QString &l) { return isTimeOrReceipt(cleanText(l)); });
+	return lines;
+}
+
+// The YouTube address in a message: LINE's own text of the row first (LINE 26.6+: whole addresses,
+// not cut where LINE wraps the bubble; links may come as <a href='...'>), else the drawn lines of
+// `cap` (if given). "" if there is none.
+QString youTubeAddressOf(const QModelIndex &idx, const CaptureResult *cap)
+{
+	const QString raw = idx.data(Qt::AccessibleTextRole).toString();
+	if (!raw.isEmpty()) {
+		static const QRegularExpression href(QStringLiteral("href\\s*=\\s*['\"]([^'\"]+)['\"]"),
+		                                     QRegularExpression::CaseInsensitiveOption);
+		QStringList lines;
+		for (auto it = href.globalMatch(raw); it.hasNext();)
+			lines << cleanText(it.next().captured(1));
+		lines += nativeMessageText(raw).split(u'\n');
+		const QString url = firstYouTubeAddress(lines);
+		if (!url.isEmpty())
+			return url;
+	}
+	return cap ? firstYouTubeAddress(drawnLines(*cap)) : QString();
+}
+
 struct ProfileOffer {
 	QPointer<QAbstractItemView> view;
 	QPersistentModelIndex index;
@@ -1424,6 +1469,7 @@ struct ProfileOffer {
 	bool reacted = false;   // the user has reacted: "Remove reaction" instead
 	bool voice = false;     // a voice message: "Transcribe voice message"
 	bool video = false;     // a video message: "Transcribe video"
+	QString youtube;        // its YouTube address: "Download video from YouTube"
 	const char *noReaction = nullptr; // why not, for the log
 } g_profileOffer;
 
@@ -2667,6 +2713,28 @@ bool LineAccessibleList::openSeeMore()
 	return false;
 }
 
+bool LineAccessibleList::downloadYouTube()
+{
+	QAbstractItemView *v = view();
+	const int row = cursorRow();
+	if (!v || !v->model() || row < 0)
+		return false;
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	QString url = youTubeAddressOf(idx, nullptr);
+	if (url.isEmpty()) {
+		v->scrollTo(idx);
+		const CaptureResult cap = captureRegionText(v->viewport(), v->visualRect(idx));
+		if (cap.skipped) {
+			requestYouTube(QStringLiteral("busy"));
+			return true;
+		}
+		url = youTubeAddressOf(idx, &cap);
+	}
+	a11yLog("[youtube] message row %d: %s", row, url.isEmpty() ? "no YouTube link" : qPrintable(QUrl(url).host()));
+	requestYouTube(url.isEmpty() ? QStringLiteral("nolink") : QStringLiteral("ok"), url);
+	return true;
+}
+
 bool LineAccessibleList::openLink()
 {
 	QAbstractItemView *v = view();
@@ -2679,24 +2747,7 @@ bool LineAccessibleList::openLink()
 	const CaptureResult cap = captureRegionText(v->viewport(), r);
 	if (cap.skipped)
 		return false;
-	// The row's lines top to bottom (fragments on one baseline joined), without times and receipts.
-	QList<CapturedText> items = cap.items;
-	std::stable_sort(items.begin(), items.end(), [](const CapturedText &a, const CapturedText &b) {
-		return qAbs(a.pos.y() - b.pos.y()) >= 1 ? a.pos.y() < b.pos.y() : a.pos.x() < b.pos.x();
-	});
-	QStringList lines;
-	qreal lastY = -1e9;
-	for (const CapturedText &it : std::as_const(items)) {
-		if (it.text.trimmed().isEmpty())
-			continue;
-		if (!lines.isEmpty() && qAbs(it.pos.y() - lastY) < 1)
-			lines.last() += it.text;
-		else
-			lines << it.text;
-		lastY = it.pos.y();
-	}
-	lines.removeIf([](const QString &l) { return isTimeOrReceipt(cleanText(l)); });
-	const QString url = firstWebAddress(lines);
+	const QString url = firstWebAddress(drawnLines(cap));
 	if (url.isEmpty())
 		return false;
 	const bool opened = openInBrowser(url);
@@ -3064,6 +3115,11 @@ void addProfileMenuItem(QWidget *menu)
 				a11yLog("[transcribe] message row %d could not be looked at", index.isValid() ? index.row() : -1);
 		});
 	}
+	// A YouTube link: the add-on downloads the video or its sound (youtube.py).
+	if (!offer.youtube.isEmpty()) {
+		const QString url = offer.youtube;
+		addExtraMenuItem(menu, label("Download video from YouTube"), [url] { requestYouTube(QStringLiteral("ok"), url); });
+	}
 	// The user's own messages, notices and dates have no sender to show.
 	if (offer.side != RowSide::Received) {
 		a11yLog("[menu] no profile item: message row %d is not a received message (%d)", offer.index.row(), int(offer.side));
@@ -3196,6 +3252,8 @@ bool LineAccessibleList::openRowMenu()
 	const char *kind = messageKind(cap, r, false, &bubble);
 	g_profileOffer.voice = kind && qstrcmp(kind, "Voice message") == 0;
 	g_profileOffer.video = kind && qstrcmp(kind, "Video") == 0;
+	if (messageSettings().youtube)
+		g_profileOffer.youtube = youTubeAddressOf(idx, &cap);
 	judgeReactions(g_profileOffer, v, r, cap);
 	// Keep Memo has no reactions (LINE draws no reaction button there).
 	if (g_profileOffer.reactable && inKeepMemo()) {

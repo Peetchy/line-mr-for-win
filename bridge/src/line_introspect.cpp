@@ -12,6 +12,7 @@
 #include <QtCore/QPointer>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSettings>
+#include <QtCore/QUrl>
 #include <QtGui/QTextDocumentFragment>
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QLabel>
@@ -240,6 +241,7 @@ const LabelTranslations kLabels[] = {
 	{ "Show the sender's profile", "แสดงโปรไฟล์ผู้ส่ง", "送信者のプロフィールを表示", "查看发送者的个人资料", "查看傳送者的個人資料" },
 	{ "Transcribe voice message", "แปลงเสียงเป็นข้อความ", "ボイスメッセージを文字に起こす", "将语音消息转为文字", "將語音訊息轉為文字" },
 	{ "Transcribe video", "ถอดเสียงวิดีโอเป็นข้อความ", "動画の音声を文字に起こす", "将视频语音转为文字", "將影片語音轉為文字" },
+	{ "Download video from YouTube", "ดาวน์โหลดวิดีโอจาก YouTube", "YouTube から動画をダウンロード", "从 YouTube 下载视频", "從 YouTube 下載影片" },
 	{ "%1 new", "ใหม่ %1", "新着 %1", "%1 条新消息", "%1 則新訊息" },
 	{ "Country code %1", "รหัสประเทศ %1", "国番号 %1", "国家代码 %1", "國碼 %1" },
 	{ "%1 members", "สมาชิก %1 คน", "メンバー %1 人", "%1 名成员", "%1 位成員" },
@@ -776,6 +778,32 @@ QString firstWebAddress(const QStringList &lines)
 		if (url.startsWith(QLatin1StringView("www."), Qt::CaseInsensitive))
 			url.prepend(QLatin1StringView("http://"));
 		return url;
+	}
+	return QString();
+}
+
+bool isYouTubeAddress(const QString &url)
+{
+	const QString host = QUrl(url).host().toLower();
+	for (const char *domain : { "youtube.com", "youtu.be", "youtube-nocookie.com" }) {
+		const QString d = QString::fromLatin1(domain);
+		if (host == d || host.endsWith(u'.' + d))
+			return true;
+	}
+	return false;
+}
+
+QString firstYouTubeAddress(const QStringList &lines)
+{
+	static const QRegularExpression start(QStringLiteral("(?:https?://|www\\.)"), QRegularExpression::CaseInsensitiveOption);
+	for (qsizetype i = 0; i < lines.size(); ++i) {
+		auto it = start.globalMatch(lines[i]);
+		while (it.hasNext()) {
+			const QRegularExpressionMatch m = it.next();
+			const QString url = firstWebAddress(QStringList { lines[i].mid(m.capturedStart(0)) } + lines.mid(i + 1));
+			if (isYouTubeAddress(url))
+				return url;
+		}
 	}
 	return QString();
 }

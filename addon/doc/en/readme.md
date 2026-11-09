@@ -72,6 +72,16 @@ Nothing is played and nothing is sent to the internet: LINE keeps every voice me
 
 Videos too: press Alt+Shift+T on a video in a chat (or choose "Transcribe video" in its menu), on a video in the Photos & videos window or on a post with a video in Notes (LINE MR opens it in LINE's viewer and pauses it), or in LINE's viewer while it shows a video. LINE MR has LINE save the video into LINE MR's folder (LINE's Save As appears for a moment and LINE MR fills it in), converts the video's sound and deletes the file afterwards. For a voice message or video longer than 5 minutes, LINE MR first says that converting runs on this computer and may take long (with an estimate) and asks OK or Cancel. Videos shared as links (YouTube, Facebook) cannot be transcribed: they do not play in LINE.
 
+## Downloading from YouTube
+
+On a message with a YouTube link (a video, a Short, or a playlist), press Alt+Shift+Y, or choose "Download video from YouTube" in its menu (Applications key). A notice first says to download only videos you have the right to download (YouTube's terms of service allow nothing else); check "Don't show this again" to skip it (it can be turned back on in the settings).
+
+The first time, LINE MR downloads its YouTube download module (about 130 MB: the open-source programs yt-dlp, Deno and FFmpeg) into %LOCALAPPDATA%\LineMR\youtube. The module is updated separately from LINE MR: before a download, at most every 3 hours, LINE MR looks for a newer module and updates what changed (usually only yt-dlp, about 23 MB), so downloading keeps working when YouTube changes. Without an internet connection the module already downloaded is used.
+
+A window then checks the link (NVDA says why if the video is private, removed, age-restricted, blocked in your country or a live stream) and offers: for a link to a video in a playlist, this video only or the whole playlist (with the number of videos); the format, Video (MP4) or Audio only (MP3); the quality (video resolutions the video has, with the size where YouTube gives it; MP3 at 128, 192 or 320 kbps); and the folder (Downloads unless you chose another; LINE MR remembers your choices). Download shows the progress with rising beeps (for a playlist "Downloading video 2 of 13"); Cancel or Escape stops it and removes the partial files. When it is done, Open folder shows the file. A playlist goes into a folder named after it, its videos numbered in order; videos that cannot be downloaded are skipped and counted.
+
+In NVDA's settings, category LINE MR, group "Download from YouTube": turn the menu item and Alt+Shift+Y off, show the notice again, see the module's version, or delete the module.
+
 ## Commands
 
 | Command | Action |
@@ -89,6 +99,7 @@ Videos too: press Alt+Shift+T on a video in a chat (or choose "Transcribe video"
 | Alt+T | In the messages: translate the selected message (as Translate in the message's menu) |
 | Alt+Shift+T | In the messages: turn the selected voice message into text (turn it on in the settings first; again: cancel); also a video in a chat, in Photos & videos, in Notes or in LINE's viewer |
 | Ctrl+S | In the messages: save the selected message. Photos, videos, files and voice messages: LINE's Save as (LINE asks where). Text, locations and contacts: a text file (.txt; LINE MR asks where). Stickers, calls, dates and notices cannot be saved |
+| Alt+Shift+Y | In the messages: download the video of the YouTube link in the selected message, as MP4 or MP3, also its whole playlist (see "Downloading from YouTube") |
 | NVDA+Alt+1 … NVDA+Alt+9 | Read a recent message (1 = newest) |
 | Alt+A in LINE, NVDA+Shift+Control+A anywhere | Answer an incoming LINE call |
 | Alt+D in LINE, NVDA+Shift+Control+D anywhere | Decline an incoming LINE call; during a call, end it |

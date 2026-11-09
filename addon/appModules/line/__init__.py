@@ -18,7 +18,7 @@ from NVDAObjects.behaviors import Dialog
 from NVDAObjects.UIA import UIA
 from scriptHandler import script
 
-from . import bridge, chatSearch, elements, fullText, messageActions, qtText, saveMessage, transcribe
+from . import bridge, chatSearch, elements, fullText, messageActions, qtText, saveMessage, transcribe, youtube
 from .calls import CallCommandsAppModule
 
 addonHandler.initTranslation()
@@ -388,6 +388,23 @@ class AppModule(CallCommandsAppModule):
 			return
 		# Videos in Photos & videos and Notes too: the bridge opens them in LINE's viewer first.
 		messageActions.run(self, "transcribe", gesture, mediaLists=True)
+
+	@script(
+		# Translators: Describes the command that downloads the video of a YouTube link in the selected
+		# message (as a video or as MP3; also its playlist).
+		description=_("Downloads the video of the YouTube link in the selected message, as video or audio"),
+		category=SCRIPT_CATEGORY,
+		gesture="kb:alt+shift+y",
+	)
+	def script_downloadYouTube(self, gesture):
+		if not youtube.enabled():
+			if messageActions.inMessageList(self):
+				# Translators: Reported when Alt+Shift+Y is pressed while YouTube download is turned off in the settings.
+				ui.message(_("Download from YouTube is turned off in NVDA's settings, category LINE MR."))
+			else:
+				gesture.send()
+			return
+		messageActions.run(self, "youtube", gesture)
 
 	@script(
 		# Translators: Describes the commands that read recent messages (1 is the newest).

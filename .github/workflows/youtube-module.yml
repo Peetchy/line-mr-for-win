@@ -1,0 +1,79 @@
+name: YouTube module
+
+# LINE MR's YouTube download module (yt-dlp + Deno + FFmpeg), released separately from the add-on
+# as "ytdl-v<yyyy.mm.dd>" (pre-release, never "latest": the add-on's own update check reads
+# /releases/latest). The add-on downloads the newest one when the user first downloads from YouTube
+# and keeps it up to date (addon/appModules/line/youtubeModule.py).
+#
+# Runs every day: a new release is made only when yt-dlp, Deno or the FFmpeg release branch has a
+# new version (modules/youtube/build_module.py). Older module releases are deleted, the last 3 kept.
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Rebuild every component and release even if nothing changed"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: youtube-module
+  cancel-in-progress: false
+
+jobs:
+  module:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Last module release
+        id: previous
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tags = gh release list --limit 100 --json tagName,createdAt | ConvertFrom-Json |
+            Where-Object { $_.tagName -like "ytdl-v*" } | Sort-Object createdAt -Descending
+          $base = "ytdl-v" + (Get-Date).ToUniversalTime().ToString("yyyy.MM.dd")
+          $tag = $base
+          for ($n = 2; @($tags | Where-Object { $_.tagName -eq $tag }).Count -gt 0; $n++) { $tag = "$base.$n" }
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          New-Item -ItemType Directory -Force prev | Out-Null
+          if ($tags) {
+            $last = @($tags)[0].tagName
+            "Last module release: $last"
+            gh release download $last --dir prev
+          }
+
+      - name: Build module
+        id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          python -I modules/youtube/build_module.py --tag ${{ steps.previous.outputs.tag }} --out out
+          --previous prev/module.json --previous-dir prev
+          ${{ inputs.force && '--force' || '' }}
+
+      - name: Release
+        if: steps.build.outputs.changed == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.previous.outputs.tag }}"
+          $files = Get-ChildItem out -File | Where-Object { $_.Name -ne "notes.md" } | ForEach-Object { $_.FullName }
+          gh release create $tag @files --target "${{ github.sha }}" --title "YouTube module $($tag.Substring(6))" `
+            --notes-file out/notes.md --prerelease --latest=false
+          # Keep the last 3 module releases (an add-on may still be reading the one before).
+          gh release list --limit 100 --json tagName,createdAt | ConvertFrom-Json |
+            Where-Object { $_.tagName -like "ytdl-v*" } | Sort-Object createdAt -Descending |
+            Select-Object -Skip 3 | ForEach-Object { gh release delete $_.tagName --yes --cleanup-tag }

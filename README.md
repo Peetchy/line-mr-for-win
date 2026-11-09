@@ -38,6 +38,7 @@ It is the Windows counterpart of [LINE MR for Mac](https://github.com/Peetchy/li
 - Enter on a message opens what it holds: a link, a photo, a video, a file, a voice message or the full text of a long message.
 - The Applications key opens a message's menu (Reply, Copy, Unsend, Delete, ...). LINE MR adds "React" and, in groups, "Show <name>'s profile".
 - Photos & videos, links and files lists can be browsed, opened and saved. In the video player, Space plays or pauses and the arrows seek.
+- Alt+Shift+Y on a message with a YouTube link downloads the video (MP4) or its sound (MP3), in the quality you choose, or the whole playlist. The download module ([yt-dlp](https://github.com/yt-dlp/yt-dlp), Deno, FFmpeg) is downloaded the first time and keeps itself up to date.
 
 **Windows and dialogs**
 - Settings, profiles, member lists, chat search, sharing, stickers and emoji, and the create chat / group / OpenChat pages all work with the keyboard.
@@ -86,6 +87,7 @@ To check that it works, press **NVDA+Shift+Control+L** in LINE: NVDA says whethe
 | Alt+T | In the messages: translate the selected message (Translate in LINE's message menu) |
 | Alt+Shift+T | In the messages: turn the selected voice message into text, on this computer (turn it on in NVDA's settings first: downloads the chosen speech model once, Typhoon Whisper Turbo by default; again: cancel) |
 | Ctrl+S | In the messages: save the selected message (photos, videos, files and voice messages with LINE's Save as; text, locations and contacts as a .txt file; stickers, calls, dates and notices are not supported) |
+| Alt+Shift+Y | In the messages: download the video of the YouTube link in the selected message, as MP4 or MP3, also its whole playlist |
 | NVDA+Alt+1 … 9 | Read a recent message (1 = newest) |
 | Alt+A / Alt+D in LINE (NVDA+Shift+Control+A / D from any application) | Answer / decline an incoming LINE call; Alt+D in LINE ends the current call |
 | NVDA+Shift+Control+L | Report whether the bridge is running; press twice to copy a report for the developer |
@@ -118,7 +120,7 @@ The guide is also available in NVDA: Add-on Store > installed add-ons > LINE MR 
 
 ## Privacy and safety
 
-- **Nothing leaves your computer.** LINE MR reads LINE's screen inside LINE's own process and gives the result to NVDA. It sends no chat contents anywhere. The only network access is the update check, which asks GitHub for the latest release.
+- **Nothing leaves your computer.** LINE MR reads LINE's screen inside LINE's own process and gives the result to NVDA. It sends no chat contents anywhere. Network access: the update check (GitHub), the speech models for voice message transcription (GitHub, Hugging Face; only when you turn it on), and the YouTube download (the module from this repository's GitHub releases; the video from YouTube, only the link you chose).
 - **LINE's files stay unchanged.** The bridge is one added file (`platformthemes\line_a11y.dll`) that LINE's Qt loads like its own plug-ins. It reads LINE's user interface through Qt's public interfaces only, and never reads LINE's memory directly.
 - **Crash protection.** If LINE crashes twice in a row with the bridge, message reading pauses itself and LINE MR tells you how to turn it back on.
 - **Diagnostics are opt-in.** The report copied by NVDA+Shift+Control+L (pressed twice) holds versions, folders (with user names removed) and the bridge's state, but no chat contents. It is only placed on your clipboard, so you decide whether to send it.
@@ -173,6 +175,8 @@ For a normal install, open `dist\lineMR-<version>.nvda-addon` with NVDA.
 
 ### Continuous integration and releases
 
+`.github/workflows/youtube-module.yml` runs every day and publishes the YouTube download module as a pre-release `ytdl-v<date>` (never "latest") when yt-dlp, Deno or the FFmpeg release branch has a new version (`modules/youtube/build_module.py`; each program is checked against its project's SHA-256; unchanged components are carried over, so users download only what changed). The last 3 module releases are kept. The add-on reads the newest one's `module.json` (`addon/appModules/line/youtubeModule.py`).
+
 `.github/workflows/build.yml` builds the bridge (Qt 6.6.3 from aqtinstall, MSVC) and the add-on on every push and pull request, and attaches the `.nvda-addon` file to the run. A tag `v<version>` that matches `version` in `addon/manifest.ini` publishes a GitHub release. Its notes come from the tagged commit's message and this README's "Keyboard commands" section (`tools/release_notes.py`). Before tagging, add the version's user-facing changes to `addon/doc/<language>/changes.md`.
 
 ### Diagnostic tools
@@ -208,6 +212,7 @@ Logs and crash data live in `%LOCALAPPDATA%\LineMR`: `logs\bridge.log` (plus `li
 | `addon/appModules/linecall.py`, `linemediaplayer.py` | App modules for the call program and the media viewer |
 | `addon/globalPlugins/` | Call announcements and commands, update check, settings panel |
 | `addon/locale/`, `addon/doc/` | Translations, user guides and "What's new" in five languages |
+| `modules/youtube/` | Builds the YouTube download module (released on its own) |
 | `tools/`, `tests/` | Build, install, inspection and checks |
 
 ## Contribute
