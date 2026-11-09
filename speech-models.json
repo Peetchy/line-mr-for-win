@@ -60,6 +60,24 @@
 			"size": 874188075,
 			"strength": "manyLanguages",
 			"speed": 3.0
+		},
+		{
+			"id": "whisper-turbo-zh-tw",
+			"name": "Whisper Large v3 Turbo zh-TW",
+			"file": "ggml-whisper-large-v3-turbo-zh-TW-q8_0.bin",
+			"url": "https://huggingface.co/illitan/whisper-large-v3-turbo-zh-TW-ggml/resolve/8e8a099b61d4ec8ace5a5966e625efe2b2c08a20/ggml-whisper-large-v3-turbo-zh-TW-q8_0.bin",
+			"sha256": "b97084becc150cde926adfda323d66d89bf8a279eb94662e1bfad1b73ab90dbe",
+			"size": 874188075,
+			"strength": "manyLanguages",
+			"speed": 3.0,
+			"note": {
+				"en": "best for Traditional Chinese",
+				"th": "เหมาะกับภาษาจีนตัวเต็มที่สุด",
+				"ja": "繁体字中国語に最適",
+				"zh_CN": "最适合繁体中文",
+				"zh_TW": "最適合繁體中文",
+				"zh_HK": "最適合繁體中文"
+			}
 		}
 	]
 }
