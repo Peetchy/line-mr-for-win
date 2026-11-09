@@ -180,6 +180,8 @@ public:
 	bool openReactions(int row, bool remove = false);
 	// Back to following LINE's current row (the open chat).
 	void resetCursor();
+	// Points an existing cursor at another row (no events, no scrolling).
+	void setCursorRow(int row);
 	// The row the user is on: the cursor while it is set, else LINE's current row (-1: none).
 	int cursorRow() const;
 	bool hasCursor() const { return m_cursor.isValid() && m_cursor.model() == m_model.data(); }

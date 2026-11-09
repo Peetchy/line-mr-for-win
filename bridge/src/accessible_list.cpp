@@ -3812,7 +3812,8 @@ bool LineAccessibleList::openReactions(int row, bool remove)
 bool LineAccessibleList::openMessageCommand(int command)
 {
 	QAbstractItemView *v = view();
-	if (!v || !v->hasFocus() || !v->currentIndex().isValid() || command < 0 || command > 4)
+	const int row = cursorRow();
+	if (!v || !v->model() || !v->hasFocus() || row < 0 || command < 0 || command > 4)
 		return false;
 	if (g_messageCommand.source && g_messageCommand.at.isValid() && g_messageCommand.at.elapsed() < 2000)
 		return true;
@@ -3824,14 +3825,19 @@ bool LineAccessibleList::openMessageCommand(int command)
 		// The bridge's own item (addProfileMenuItem()): React, or Remove reaction once the user has reacted.
 		{ label("React"), label("Remove reaction") },
 	};
+	// The row NVDA read: the bridge's cursor once it pins the reading position (Shift+Tab), which
+	// LINE's current row no longer follows. openRowMenu() opens that row's menu.
+	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
 	g_messageCommand.source = v;
-	g_messageCommand.row = v->currentIndex();
+	g_messageCommand.row = idx;
 	g_messageCommand.labels = labels[command];
 	// For the add-on's "not available" message.
 	static const char *const names[] = { "Reply", "Delete", "Unsend", "Translate", "React" };
 	g_messageCommand.kind = QString::fromLatin1(names[command]);
 	g_messageCommand.at.start();
-	a11yLog("[message-command] requested command=%d row=%d", command, v->currentIndex().row());
+	if (v->currentIndex() != idx)
+		v->setCurrentIndex(idx);
+	a11yLog("[message-command] requested command=%d row=%d", command, row);
 	if (!openRowMenu()) {
 		g_messageCommand = PendingMessageCommand();
 		return false;
@@ -4022,6 +4028,8 @@ QList<SavedFile> g_savedFiles;
 // Where the user was in that list (current row, focus widget), put back after the bridge's menu.
 QPersistentModelIndex g_openFolderReturnTo;
 QPointer<QWidget> g_openFolderFocus;
+// A pinned reading cursor the Open folder press moved to the message (put back afterwards).
+QPersistentModelIndex g_openFolderCursor;
 
 const QStringList &openFolderLabels()
 {
@@ -4050,15 +4058,28 @@ void returnFromOpenFolder()
 {
 	const QPersistentModelIndex back = g_openFolderReturnTo;
 	const QPointer<QWidget> focus = g_openFolderFocus;
+	const QPersistentModelIndex cursor = g_openFolderCursor;
 	g_openFolderReturnTo = QPersistentModelIndex();
 	g_openFolderFocus = nullptr;
-	QTimer::singleShot(500, qApp, [back, focus] {
+	g_openFolderCursor = QPersistentModelIndex();
+	QTimer::singleShot(500, qApp, [back, focus, cursor] {
 		if (back.isValid()) {
 			for (QWidget *w : QApplication::allWidgets()) {
 				auto *v = qobject_cast<QAbstractItemView *>(w);
 				if (v && v->model() == back.model() && v->currentIndex() != back) {
 					v->setCurrentIndex(back);
 					v->scrollTo(back);
+					break;
+				}
+			}
+		}
+		if (cursor.isValid()) {
+			for (QWidget *w : QApplication::allWidgets()) {
+				auto *v = qobject_cast<QAbstractItemView *>(w);
+				if (v && v->model() == cursor.model()) {
+					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(v));
+					    list && list->hasCursor())
+						list->setCursorRow(cursor.row());
 					break;
 				}
 			}
@@ -4100,6 +4121,12 @@ void pressOpenFolderForDeletedFiles()
 		g_messageCommand.at.start();
 		if (v->currentIndex() != index)
 			v->setCurrentIndex(index);
+		// openRowMenu() opens the cursor's row: point a pinned reading cursor at the message for the
+		// menu and put it back afterwards (returnFromOpenFolder()).
+		g_openFolderCursor = list->hasCursor() ? QPersistentModelIndex(v->model()->index(list->cursorRow(), 0, v->rootIndex()))
+		                                       : QPersistentModelIndex();
+		if (g_openFolderCursor.isValid())
+			list->setCursorRow(index.row());
 		a11yLog("[transcribe] row %d: the saved file is gone; pressing Open folder so LINE offers Save as again", index.row());
 		if (!list->openRowMenu()) {
 			g_messageCommand = PendingMessageCommand();
@@ -4512,6 +4539,13 @@ bool LineAccessibleList::openCursorRowInNewWindow()
 void LineAccessibleList::resetCursor()
 {
 	m_cursor = QPersistentModelIndex();
+}
+
+void LineAccessibleList::setCursorRow(int row)
+{
+	QAbstractItemView *v = view();
+	if (v && v->model() && row >= 0 && row < v->model()->rowCount(v->rootIndex()))
+		m_cursor = v->model()->index(row, 0, v->rootIndex());
 }
 
 int LineAccessibleList::cursorRow() const
