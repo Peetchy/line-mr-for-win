@@ -136,6 +136,9 @@ public:
 	// when long; the clipboard is put back) and locations / contacts as read, for the add-on to save
 	// as a .txt file; stickers, calls, dates and notices are not supported (requestSave()).
 	bool saveMessage();
+	// The add-on's Download from YouTube command (Alt+Shift+Y): the selected message's YouTube
+	// address goes to the add-on (requestYouTube(): "ok", or "nolink" / "busy").
+	bool downloadYouTube();
 	// "Transcribe voice message" (menu item, or the add-on's command): if `row` is a voice message,
 	// asks the add-on to record and transcribe it (requestTranscription()) and plays the message once
 	// the add-on records; otherwise tells the add-on it is not one. False without a message list.

@@ -1599,6 +1599,14 @@ public:
 				}
 				return true;
 			}
+			// The add-on's Download from YouTube command (Alt+Shift+Y).
+			if (isMessageList(w) && key->modifiers() == commandModifiers && key->key() == Qt::Key_F5) {
+				if (!key->isAutoRepeat()) {
+					if (auto *list = dynamic_cast<LineAccessibleList *>(QAccessible::queryAccessibleInterface(w)))
+						list->downloadYouTube();
+				}
+				return true;
+			}
 			// The add-on's Save message command (Ctrl+S).
 			if (isMessageList(w) && key->modifiers() == commandModifiers && key->key() == Qt::Key_F8) {
 				if (!key->isAutoRepeat()) {

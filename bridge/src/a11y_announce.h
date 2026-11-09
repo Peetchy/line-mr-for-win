@@ -46,4 +46,10 @@ void reportFileFetch(bool saving);
 // "Local\lineMR.saveRequest". The add-on asks where to save the text, or says why nothing is saved.
 void requestSave(const QString &status, const QString &kind, const QString &name = QString(), const QString &text = QString());
 
+// Download from YouTube (message menu item or the add-on's Alt+Shift+Y): writes
+// %LOCALAPPDATA%\LineMR\youtube-request.txt (lines "status <ok|nolink|busy>", "url <address>",
+// tab-separated) and signals "Local\lineMR.youtubeRequest". The add-on checks the address and asks
+// what to download.
+void requestYouTube(const QString &status, const QString &url = QString());
+
 } // namespace line_a11y

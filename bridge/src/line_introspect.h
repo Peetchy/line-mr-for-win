@@ -105,6 +105,11 @@ QString nearbyLabelText(QWidget *w);
 // bottom; an address that ends its line and goes on in the next ones without spaces was wrapped
 // by LINE and is joined). "" if there is none; "www." addresses get "http://".
 QString firstWebAddress(const QStringList &lines);
+// True for a youtube.com / youtu.be / youtube-nocookie.com address (any sub-domain).
+bool isYouTubeAddress(const QString &url);
+// The first YouTube address in `lines` (as firstWebAddress(), but every address of a line is looked
+// at), or "".
+QString firstYouTubeAddress(const QStringList &lines);
 
 // Opens an http(s) address in the user's default browser through Windows (not through Qt, where
 // LINE may have registered handlers of its own). False if it is not http(s) or Windows refused.

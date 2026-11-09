@@ -803,3 +803,165 @@ msgstr "无法翻译此消息。"
 
 msgid "Not available for this message."
 msgstr "不适用于此消息。"
+
+msgid "This video is private or for channel members only."
+msgstr "此视频为私享视频或仅限频道会员观看。"
+
+msgid "This video is age-restricted and cannot be downloaded without signing in."
+msgstr "此视频有年龄限制，不登录无法下载。"
+
+msgid "This video is not available in your country."
+msgstr "此视频在你所在的国家/地区不可用。"
+
+msgid "Live streams and premieres cannot be downloaded."
+msgstr "无法下载直播和首播。"
+
+msgid "YouTube refused the download for now (it asks to sign in). Try again later."
+msgstr "YouTube 暂时拒绝下载（要求登录）。请稍后再试。"
+
+msgid "YouTube could not be reached. Check the internet connection."
+msgstr "无法连接 YouTube。请检查网络连接。"
+
+msgid "This video is unavailable: it was removed, or the link is wrong."
+msgstr "此视频不可用：已被删除或链接有误。"
+
+msgid "The YouTube download module could not be downloaded. Check the internet connection."
+msgstr "无法下载 YouTube 下载模块。请检查网络连接。"
+
+msgid "The YouTube download module was damaged while downloading. Try again."
+msgstr "YouTube 下载模块在下载时损坏。请重试。"
+
+msgid "The YouTube download module is not available yet. Try again later."
+msgstr "YouTube 下载模块暂不可用。请稍后再试。"
+
+msgid "Download only videos you have the right to download: your own, ones the owner allows you to download, or ones under a free licence. YouTube's terms of service do not allow downloading other videos. You are responsible for how you use what you download."
+msgstr "请只下载你有权下载的视频：你自己的视频、所有者允许下载的视频或采用自由许可的视频。YouTube 服务条款不允许下载其他视频。你需对所下载内容的使用方式负责。"
+
+msgid "This message has no YouTube link."
+msgstr "此消息中没有 YouTube 链接。"
+
+msgid "The YouTube download window is already open."
+msgstr "YouTube 下载窗口已经打开。"
+
+msgid "The download failed: {detail}"
+msgstr "下载失败：{detail}"
+
+msgid "Checking the download module..."
+msgstr "正在检查下载模块..."
+
+msgid "Checking the link..."
+msgstr "正在检查链接..."
+
+msgid "Ready to download. Choose the format and quality."
+msgstr "可以下载了。请选择格式和质量。"
+
+msgid "Processing..."
+msgstr "正在处理..."
+
+msgid "Starting the download..."
+msgstr "正在开始下载..."
+
+msgid "LINE is busy. Press Alt+Shift+Y again."
+msgstr "LINE 正忙。请再按一次 Alt+Shift+Y。"
+
+msgid "Download from YouTube"
+msgstr "从 YouTube 下载"
+
+msgid "&Don't show this again"
+msgstr "不再显示(&D)"
+
+msgid "&Continue"
+msgstr "继续(&C)"
+
+msgid "&Download:"
+msgstr "下载内容(&D):"
+
+msgid "&Browse..."
+msgstr "浏览(&B)..."
+
+msgid "Down&load"
+msgstr "下载(&L)"
+
+msgid "&Open folder"
+msgstr "打开文件夹(&O)"
+
+msgid "Choose the folder for YouTube downloads"
+msgstr "选择 YouTube 下载的保存文件夹"
+
+msgid "Download cancelled."
+msgstr "已取消下载。"
+
+msgid "&Title:"
+msgstr "标题(&T):"
+
+msgid "&Format:"
+msgstr "格式(&F):"
+
+msgid "Video (MP4)"
+msgstr "视频 (MP4)"
+
+msgid "Audio only (MP3)"
+msgstr "仅音频 (MP3)"
+
+msgid "&Quality:"
+msgstr "质量(&Q):"
+
+msgid "Save &in:"
+msgstr "保存到(&I):"
+
+msgid "Installing the YouTube download module..."
+msgstr "正在安装 YouTube 下载模块..."
+
+msgid "This video only"
+msgstr "仅此视频"
+
+msgid "This video only ({length})"
+msgstr "仅此视频 ({length})"
+
+msgid "Whole playlist: {title} ({count} videos)"
+msgstr "整个播放列表：{title}（{count} 个视频）"
+
+msgid "Downloading video {index} of {count}: {percent}%"
+msgstr "正在下载第 {index} 个视频，共 {count} 个：{percent}%"
+
+msgid "Downloading: {percent}%"
+msgstr "正在下载：{percent}%"
+
+msgid "Saved {count} files"
+msgstr "已保存 {count} 个文件"
+
+msgid "{count} videos could not be downloaded."
+msgstr "有 {count} 个视频无法下载。"
+
+msgid "{quality} (about {size} MB)"
+msgstr "{quality}（约 {size} MB）"
+
+msgid "Downloading the YouTube download module: {done} of {total} MB"
+msgstr "正在下载 YouTube 下载模块：{done} / {total} MB"
+
+msgid "Downloads the video of the YouTube link in the selected message, as video or audio"
+msgstr "将所选消息中 YouTube 链接的视频下载为视频或音频"
+
+msgid "Download from YouTube is turned off in NVDA's settings, category LINE MR."
+msgstr "从 YouTube 下载已在 NVDA 设置的 LINE MR 类别中关闭。"
+
+msgid "Download module:"
+msgstr "下载模块："
+
+msgid "Not downloaded: about 130 MB are downloaded the first time you download from YouTube"
+msgstr "未下载：首次从 YouTube 下载时会下载约 130 MB"
+
+msgid "Close the YouTube download window first."
+msgstr "请先关闭 YouTube 下载窗口。"
+
+msgid "Offer downloading from &YouTube links in messages (Alt+Shift+Y)"
+msgstr "允许从消息中的 &YouTube 链接下载 (Alt+Shift+Y)"
+
+msgid "Show the notice about YouTube's terms before each download"
+msgstr "每次下载前显示关于 YouTube 条款的提示"
+
+msgid "Delete the download module"
+msgstr "删除下载模块"
+
+msgid "Downloaded (yt-dlp {version}, {size} MB); updated automatically"
+msgstr "已下载（yt-dlp {version}，{size} MB），自动更新"

@@ -7,14 +7,15 @@ from logHandler import log
 from . import bridge
 
 
-def writeSettings(senderNames, senderOnlyWhenChanged=False, transcribe=False):
+def writeSettings(senderNames, senderOnlyWhenChanged=False, transcribe=False, youtube=True):
 	"""transcribe: voice message transcription is on and downloaded (the bridge then offers it in
-	message menus)."""
+	message menus); youtube: the bridge offers "Download video from YouTube" for YouTube links."""
 	path = os.path.join(bridge.bridgeDataDir(), "message-settings.ini")
-	text = "[messages]\ndirectChatSenderNames=%s\nsenderOnlyWhenChanged=%s\ntranscribe=%s\n" % (
+	text = "[messages]\ndirectChatSenderNames=%s\nsenderOnlyWhenChanged=%s\ntranscribe=%s\nyoutube=%s\n" % (
 		"true" if senderNames else "false",
 		"true" if senderOnlyWhenChanged else "false",
 		"true" if transcribe else "false",
+		"true" if youtube else "false",
 	)
 	try:
 		with open(path, encoding="ascii") as f:

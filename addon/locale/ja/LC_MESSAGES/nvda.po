@@ -803,3 +803,165 @@ msgstr "このメッセージは翻訳できません。"
 
 msgid "Not available for this message."
 msgstr "このメッセージでは使えません。"
+
+msgid "This video is private or for channel members only."
+msgstr "この動画は非公開、またはチャンネルメンバー限定です。"
+
+msgid "This video is age-restricted and cannot be downloaded without signing in."
+msgstr "この動画は年齢制限があり、ログインしないとダウンロードできません。"
+
+msgid "This video is not available in your country."
+msgstr "この動画はお住まいの国では視聴できません。"
+
+msgid "Live streams and premieres cannot be downloaded."
+msgstr "ライブ配信とプレミア公開はダウンロードできません。"
+
+msgid "YouTube refused the download for now (it asks to sign in). Try again later."
+msgstr "YouTube が現在ダウンロードを拒否しています（ログインを求めています）。後でもう一度お試しください。"
+
+msgid "YouTube could not be reached. Check the internet connection."
+msgstr "YouTube に接続できません。インターネット接続を確認してください。"
+
+msgid "This video is unavailable: it was removed, or the link is wrong."
+msgstr "この動画は利用できません。削除されたか、リンクが正しくありません。"
+
+msgid "The YouTube download module could not be downloaded. Check the internet connection."
+msgstr "YouTube ダウンロードモジュールをダウンロードできませんでした。インターネット接続を確認してください。"
+
+msgid "The YouTube download module was damaged while downloading. Try again."
+msgstr "YouTube ダウンロードモジュールがダウンロード中に破損しました。もう一度お試しください。"
+
+msgid "The YouTube download module is not available yet. Try again later."
+msgstr "YouTube ダウンロードモジュールはまだ利用できません。後でもう一度お試しください。"
+
+msgid "Download only videos you have the right to download: your own, ones the owner allows you to download, or ones under a free licence. YouTube's terms of service do not allow downloading other videos. You are responsible for how you use what you download."
+msgstr "ダウンロードする権利のある動画だけをダウンロードしてください：自分の動画、所有者がダウンロードを許可している動画、自由なライセンスの動画です。YouTube の利用規約は、それ以外の動画のダウンロードを認めていません。ダウンロードしたものの使い方はご自身の責任となります。"
+
+msgid "This message has no YouTube link."
+msgstr "このメッセージには YouTube のリンクがありません。"
+
+msgid "The YouTube download window is already open."
+msgstr "YouTube ダウンロードのウィンドウはすでに開いています。"
+
+msgid "The download failed: {detail}"
+msgstr "ダウンロードに失敗しました：{detail}"
+
+msgid "Checking the download module..."
+msgstr "ダウンロードモジュールを確認しています..."
+
+msgid "Checking the link..."
+msgstr "リンクを確認しています..."
+
+msgid "Ready to download. Choose the format and quality."
+msgstr "ダウンロードの準備ができました。形式と画質を選んでください。"
+
+msgid "Processing..."
+msgstr "処理しています..."
+
+msgid "Starting the download..."
+msgstr "ダウンロードを開始しています..."
+
+msgid "LINE is busy. Press Alt+Shift+Y again."
+msgstr "LINE が処理中です。もう一度 Alt+Shift+Y を押してください。"
+
+msgid "Download from YouTube"
+msgstr "YouTube からダウンロード"
+
+msgid "&Don't show this again"
+msgstr "今後表示しない(&D)"
+
+msgid "&Continue"
+msgstr "続行(&C)"
+
+msgid "&Download:"
+msgstr "ダウンロード対象(&D):"
+
+msgid "&Browse..."
+msgstr "参照(&B)..."
+
+msgid "Down&load"
+msgstr "ダウンロード(&L)"
+
+msgid "&Open folder"
+msgstr "フォルダーを開く(&O)"
+
+msgid "Choose the folder for YouTube downloads"
+msgstr "YouTube からのダウンロードの保存先フォルダーを選択"
+
+msgid "Download cancelled."
+msgstr "ダウンロードをキャンセルしました。"
+
+msgid "&Title:"
+msgstr "タイトル(&T):"
+
+msgid "&Format:"
+msgstr "形式(&F):"
+
+msgid "Video (MP4)"
+msgstr "動画 (MP4)"
+
+msgid "Audio only (MP3)"
+msgstr "音声のみ (MP3)"
+
+msgid "&Quality:"
+msgstr "画質・音質(&Q):"
+
+msgid "Save &in:"
+msgstr "保存先(&I):"
+
+msgid "Installing the YouTube download module..."
+msgstr "YouTube ダウンロードモジュールをインストールしています..."
+
+msgid "This video only"
+msgstr "この動画のみ"
+
+msgid "This video only ({length})"
+msgstr "この動画のみ ({length})"
+
+msgid "Whole playlist: {title} ({count} videos)"
+msgstr "再生リスト全体: {title} ({count} 本)"
+
+msgid "Downloading video {index} of {count}: {percent}%"
+msgstr "{count} 本中 {index} 本目をダウンロード中: {percent}%"
+
+msgid "Downloading: {percent}%"
+msgstr "ダウンロード中: {percent}%"
+
+msgid "Saved {count} files"
+msgstr "{count} 個のファイルを保存しました"
+
+msgid "{count} videos could not be downloaded."
+msgstr "{count} 本の動画をダウンロードできませんでした。"
+
+msgid "{quality} (about {size} MB)"
+msgstr "{quality}（約 {size} MB）"
+
+msgid "Downloading the YouTube download module: {done} of {total} MB"
+msgstr "YouTube ダウンロードモジュールをダウンロード中: {total} MB 中 {done} MB"
+
+msgid "Downloads the video of the YouTube link in the selected message, as video or audio"
+msgstr "選択したメッセージの YouTube リンクの動画を、動画または音声としてダウンロードします"
+
+msgid "Download from YouTube is turned off in NVDA's settings, category LINE MR."
+msgstr "YouTube からのダウンロードは NVDA の設定（LINE MR カテゴリー）でオフになっています。"
+
+msgid "Download module:"
+msgstr "ダウンロードモジュール:"
+
+msgid "Not downloaded: about 130 MB are downloaded the first time you download from YouTube"
+msgstr "未ダウンロード: 初めて YouTube からダウンロードするときに約 130 MB をダウンロードします"
+
+msgid "Close the YouTube download window first."
+msgstr "先に YouTube ダウンロードのウィンドウを閉じてください。"
+
+msgid "Offer downloading from &YouTube links in messages (Alt+Shift+Y)"
+msgstr "メッセージ内の &YouTube リンクからダウンロードできるようにする (Alt+Shift+Y)"
+
+msgid "Show the notice about YouTube's terms before each download"
+msgstr "ダウンロードの前に毎回 YouTube の規約についての注意を表示する"
+
+msgid "Delete the download module"
+msgstr "ダウンロードモジュールを削除"
+
+msgid "Downloaded (yt-dlp {version}, {size} MB); updated automatically"
+msgstr "ダウンロード済み (yt-dlp {version}, {size} MB)、自動で更新されます"

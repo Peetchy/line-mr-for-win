@@ -1,5 +1,11 @@
 # What's new in LINE MR
 
+## Version 0.6.1
+
+- New: download from YouTube links in chats. Alt+Shift+Y on a message with a YouTube link (or "Download video from YouTube" in its menu) checks the link and offers the video (MP4) or its sound (MP3), the quality and, for a playlist link, the whole playlist. The download module (yt-dlp, Deno, FFmpeg; about 130 MB) is downloaded the first time and updated by itself, separately from LINE MR. See "Downloading from YouTube" in the guide.
+- Buttons LINE MR names itself now use LINE's own words in LINE's language where LINE has them: "Collapse chats" / "Expand chats" (was "Show or hide chat room") and "Create chat" in the chat list.
+- Shift+Tab from the message input back to the messages no longer jumps to the newest message a moment later; arrows, Alt+R, Alt+T and the other message keys act on the message read last (contributed by wengweng0312, #23).
+
 ## Version 0.6.0
 
 ### Keys

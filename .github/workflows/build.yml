@@ -38,7 +38,7 @@ jobs:
         run: python -m aqt install-qt windows desktop ${{ env.QT_VERSION }} win64_msvc2019_64 --archives qtbase qtdeclarative --outputdir "${{ runner.temp }}\Qt"
 
       - name: Check add-on sources compile
-        run: python -m compileall -q addon tools tests
+        run: python -m compileall -q addon tools tests modules
 
       - name: Check tag matches manifest version
         if: startsWith(github.ref, 'refs/tags/v')

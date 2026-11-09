@@ -1,6 +1,7 @@
 #include "line_introspect.h"
 
 #include "a11y_log.h"
+#include "line_strings.h"
 #include "text_capture.h"
 
 #include <QtCore/QDir>
@@ -11,6 +12,7 @@
 #include <QtCore/QPointer>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSettings>
+#include <QtCore/QUrl>
 #include <QtGui/QTextDocumentFragment>
 #include <QtWidgets/QAbstractButton>
 #include <QtWidgets/QLabel>
@@ -239,6 +241,7 @@ const LabelTranslations kLabels[] = {
 	{ "Show the sender's profile", "แสดงโปรไฟล์ผู้ส่ง", "送信者のプロフィールを表示", "查看发送者的个人资料", "查看傳送者的個人資料" },
 	{ "Transcribe voice message", "แปลงเสียงเป็นข้อความ", "ボイスメッセージを文字に起こす", "将语音消息转为文字", "將語音訊息轉為文字" },
 	{ "Transcribe video", "ถอดเสียงวิดีโอเป็นข้อความ", "動画の音声を文字に起こす", "将视频语音转为文字", "將影片語音轉為文字" },
+	{ "Download video from YouTube", "ดาวน์โหลดวิดีโอจาก YouTube", "YouTube から動画をダウンロード", "从 YouTube 下载视频", "從 YouTube 下載影片" },
 	{ "%1 new", "ใหม่ %1", "新着 %1", "%1 条新消息", "%1 則新訊息" },
 	{ "Country code %1", "รหัสประเทศ %1", "国番号 %1", "国家代码 %1", "國碼 %1" },
 	{ "%1 members", "สมาชิก %1 คน", "メンバー %1 人", "%1 名成员", "%1 位成員" },
@@ -779,6 +782,32 @@ QString firstWebAddress(const QStringList &lines)
 	return QString();
 }
 
+bool isYouTubeAddress(const QString &url)
+{
+	const QString host = QUrl(url).host().toLower();
+	for (const char *domain : { "youtube.com", "youtu.be", "youtube-nocookie.com" }) {
+		const QString d = QString::fromLatin1(domain);
+		if (host == d || host.endsWith(u'.' + d))
+			return true;
+	}
+	return false;
+}
+
+QString firstYouTubeAddress(const QStringList &lines)
+{
+	static const QRegularExpression start(QStringLiteral("(?:https?://|www\\.)"), QRegularExpression::CaseInsensitiveOption);
+	for (qsizetype i = 0; i < lines.size(); ++i) {
+		auto it = start.globalMatch(lines[i]);
+		while (it.hasNext()) {
+			const QRegularExpressionMatch m = it.next();
+			const QString url = firstWebAddress(QStringList { lines[i].mid(m.capturedStart(0)) } + lines.mid(i + 1));
+			if (isYouTubeAddress(url))
+				return url;
+		}
+	}
+	return QString();
+}
+
 bool openInBrowser(const QString &url)
 {
 	if (!url.startsWith(QLatin1StringView("http://"), Qt::CaseInsensitive)
@@ -1171,8 +1200,26 @@ QString spokenDuration(const QString &clock)
 	return parts.join(separator);
 }
 
+// Labels that name a LINE control in LINE's own words (user request): LINE's text for that control
+// (line_strings.h), the bridge's translation only when LINE has none.
+static const char *lineTextKey(const char *english)
+{
+	static const QHash<QByteArray, const char *> keys = {
+		// The floating button under the chat list (LINE's tooltip).
+		{ "Create chat", "TalkChatlistFloatingCreateChat" },
+		// The arrow beside the chat list's search field: LINE's tooltip names what a press does.
+		{ "Show or hide chat room, chat room shown", "ChatlistAllinoneCloseBtn" },
+		{ "Show or hide chat room, chat room hidden", "ChatlistAllinoneOpenBtn" },
+	};
+	return keys.value(QByteArray(english), nullptr);
+}
+
 QString label(const char *english)
 {
+	if (const char *key = lineTextKey(english)) {
+		if (QString text = lineText(key); !text.isEmpty())
+			return text;
+	}
 	const QString en = QString::fromUtf8(english);
 	if (uiLanguage() == UiLanguage::English)
 		return en;

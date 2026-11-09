@@ -274,7 +274,7 @@ def _onDownloaded():
 
 def _writeBridgeFlag():
 	conf = _conf()
-	messageSettings.writeSettings(conf["directChatSenderNames"], conf["senderOnlyWhenChanged"], available())
+	messageSettings.writeSettings(conf["directChatSenderNames"], conf["senderOnlyWhenChanged"], available(), conf["youtubeDownload"])
 
 
 def applySettings(announce=True):

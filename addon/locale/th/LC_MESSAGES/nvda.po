@@ -803,3 +803,165 @@ msgstr "ข้อความนี้แปลไม่ได้"
 
 msgid "Not available for this message."
 msgstr "ใช้กับข้อความนี้ไม่ได้"
+
+msgid "This video is private or for channel members only."
+msgstr "วิดีโอนี้เป็นวิดีโอส่วนตัว หรือสำหรับสมาชิกช่องเท่านั้น"
+
+msgid "This video is age-restricted and cannot be downloaded without signing in."
+msgstr "วิดีโอนี้จำกัดอายุผู้ชม ดาวน์โหลดไม่ได้หากไม่ได้ลงชื่อเข้าใช้"
+
+msgid "This video is not available in your country."
+msgstr "วิดีโอนี้ไม่มีให้ดูในประเทศของคุณ"
+
+msgid "Live streams and premieres cannot be downloaded."
+msgstr "ดาวน์โหลดไลฟ์สดและวิดีโอที่ยังไม่เปิดตัวไม่ได้"
+
+msgid "YouTube refused the download for now (it asks to sign in). Try again later."
+msgstr "YouTube ไม่ยอมให้ดาวน์โหลดในตอนนี้ (ขอให้ลงชื่อเข้าใช้) ลองใหม่ภายหลัง"
+
+msgid "YouTube could not be reached. Check the internet connection."
+msgstr "เชื่อมต่อ YouTube ไม่ได้ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต"
+
+msgid "This video is unavailable: it was removed, or the link is wrong."
+msgstr "วิดีโอนี้ใช้ไม่ได้ อาจถูกลบไปแล้ว หรือลิงก์ไม่ถูกต้อง"
+
+msgid "The YouTube download module could not be downloaded. Check the internet connection."
+msgstr "ดาวน์โหลดโมดูลสำหรับดาวน์โหลด YouTube ไม่ได้ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต"
+
+msgid "The YouTube download module was damaged while downloading. Try again."
+msgstr "โมดูลสำหรับดาวน์โหลด YouTube เสียหายระหว่างดาวน์โหลด ลองใหม่อีกครั้ง"
+
+msgid "The YouTube download module is not available yet. Try again later."
+msgstr "ยังไม่มีโมดูลสำหรับดาวน์โหลด YouTube ให้ใช้ ลองใหม่ภายหลัง"
+
+msgid "Download only videos you have the right to download: your own, ones the owner allows you to download, or ones under a free licence. YouTube's terms of service do not allow downloading other videos. You are responsible for how you use what you download."
+msgstr "ดาวน์โหลดเฉพาะวิดีโอที่คุณมีสิทธิ์ดาวน์โหลด: วิดีโอของคุณเอง วิดีโอที่เจ้าของอนุญาตให้ดาวน์โหลด หรือวิดีโอที่ใช้สัญญาอนุญาตแบบเสรี ข้อกำหนดในการให้บริการของ YouTube ไม่อนุญาตให้ดาวน์โหลดวิดีโออื่น คุณต้องรับผิดชอบต่อการใช้งานสิ่งที่ดาวน์โหลดเอง"
+
+msgid "This message has no YouTube link."
+msgstr "ข้อความนี้ไม่มีลิงก์ YouTube"
+
+msgid "The YouTube download window is already open."
+msgstr "หน้าต่างดาวน์โหลด YouTube เปิดอยู่แล้ว"
+
+msgid "The download failed: {detail}"
+msgstr "ดาวน์โหลดไม่สำเร็จ: {detail}"
+
+msgid "Checking the download module..."
+msgstr "กำลังตรวจสอบโมดูลดาวน์โหลด..."
+
+msgid "Checking the link..."
+msgstr "กำลังตรวจสอบลิงก์..."
+
+msgid "Ready to download. Choose the format and quality."
+msgstr "พร้อมดาวน์โหลด เลือกรูปแบบและคุณภาพ"
+
+msgid "Processing..."
+msgstr "กำลังประมวลผล..."
+
+msgid "Starting the download..."
+msgstr "กำลังเริ่มดาวน์โหลด..."
+
+msgid "LINE is busy. Press Alt+Shift+Y again."
+msgstr "LINE กำลังทำงานอยู่ กด Alt+Shift+Y อีกครั้ง"
+
+msgid "Download from YouTube"
+msgstr "ดาวน์โหลดจาก YouTube"
+
+msgid "&Don't show this again"
+msgstr "ไม่ต้องแสดงอีก (&D)"
+
+msgid "&Continue"
+msgstr "ดำเนินการต่อ (&C)"
+
+msgid "&Download:"
+msgstr "ดาวน์โหลด (&D):"
+
+msgid "&Browse..."
+msgstr "เลือก... (&B)"
+
+msgid "Down&load"
+msgstr "ดาวน์โหลด (&L)"
+
+msgid "&Open folder"
+msgstr "เปิดโฟลเดอร์ (&O)"
+
+msgid "Choose the folder for YouTube downloads"
+msgstr "เลือกโฟลเดอร์สำหรับเก็บไฟล์ที่ดาวน์โหลดจาก YouTube"
+
+msgid "Download cancelled."
+msgstr "ยกเลิกการดาวน์โหลดแล้ว"
+
+msgid "&Title:"
+msgstr "ชื่อ (&T):"
+
+msgid "&Format:"
+msgstr "รูปแบบ (&F):"
+
+msgid "Video (MP4)"
+msgstr "วิดีโอ (MP4)"
+
+msgid "Audio only (MP3)"
+msgstr "เสียงอย่างเดียว (MP3)"
+
+msgid "&Quality:"
+msgstr "คุณภาพ (&Q):"
+
+msgid "Save &in:"
+msgstr "บันทึกใน (&I):"
+
+msgid "Installing the YouTube download module..."
+msgstr "กำลังติดตั้งโมดูลดาวน์โหลด YouTube..."
+
+msgid "This video only"
+msgstr "วิดีโอนี้เท่านั้น"
+
+msgid "This video only ({length})"
+msgstr "วิดีโอนี้เท่านั้น ({length})"
+
+msgid "Whole playlist: {title} ({count} videos)"
+msgstr "ทั้งเพลย์ลิสต์: {title} ({count} วิดีโอ)"
+
+msgid "Downloading video {index} of {count}: {percent}%"
+msgstr "กำลังดาวน์โหลดวิดีโอที่ {index} จาก {count}: {percent}%"
+
+msgid "Downloading: {percent}%"
+msgstr "กำลังดาวน์โหลด: {percent}%"
+
+msgid "Saved {count} files"
+msgstr "บันทึกแล้ว {count} ไฟล์"
+
+msgid "{count} videos could not be downloaded."
+msgstr "ดาวน์โหลดไม่ได้ {count} วิดีโอ"
+
+msgid "{quality} (about {size} MB)"
+msgstr "{quality} (ประมาณ {size} MB)"
+
+msgid "Downloading the YouTube download module: {done} of {total} MB"
+msgstr "กำลังดาวน์โหลดโมดูลดาวน์โหลด YouTube: {done} จาก {total} MB"
+
+msgid "Downloads the video of the YouTube link in the selected message, as video or audio"
+msgstr "ดาวน์โหลดวิดีโอจากลิงก์ YouTube ในข้อความที่เลือก เป็นวิดีโอหรือเสียง"
+
+msgid "Download from YouTube is turned off in NVDA's settings, category LINE MR."
+msgstr "การดาวน์โหลดจาก YouTube ปิดอยู่ในการตั้งค่า NVDA หมวด LINE MR"
+
+msgid "Download module:"
+msgstr "โมดูลดาวน์โหลด:"
+
+msgid "Not downloaded: about 130 MB are downloaded the first time you download from YouTube"
+msgstr "ยังไม่ได้ดาวน์โหลด: จะดาวน์โหลดประมาณ 130 MB ในครั้งแรกที่คุณดาวน์โหลดจาก YouTube"
+
+msgid "Close the YouTube download window first."
+msgstr "ปิดหน้าต่างดาวน์โหลด YouTube ก่อน"
+
+msgid "Offer downloading from &YouTube links in messages (Alt+Shift+Y)"
+msgstr "ให้ดาวน์โหลดจากลิงก์ &YouTube ในข้อความได้ (Alt+Shift+Y)"
+
+msgid "Show the notice about YouTube's terms before each download"
+msgstr "แสดงคำเตือนเรื่องข้อกำหนดของ YouTube ก่อนดาวน์โหลดทุกครั้ง"
+
+msgid "Delete the download module"
+msgstr "ลบโมดูลดาวน์โหลด"
+
+msgid "Downloaded (yt-dlp {version}, {size} MB); updated automatically"
+msgstr "ดาวน์โหลดแล้ว (yt-dlp {version}, {size} MB) อัปเดตอัตโนมัติ"

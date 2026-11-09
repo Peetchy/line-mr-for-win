@@ -52,6 +52,15 @@ config.conf.spec[CONFIG_SECTION] = {
 	"transcribeCustomModel": "string(default='')",
 	# Ask for the language before each transcription (the dialog's "Don't show this again" clears it).
 	"transcribeAskLanguage": "boolean(default=true)",
+	# Download from YouTube (appModules/line/youtube.py): the message menu item and Alt+Shift+Y.
+	"youtubeDownload": "boolean(default=true)",
+	# The notice about YouTube's terms before each download, until "Don't show this again".
+	"youtubeShowNotice": "boolean(default=true)",
+	# Last choices: "" = the Downloads folder; "mp4" / "mp3"; video height; MP3 bit rate.
+	"youtubeFolder": "string(default='')",
+	"youtubeFormat": "string(default='mp4')",
+	"youtubeVideoHeight": "integer(default=1080, min=144, max=4320)",
+	"youtubeAudioKbps": "integer(default=192, min=64, max=320)",
 }
 
 
@@ -299,6 +308,7 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			initial=conf["highlightWidth"],
 		)
 		self._makeTranscriptionSettings(helper, conf)
+		self._makeYouTubeSettings(helper, conf)
 		# Translators: Label of the bridge's state in the add-on's settings (read-only text).
 		self.bridgeState = helper.addLabeledControl(_("&Bridge:"), wx.TextCtrl, style=wx.TE_READONLY)
 		self.bridgeButton = helper.addItem(wx.Button(self))
@@ -356,6 +366,52 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		self._speechModelTimer = wx.Timer(self)
 		self.Bind(wx.EVT_TIMER, lambda evt: self._refreshSpeechModel(), self._speechModelTimer)
 		self._speechModelTimer.Start(1000)
+
+	def _makeYouTubeSettings(self, helper, conf):
+		# Translators: Group of settings for downloading from YouTube links in chats.
+		group = guiHelper.BoxSizerHelper(self, sizer=wx.StaticBoxSizer(wx.VERTICAL, self, label=_("Download from YouTube")))
+		helper.addItem(group)
+		box = group.sizer.GetStaticBox()
+		self.youtubeDownload = group.addItem(
+			# Translators: Check box in the add-on's settings: the message menu item and Alt+Shift+Y.
+			wx.CheckBox(box, label=_("Offer downloading from &YouTube links in messages (Alt+Shift+Y)"))
+		)
+		self.youtubeDownload.SetValue(conf["youtubeDownload"])
+		self.youtubeShowNotice = group.addItem(
+			# Translators: Check box in the add-on's settings: the notice about YouTube's terms before each download.
+			wx.CheckBox(box, label=_("Show the notice about YouTube's terms before each download"))
+		)
+		self.youtubeShowNotice.SetValue(conf["youtubeShowNotice"])
+		# Translators: Label of the state of the YouTube download module in the add-on's settings (read-only text).
+		self.youtubeModuleState = group.addLabeledControl(_("Download module:"), wx.TextCtrl, style=wx.TE_READONLY)
+		# Translators: Button in the add-on's settings: deletes the downloaded YouTube download module.
+		self.youtubeRemove = group.addItem(wx.Button(box, label=_("Delete the download module")))
+		self.youtubeRemove.Bind(wx.EVT_BUTTON, self._onRemoveYouTubeModule)
+		self._refreshYouTubeModule()
+
+	def _refreshYouTubeModule(self):
+		from appModules.line import youtubeModule
+
+		version = youtubeModule.installedVersion() if youtubeModule.complete() else None
+		if version:
+			# Translators: State of the YouTube download module ({version}: yt-dlp's version, {size} in megabytes).
+			text = _("Downloaded (yt-dlp {version}, {size} MB); updated automatically").format(
+				version=version, size=max(1, youtubeModule.sizeOnDisk() // 1_000_000))
+		else:
+			# Translators: State of the YouTube download module before the first download from YouTube.
+			text = _("Not downloaded: about 130 MB are downloaded the first time you download from YouTube")
+		self.youtubeModuleState.SetValue(text)
+		self.youtubeRemove.Enable(bool(version))
+
+	def _onRemoveYouTubeModule(self, evt):
+		from appModules.line import youtube, youtubeModule
+
+		if youtube.YouTubeDialog.instance:
+			# Translators: Reported when the download module is to be deleted while a YouTube download runs.
+			gui.messageBox(_("Close the YouTube download window first."), _("LINE MR"), wx.OK | wx.ICON_INFORMATION, self)
+			return
+		youtubeModule.remove()
+		self._refreshYouTubeModule()
 
 	def _showTranscriptionDetails(self):
 		"""The model, its state and the language show only while the check box is ticked."""
@@ -541,6 +597,8 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		conf["senderOnlyWhenChanged"] = self.senderOnlyWhenChanged.GetValue()
 		conf["highlightColor"] = self._highlightColors[max(0, self.highlightColor.GetSelection())]
 		conf["highlightWidth"] = self.highlightWidth.GetValue()
+		conf["youtubeDownload"] = self.youtubeDownload.GetValue()
+		conf["youtubeShowNotice"] = self.youtubeShowNotice.GetValue()
 		from appModules.line import speechModel, transcribe
 
 		self._speechModelTimer.Stop()

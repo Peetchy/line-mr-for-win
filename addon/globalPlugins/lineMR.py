@@ -145,6 +145,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			saveMessage.startListener()
 		except Exception:
 			log.error("LINE MR: cannot listen for save requests", exc_info=True)
+		# Requests from the bridge's "Download video from YouTube" (menu item or Alt+Shift+Y).
+		try:
+			from appModules.line import youtube
+
+			youtube.startListener()
+		except Exception:
+			log.error("LINE MR: cannot listen for YouTube download requests", exc_info=True)
 
 	def terminate(self):
 		try:
@@ -159,6 +166,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			saveMessage.stopListener()
 		except Exception:
 			log.debugWarning("LINE MR: stopping the save listener failed", exc_info=True)
+		try:
+			from appModules.line import youtube
+
+			youtube.stopListener()
+		except Exception:
+			log.debugWarning("LINE MR: stopping the YouTube listener failed", exc_info=True)
 		self._listener.stop()
 		if self._volumeKeeper:
 			self._volumeKeeper.stop()

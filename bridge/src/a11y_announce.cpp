@@ -6,6 +6,7 @@
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
 #include <QtCore/QTimer>
+#include <QtCore/QUrl>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QWidget>
 
@@ -114,6 +115,21 @@ void requestSave(const QString &status, const QString &kind, const QString &name
 	static const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, L"Local\\lineMR.saveRequest");
 	const BOOL ok = event && SetEvent(event);
 	a11yLog("[save] request signalled: %s, %s, %d characters (%d)", qPrintable(status), qPrintable(kind), int(text.size()), int(ok));
+}
+
+void requestYouTube(const QString &status, const QString &url)
+{
+	QFile f(bridgeDirectory() + QStringLiteral("youtube-request.txt"));
+	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+		return;
+	QString safeUrl = url;
+	safeUrl.remove(u'\t').remove(u'\n').remove(u'\r');
+	f.write(QStringLiteral("status\t%1\nurl\t%2\n").arg(status, safeUrl).toUtf8());
+	f.close();
+	static const HANDLE event = CreateEventW(nullptr, FALSE, FALSE, L"Local\\lineMR.youtubeRequest");
+	const BOOL ok = event && SetEvent(event);
+	// The address may be private: only its host.
+	a11yLog("[youtube] request signalled: %s, %s (%d)", qPrintable(status), qPrintable(QUrl(url).host()), int(ok));
 }
 
 bool transcriptionPlayRequested()
