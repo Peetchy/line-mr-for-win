@@ -48,6 +48,13 @@ constexpr const char *kCurrentIndexSignal = "currentIndexChanged()";
 // Painted row texts are reused this long (NVDA asks for a name several times per focus change).
 constexpr qint64 kRowTextTtlMs = 1500;
 
+// Match the main message-list scope used by the keyboard filter (not search or mention lists).
+bool isMessageList(const QWidget *w)
+{
+	return isLineListView(w) && ancestorInheriting(w, "ChatMessageView") && !ancestorInheriting(w, "SearchDetailPanel")
+	    && !ancestorInheriting(w, "LcListView") && !inMentionSuggester(w);
+}
+
 // The add-on's message settings (message-settings.ini), read at most once a second.
 struct MessageSettings {
 	bool directChatSenderNames = false;
@@ -1750,6 +1757,8 @@ public:
 		if (actionName == setFocusAction()) {
 			QMetaObject::invokeMethod(view, [view, index] {
 				if (view && index.isValid()) {
+					// An explicit accessibility focus action may choose a different message.
+					if (auto *list = listFor(view); list && isMessageList(view)) list->resetCursor();
 					view->setFocus(Qt::OtherFocusReason);
 					view->setCurrentIndex(index);
 				}
@@ -1945,7 +1954,7 @@ void LineAccessibleList::schedulePrune() const
 void LineAccessibleList::notifyCurrentRow()
 {
 	QAbstractItemView *v = view();
-	// While the chat list cursor is elsewhere, LINE moving its current row is not the user's doing.
+	// A bridge cursor is user intent. Native current-index notifications must not replace it.
 	if (!v || !v->isVisible() || !v->hasFocus() || hasCursor() || preserveChatOpenScroll(v))
 		return;
 	const QModelIndex current = v->currentIndex();
@@ -2149,6 +2158,9 @@ void LineAccessibleList::focusLastVisibleRow()
 	QAbstractItemView *v = view();
 	if (!v || !v->model())
 		return;
+	// Closing a message menu keeps the reading position, not a stale native current row.
+	if (hasCursor() && v->viewport()->rect().intersects(v->visualRect(m_cursor)))
+		return;
 	const QModelIndex current = v->currentIndex();
 	if (current.isValid() && v->viewport()->rect().intersects(v->visualRect(current)))
 		return;
@@ -2233,13 +2245,23 @@ void LineAccessibleList::focusVisibleRowOnBacktab()
 	}
 	if (!target.isValid())
 		return;
+	// Pin before setCurrentIndex can notify; also handle an already-current target.
+	m_cursor = target;
+	m_lastRead = target;
 	const bool autoScroll = v->hasAutoScroll();
 	const QPointer<QAbstractItemView> guard = v;
 	QScopedValueRollback<bool> selecting(m_selectingVisibleRow, true);
 	v->setAutoScroll(false);
 	v->setCurrentIndex(target);
-	if (guard)
+	if (guard) {
 		guard->setAutoScroll(autoScroll);
+		if (guard->hasFocus()) {
+			if (auto *item = itemAt(target.row())) {
+				QAccessibleEvent event(item, QAccessible::Focus);
+				QAccessible::updateAccessibility(&event);
+			}
+		}
+	}
 }
 
 bool LineAccessibleList::focusRememberedRow()
@@ -2272,7 +2294,7 @@ bool LineAccessibleList::stepRow(int key)
 		step = 1;
 	else
 		return false;
-	const int current = v->currentIndex().isValid() ? v->currentIndex().row() : -1;
+	const int current = cursorRow();
 	if (current < 0) {
 		focusEdgeRow(true);
 		return true;
@@ -2296,7 +2318,7 @@ bool LineAccessibleList::stepRow(int key)
 	// Only older history is loaded this way: at the newest message, Down reads it again at once
 	// (below), so the user knows it is the last one.
 	if (target == current && step < 0 && ancestorInheriting(v, "ChatMessageView")) {
-		const QPersistentModelIndex anchor(v->currentIndex());
+		const QPersistentModelIndex anchor(v->model()->index(current, 0, v->rootIndex()));
 		// LINE only loaded history when a wheel movement CROSSED the edge: a wheel
 		// sent while already at zero was accepted but did nothing. Re-arm that transition
 		// by one scrollbar unit, then let LINE's own wheel handler cross the boundary.
@@ -2327,7 +2349,7 @@ void LineAccessibleList::continueEdgeStep(quint64 request, int key, QPersistentM
 	QTimer::singleShot(100, listView, [listView, request, key, anchor, attempts] {
 		auto *list = listFor(listView);
 		if (!list || list->m_edgeRequest != request || !listView->hasFocus() || !listView->isVisible()
-		    || !anchor.isValid() || anchor.model() != listView->model() || listView->currentIndex() != anchor) {
+		    || !anchor.isValid() || anchor.model() != listView->model() || list->cursorRow() != anchor.row()) {
 			return;
 		}
 		listView->doItemsLayout();
@@ -2359,6 +2381,17 @@ void LineAccessibleList::makeCurrent(int row)
 	if (!v)
 		return;
 	const QModelIndex idx = v->model()->index(row, 0, v->rootIndex());
+	if (isMessageList(v) && hasCursor()) {
+		const int previous = cursorRow();
+		m_cursor = idx;
+		m_lastRead = idx;
+		v->scrollTo(idx);
+		if (auto *item = itemAt(row)) {
+			QAccessibleEvent event(item, previous == row ? QAccessible::NameChanged : QAccessible::Focus);
+			QAccessible::updateAccessibility(&event);
+		}
+		return;
+	}
 	if (idx != v->currentIndex()) {
 		v->setCurrentIndex(idx); // LINE reports the change (notifyCurrentRow)
 		return;
