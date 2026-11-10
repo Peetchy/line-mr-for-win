@@ -51,7 +51,7 @@ _PROGRAM_URL = "https://github.com/Peetchy/line-mr-for-win/releases/download/" +
 #: The Typhoon models stay in the first release.
 _RELEASE_URL = "https://github.com/Peetchy/line-mr-for-win/releases/download/whisper-1/"
 _HF_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/"
-PROGRAM_ZIP = ("lineMR-whisper-x64.zip", "027844bad72a881f5f7a148f59a02ad80829095a67025539733e708d882e7c8a", 5390029)
+PROGRAM_ZIP = ("lineMR-whisper-x64.zip", "95fdd3371c89fb8124ac90b61c4c13760bf3b78ad298ed43edf78419d92159fd", 5392505)
 _TIMEOUT = 30
 
 
