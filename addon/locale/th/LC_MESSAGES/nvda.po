@@ -965,3 +965,23 @@ msgstr "ลบโมดูลดาวน์โหลด"
 
 msgid "Downloaded (yt-dlp {version}, {size} MB); updated automatically"
 msgstr "ดาวน์โหลดแล้ว (yt-dlp {version}, {size} MB) อัปเดตอัตโนมัติ"
+
+#. Translators: advanced settings dialog (globalPlugins/lineMRUpdate.py)
+msgid "Ad&vanced settings..."
+msgstr "การตั้งค่าขั้นสูง... (&V)"
+
+#. Translators: advanced settings dialog (globalPlugins/lineMRUpdate.py)
+msgid "LINE MR advanced settings"
+msgstr "การตั้งค่าขั้นสูงของ LINE MR"
+
+#. Translators: advanced settings dialog (globalPlugins/lineMRUpdate.py)
+msgid "Changes here are saved when you press OK in NVDA's settings."
+msgstr "การเปลี่ยนแปลงในหน้านี้จะถูกบันทึกเมื่อกดตกลงในหน้าการตั้งค่าของ NVDA"
+
+#. Translators: advanced settings dialog (globalPlugins/lineMRUpdate.py)
+msgid "Focus highlight"
+msgstr "ไฮไลต์โฟกัส"
+
+#. Translators: advanced settings dialog (globalPlugins/lineMRUpdate.py)
+msgid "Bridge"
+msgstr "ตัวเชื่อม"

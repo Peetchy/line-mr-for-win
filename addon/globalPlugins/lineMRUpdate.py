@@ -288,39 +288,25 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			wx.CheckBox(self, label=_("&Highlight the focused control in LINE"))
 		)
 		self.highlightFocus.SetValue(conf["highlightFocus"])
-		self._highlightColors = [key for key, _label, _value in highlight.COLORS]
-		self.highlightColor = helper.addLabeledControl(
-			# Translators: Label of the list of colours of the focus highlight in the add-on's settings.
-			_("Highlight &colour:"),
-			wx.Choice,
-			choices=[label for _key, label, _value in highlight.COLORS],
-		)
-		color = conf["highlightColor"]
-		self.highlightColor.SetSelection(
-			self._highlightColors.index(color) if color in self._highlightColors else 0
-		)
-		self.highlightWidth = helper.addLabeledControl(
-			# Translators: Label of the width of the focus highlight frame in the add-on's settings.
-			_("Highlight &width:"),
-			nvdaControls.SelectOnFocusSpinCtrl,
-			min=highlight.MIN_WIDTH,
-			max=highlight.MAX_WIDTH,
-			initial=conf["highlightWidth"],
-		)
 		self._makeTranscriptionSettings(helper, conf)
 		self._makeYouTubeSettings(helper, conf)
-		# Translators: Label of the bridge's state in the add-on's settings (read-only text).
-		self.bridgeState = helper.addLabeledControl(_("&Bridge:"), wx.TextCtrl, style=wx.TE_READONLY)
-		self.bridgeButton = helper.addItem(wx.Button(self))
-		self.bridgeButton.Bind(wx.EVT_BUTTON, self._onBridgeButton)
-		self._refreshBridge()
+		# The details stay out of the way in a dialog of their own; their values are saved with the rest
+		# when NVDA's settings are saved (onSave reads the controls there).
+		self._makeAdvancedSettings(conf)
+		# Translators: Button in the add-on's settings: opens the dialog with the detailed settings
+		# (highlight colour and width, speech model, language, YouTube module, bridge).
+		advanced = helper.addItem(wx.Button(self, label=_("Ad&vanced settings...")))
+		advanced.Bind(wx.EVT_BUTTON, self._onAdvanced)
 		# Translators: Button in the add-on's settings: shows what changed in each version.
 		whatsNew = helper.addItem(wx.Button(self, label=_("&What's new")))
 		whatsNew.Bind(wx.EVT_BUTTON, lambda evt: showWhatsNew())
+		self._showTranscriptionDetails()
+		self._refreshSpeechModel()
+		self._speechModelTimer = wx.Timer(self)
+		self.Bind(wx.EVT_TIMER, lambda evt: self._refreshSpeechModel(), self._speechModelTimer)
+		self._speechModelTimer.Start(1000)
 
 	def _makeTranscriptionSettings(self, helper, conf):
-		from appModules.line import transcribe
-
 		# Translators: Group of settings for turning voice messages into text.
 		group = guiHelper.BoxSizerHelper(self, sizer=wx.StaticBoxSizer(wx.VERTICAL, self, label=_("Voice message transcription")))
 		helper.addItem(group)
@@ -333,6 +319,79 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			)
 		)
 		self.transcribeVoiceMessages.SetValue(conf["transcribeVoiceMessages"])
+		# The chosen model's name and state (the model itself is chosen in the advanced settings or in
+		# the dialog before a transcription).
+		# Translators: Label of the state of the chosen speech model in the add-on's settings (read-only text).
+		self.speechModelSummary = group.addLabeledControl(_("Model state:"), wx.TextCtrl, style=wx.TE_READONLY)
+		self.transcribeAskLanguage = group.addItem(
+			# Translators: Check box in the add-on's settings: a dialog asks for the speech model and the
+			# language before each voice message is transcribed.
+			wx.CheckBox(box, label=_("&Ask for the model and language before each transcription"))
+		)
+		self.transcribeAskLanguage.SetValue(conf["transcribeAskLanguage"])
+		self.transcribeVoiceMessages.Bind(wx.EVT_CHECKBOX, lambda evt: self._showTranscriptionDetails())
+
+	def _makeYouTubeSettings(self, helper, conf):
+		# Translators: Group of settings for downloading from YouTube links in chats.
+		group = guiHelper.BoxSizerHelper(self, sizer=wx.StaticBoxSizer(wx.VERTICAL, self, label=_("Download from YouTube")))
+		helper.addItem(group)
+		box = group.sizer.GetStaticBox()
+		self.youtubeDownload = group.addItem(
+			# Translators: Check box in the add-on's settings: the message menu item and Alt+Shift+Y.
+			wx.CheckBox(box, label=_("Offer downloading from &YouTube links in messages (Alt+Shift+Y)"))
+		)
+		self.youtubeDownload.SetValue(conf["youtubeDownload"])
+
+	def _makeAdvancedSettings(self, conf):
+		"""The advanced settings dialog, made hidden with the panel and shown by its button."""
+		# Translators: Title of the dialog with LINE MR's detailed settings.
+		dialog = self._advanced = wx.Dialog(self, title=_("LINE MR advanced settings"))
+		outer = wx.BoxSizer(wx.VERTICAL)
+		helper = guiHelper.BoxSizerHelper(dialog, orientation=wx.VERTICAL)
+		helper.addItem(
+			# Translators: Note at the top of the advanced settings dialog.
+			wx.StaticText(dialog, label=_("Changes here are saved when you press OK in NVDA's settings."))
+		)
+		self._makeHighlightDetails(dialog, helper, conf)
+		self._makeTranscriptionDetails(dialog, helper, conf)
+		self._makeYouTubeDetails(dialog, helper, conf)
+		self._makeBridgeSettings(dialog, helper)
+		outer.Add(helper.sizer, border=guiHelper.BORDER_FOR_DIALOGS, flag=wx.ALL | wx.EXPAND)
+		outer.Add(dialog.CreateSeparatedButtonSizer(wx.OK | wx.CANCEL), border=guiHelper.BORDER_FOR_DIALOGS, flag=wx.ALL | wx.EXPAND)
+		dialog.SetSizerAndFit(outer)
+
+	def _makeHighlightDetails(self, parent, helper, conf):
+		from appModules.line import highlight
+
+		# Translators: Group of settings for the frame around the focused control in LINE.
+		group = guiHelper.BoxSizerHelper(parent, sizer=wx.StaticBoxSizer(wx.VERTICAL, parent, label=_("Focus highlight")))
+		helper.addItem(group)
+		self._highlightColors = [key for key, _label, _value in highlight.COLORS]
+		self.highlightColor = group.addLabeledControl(
+			# Translators: Label of the list of colours of the focus highlight in the add-on's settings.
+			_("Highlight &colour:"),
+			wx.Choice,
+			choices=[label for _key, label, _value in highlight.COLORS],
+		)
+		color = conf["highlightColor"]
+		self.highlightColor.SetSelection(
+			self._highlightColors.index(color) if color in self._highlightColors else 0
+		)
+		self.highlightWidth = group.addLabeledControl(
+			# Translators: Label of the width of the focus highlight frame in the add-on's settings.
+			_("Highlight &width:"),
+			nvdaControls.SelectOnFocusSpinCtrl,
+			min=highlight.MIN_WIDTH,
+			max=highlight.MAX_WIDTH,
+			initial=conf["highlightWidth"],
+		)
+
+	def _makeTranscriptionDetails(self, parent, helper, conf):
+		from appModules.line import transcribe
+
+		group = guiHelper.BoxSizerHelper(parent, sizer=wx.StaticBoxSizer(wx.VERTICAL, parent, label=_("Voice message transcription")))
+		helper.addItem(group)
+		box = group.sizer.GetStaticBox()
 		# Translators: Label of the list of speech models in the add-on's settings.
 		self.transcribeModel = group.addLabeledControl(_("Speech &model:"), wx.Choice, choices=[])
 		self._customModelPath = conf["transcribeCustomModel"]
@@ -346,7 +405,6 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		# Translators: Button in the add-on's settings: choose a speech model file downloaded by the user.
 		self.browseModel = group.addItem(wx.Button(box, label=_("&Browse for a model file...")))
 		self.browseModel.Bind(wx.EVT_BUTTON, self._onBrowseModel)
-		# Translators: Label of the state of the chosen speech model in the add-on's settings (read-only text).
 		self.speechModelState = group.addLabeledControl(_("Model state:"), wx.TextCtrl, style=wx.TE_READONLY)
 		self.transcribeLanguage = group.addLabeledControl(
 			# Translators: Label of the language list for voice messages in the add-on's settings.
@@ -354,29 +412,11 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		)
 		language = conf["transcribeLanguage"]
 		self.transcribeLanguage.SetSelection(transcribe.WHISPER_LANGUAGES.index(language) if language in transcribe.WHISPER_LANGUAGES else 0)
-		self.transcribeAskLanguage = group.addItem(
-			# Translators: Check box in the add-on's settings: a dialog asks for the speech model and the
-			# language before each voice message is transcribed.
-			wx.CheckBox(box, label=_("&Ask for the model and language before each transcription"))
-		)
-		self.transcribeAskLanguage.SetValue(conf["transcribeAskLanguage"])
-		self.transcribeVoiceMessages.Bind(wx.EVT_CHECKBOX, lambda evt: self._showTranscriptionDetails())
-		self._showTranscriptionDetails()
-		self._refreshSpeechModel()
-		self._speechModelTimer = wx.Timer(self)
-		self.Bind(wx.EVT_TIMER, lambda evt: self._refreshSpeechModel(), self._speechModelTimer)
-		self._speechModelTimer.Start(1000)
 
-	def _makeYouTubeSettings(self, helper, conf):
-		# Translators: Group of settings for downloading from YouTube links in chats.
-		group = guiHelper.BoxSizerHelper(self, sizer=wx.StaticBoxSizer(wx.VERTICAL, self, label=_("Download from YouTube")))
+	def _makeYouTubeDetails(self, parent, helper, conf):
+		group = guiHelper.BoxSizerHelper(parent, sizer=wx.StaticBoxSizer(wx.VERTICAL, parent, label=_("Download from YouTube")))
 		helper.addItem(group)
 		box = group.sizer.GetStaticBox()
-		self.youtubeDownload = group.addItem(
-			# Translators: Check box in the add-on's settings: the message menu item and Alt+Shift+Y.
-			wx.CheckBox(box, label=_("Offer downloading from &YouTube links in messages (Alt+Shift+Y)"))
-		)
-		self.youtubeDownload.SetValue(conf["youtubeDownload"])
 		self.youtubeShowNotice = group.addItem(
 			# Translators: Check box in the add-on's settings: the notice about YouTube's terms before each download.
 			wx.CheckBox(box, label=_("Show the notice about YouTube's terms before each download"))
@@ -388,6 +428,45 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		self.youtubeRemove = group.addItem(wx.Button(box, label=_("Delete the download module")))
 		self.youtubeRemove.Bind(wx.EVT_BUTTON, self._onRemoveYouTubeModule)
 		self._refreshYouTubeModule()
+
+	def _makeBridgeSettings(self, parent, helper):
+		# Translators: Group of settings for the part of LINE MR that runs inside LINE.
+		group = guiHelper.BoxSizerHelper(parent, sizer=wx.StaticBoxSizer(wx.VERTICAL, parent, label=_("Bridge")))
+		helper.addItem(group)
+		box = group.sizer.GetStaticBox()
+		# Translators: Label of the bridge's state in the add-on's settings (read-only text).
+		self.bridgeState = group.addLabeledControl(_("&Bridge:"), wx.TextCtrl, style=wx.TE_READONLY)
+		self.bridgeButton = group.addItem(wx.Button(box))
+		self.bridgeButton.Bind(wx.EVT_BUTTON, self._onBridgeButton)
+
+	def _advancedValues(self):
+		return (
+			self.highlightColor.GetSelection(),
+			self.highlightWidth.GetValue(),
+			self._chosenModel().id,
+			self._customModelPath,
+			self._customModelState,
+			self.transcribeLanguage.GetSelection(),
+			self.youtubeShowNotice.GetValue(),
+		)
+
+	def _onAdvanced(self, evt):
+		"""Shows the advanced settings; Cancel puts back what they were when the dialog opened."""
+		before = self._advancedValues()
+		self._refreshBridge()
+		self._refreshYouTubeModule()
+		self._refreshSpeechModel()
+		self._advanced.CentreOnScreen()
+		if self._advanced.ShowModal() == wx.ID_OK or not self:
+			return
+		color, width, model, path, state, language, notice = before
+		self.highlightColor.SetSelection(color)
+		self.highlightWidth.SetValue(width)
+		self._customModelPath, self._customModelState = path, state
+		self._fillModels(model)
+		self.transcribeLanguage.SetSelection(language)
+		self.youtubeShowNotice.SetValue(notice)
+		self._refreshSpeechModel()
 
 	def _refreshYouTubeModule(self):
 		from appModules.line import youtubeModule
@@ -408,18 +487,16 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 
 		if youtube.YouTubeDialog.instance:
 			# Translators: Reported when the download module is to be deleted while a YouTube download runs.
-			gui.messageBox(_("Close the YouTube download window first."), _("LINE MR"), wx.OK | wx.ICON_INFORMATION, self)
+			gui.messageBox(_("Close the YouTube download window first."), _("LINE MR"), wx.OK | wx.ICON_INFORMATION, self._advanced)
 			return
 		youtubeModule.remove()
 		self._refreshYouTubeModule()
 
 	def _showTranscriptionDetails(self):
-		"""The model, its state and the language show only while the check box is ticked."""
+		"""The model's state and the question show only while the check box is ticked."""
 		on = self.transcribeVoiceMessages.GetValue()
-		for control in (self.transcribeModel, self.speechModelState, self.transcribeLanguage):
-			# addLabeledControl puts the label and the control in a sizer of their own.
-			control.GetContainingSizer().ShowItems(on)
-		self.browseModel.Show(on)
+		# addLabeledControl puts the label and the control in a sizer of their own.
+		self.speechModelSummary.GetContainingSizer().ShowItems(on)
 		self.transcribeAskLanguage.Show(on)
 		self.Layout()
 
@@ -444,7 +521,7 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		from appModules.line import speechModel
 
 		with wx.FileDialog(
-			self,
+			self._advanced,
 			# Translators: Title of the dialog for choosing a speech model file.
 			_("Choose a whisper.cpp speech model"),
 			# Translators: File type in the dialog for choosing a speech model file.
@@ -456,13 +533,13 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			path = dialog.GetPath()
 		check = speechModel.checkModelFile(path)
 		if not check.ok:
-			gui.messageBox(check.message, _("LINE MR"), wx.OK | wx.ICON_ERROR, self)
+			gui.messageBox(check.message, _("LINE MR"), wx.OK | wx.ICON_ERROR, self._advanced)
 			return
 		previous = self._chosenModel().id
 		self._customModelPath = path
 		self._fillModels(speechModel.CUSTOM)
 		if check.englishOnly:
-			gui.messageBox(check.message, _("LINE MR"), wx.OK | wx.ICON_WARNING, self)
+			gui.messageBox(check.message, _("LINE MR"), wx.OK | wx.ICON_WARNING, self._advanced)
 		if not speechModel.programInstalled():
 			# The program comes with the first download; the first transcription shows any problem.
 			self._customModelState = check.message
@@ -491,7 +568,7 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 				_("The speech recognizer could not load this file. It may be made for a newer whisper.cpp; choose another file."),
 				_("LINE MR"),
 				wx.OK | wx.ICON_ERROR,
-				self,
+				self._advanced,
 			)
 			return
 		self._customModelState = message
@@ -526,6 +603,9 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			text = _("Not downloaded: {size} MB are downloaded when you press OK").format(size=speechModel.downloadMB(m))
 		if self.speechModelState.GetValue() != text:
 			self.speechModelState.SetValue(text)
+		summary = f"{m.name}: {text}"
+		if self.speechModelSummary.GetValue() != summary:
+			self.speechModelSummary.SetValue(summary)
 
 	def onDiscard(self):
 		self._speechModelTimer.Stop()
@@ -573,7 +653,7 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			question = _("Connect the LINE MR bridge? LINE will be closed and started again (a call in progress ends).")
 			work = bridge.connectAndRestart
 		# Translators: Title of LINE MR's dialogs.
-		if gui.messageBox(question, _("LINE MR"), wx.YES_NO | wx.ICON_QUESTION, self) != wx.YES:
+		if gui.messageBox(question, _("LINE MR"), wx.YES_NO | wx.ICON_QUESTION, self._advanced) != wx.YES:
 			return
 		self.bridgeButton.Disable()
 		# Translators: Shown in the add-on's settings while LINE restarts.

@@ -965,3 +965,23 @@ msgstr "ダウンロードモジュールを削除"
 
 msgid "Downloaded (yt-dlp {version}, {size} MB); updated automatically"
 msgstr "ダウンロード済み (yt-dlp {version}, {size} MB)、自動で更新されます"
+
+#. Translators: advanced settings dialog (globalPlugins/lineMRUpdate.py)
+msgid "Ad&vanced settings..."
+msgstr "詳細設定(&V)..."
+
+#. Translators: advanced settings dialog (globalPlugins/lineMRUpdate.py)
+msgid "LINE MR advanced settings"
+msgstr "LINE MR の詳細設定"
+
+#. Translators: advanced settings dialog (globalPlugins/lineMRUpdate.py)
+msgid "Changes here are saved when you press OK in NVDA's settings."
+msgstr "ここでの変更は、NVDA の設定で OK を押したときに保存されます。"
+
+#. Translators: advanced settings dialog (globalPlugins/lineMRUpdate.py)
+msgid "Focus highlight"
+msgstr "フォーカスの強調表示"
+
+#. Translators: advanced settings dialog (globalPlugins/lineMRUpdate.py)
+msgid "Bridge"
+msgstr "ブリッジ"

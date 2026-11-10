@@ -21,11 +21,11 @@ The same category has a **What's new** button: it lists what changed in each ver
 
 ## Using LINE without LINE MR
 
-To use LINE as it is, without LINE MR's changes (for example to compare, or when LINE's own accessibility is enough for you): NVDA menu, Preferences, Settings, category "LINE MR". The **Bridge** field tells whether the bridge is running, and the button next to it offers the opposite: **Disconnect bridge** removes the bridge from LINE (also from its call window and photo viewer), **Connect bridge** installs it again. Both close LINE and start it again, so a call in progress ends. While the bridge is disconnected, LINE MR does not ask to install it, and NVDA+Shift+Control+L says that it is disconnected.
+To use LINE as it is, without LINE MR's changes (for example to compare, or when LINE's own accessibility is enough for you): NVDA menu, Preferences, Settings, category "LINE MR", button **Advanced settings...**, group "Bridge". The **Bridge** field tells whether the bridge is running, and the button next to it offers the opposite: **Disconnect bridge** removes the bridge from LINE (also from its call window and photo viewer), **Connect bridge** installs it again. Both close LINE and start it again, so a call in progress ends. While the bridge is disconnected, LINE MR does not ask to install it, and NVDA+Shift+Control+L says that it is disconnected.
 
 ## Focus highlight
 
-For low-vision users, LINE MR draws a yellow frame with a black outline around the control that has the focus in LINE, its call windows and its photo viewer: the button, field, chat, message or menu item NVDA reads. It follows the keyboard, also through the chat list, the messages and menus, and is hidden while another application is in front. To turn it off or change its colour (yellow, orange, red, green, blue, white) and width: NVDA menu, Preferences, Settings, category "LINE MR". LINE applies the change within a second, also when NVDA is not running.
+For low-vision users, LINE MR draws a yellow frame with a black outline around the control that has the focus in LINE, its call windows and its photo viewer: the button, field, chat, message or menu item NVDA reads. It follows the keyboard, also through the chat list, the messages and menus, and is hidden while another application is in front. To turn it off: NVDA menu, Preferences, Settings, category "LINE MR". Its colour (yellow, orange, red, green, blue, white) and width are under **Advanced settings...** there. LINE applies the change within a second, also when NVDA is not running.
 
 ## What works now
 
@@ -53,7 +53,7 @@ For low-vision users, LINE MR draws a yellow frame with a black outline around t
 
 ## Voice messages to text
 
-Off by default. To turn it on, open NVDA's settings, category LINE MR, group "Voice message transcription", check "Transcribe voice messages with Alt+Shift+T", choose a speech model and press OK. LINE MR then downloads, once, the speech recognition program whisper.cpp (5 MB) and the chosen model, and says when it is ready. "Model state" shows how far the download is. An interrupted or failed download continues the next time NVDA starts, or when you press Alt+Shift+T on a voice message. Unchecking the box offers to delete the downloaded files; choosing another model offers to delete the one used before.
+Off by default. To turn it on, open NVDA's settings, category LINE MR, group "Voice message transcription", check "Transcribe voice messages with Alt+Shift+T" and press OK (the speech model, your own model file and the default language are under **Advanced settings...**). LINE MR then downloads, once, the speech recognition program whisper.cpp (5 MB) and the chosen model, and says when it is ready. "Model state" shows the chosen model and how far the download is. An interrupted or failed download continues the next time NVDA starts, or when you press Alt+Shift+T on a voice message. Unchecking the box offers to delete the downloaded files; choosing another model offers to delete the one used before.
 
 Speech models (Typhoon by SCB 10X is Whisper trained further on Thai; Whisper by OpenAI knows many languages; memory = while converting, measured on an i5-1235U laptop): The list comes from LINE MR's repository on GitHub and is fetched again when the settings or the dialog before a transcription open, so new models appear without updating the add-on.
 
@@ -80,7 +80,7 @@ The first time, LINE MR downloads its YouTube download module (about 130 MB: the
 
 A window then checks the link (NVDA says why if the video is private, removed, age-restricted, blocked in your country or a live stream) and offers: for a link to a video in a playlist, this video only or the whole playlist (with the number of videos); the format, Video (MP4) or Audio only (MP3); the quality (video resolutions the video has, with the size where YouTube gives it; MP3 at 128, 192 or 320 kbps); and the folder (Downloads unless you chose another; LINE MR remembers your choices). Download shows the progress with rising beeps (for a playlist "Downloading video 2 of 13"); Cancel or Escape stops it and removes the partial files. When it is done, Open folder shows the file. A playlist goes into a folder named after it, its videos numbered in order; videos that cannot be downloaded are skipped and counted.
 
-In NVDA's settings, category LINE MR, group "Download from YouTube": turn the menu item and Alt+Shift+Y off, show the notice again, see the module's version, or delete the module.
+In NVDA's settings, category LINE MR, group "Download from YouTube": turn the menu item and Alt+Shift+Y off. Under **Advanced settings...**: show the notice again, see the module's version, or delete the module.
 
 ## Commands
 

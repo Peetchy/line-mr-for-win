@@ -2,6 +2,7 @@
 
 ## Version 0.6.2
 
+- Settings: the LINE MR category now shows only the main switches. The details (focus highlight colour and width, speech model, own model file, language, YouTube notice and module, bridge) are under the new button **Advanced settings...**; they are saved with OK in NVDA's settings as before.
 - Voice message transcription: LINE MR's audio helper (lineMR_audio.exe) is no longer part of the add-on package. It is downloaded with the speech recognition program when transcription is turned on. If transcription is on already, that program (about 5 MB) is downloaded once more; the speech model is not.
 
 ## Version 0.6.1
