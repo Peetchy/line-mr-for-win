@@ -1,8 +1,10 @@
 # What voice message transcription needs on disk, downloaded when the user turns it on.
 #
-#   - lineMR-whisper-x64.zip (GitHub release "whisper-1"; tools/whisper/README.md says how it is
+#   - lineMR-whisper-x64.zip (GitHub release `SET_ID`; tools/whisper/README.md says how it is
 #     made): whisper.cpp's whisper-cli.exe and its DLLs, built with the C runtime linked in (the
-#     official builds need the Visual C++ runtime, which not every PC has);
+#     official builds need the Visual C++ runtime, which not every PC has), and LINE MR's own
+#     lineMR_audio.exe (bridge/src/audio_helper.cpp: decodes, splits and records the sound). It is
+#     not in the add-on package: only users who turn transcription on get it;
 #   - one speech model of `models()`, chosen in the settings (or in the dialog before a transcription):
 #     OpenAI's Whisper models as whisper.cpp publishes them on Hugging Face (ggerganov/whisper.cpp),
 #     or SCB 10X's Typhoon Whisper models (trained further on Thai; MIT), converted for whisper.cpp
@@ -42,11 +44,14 @@ from . import bridge
 
 addonHandler.initTranslation()
 
-#: Changes whenever the program changes: an older build is downloaded again.
-SET_ID = "whisper-1"
-_RELEASE_URL = "https://github.com/Peetchy/line-mr-for-win/releases/download/" + SET_ID + "/"
+#: Changes whenever the program changes: an older build is downloaded again. "whisper-2" added
+#: lineMR_audio.exe (it was in the add-on package before).
+SET_ID = "whisper-2"
+_PROGRAM_URL = "https://github.com/Peetchy/line-mr-for-win/releases/download/" + SET_ID + "/"
+#: The Typhoon models stay in the first release.
+_RELEASE_URL = "https://github.com/Peetchy/line-mr-for-win/releases/download/whisper-1/"
 _HF_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/"
-PROGRAM_ZIP = ("lineMR-whisper-x64.zip", "928347788f7d29fb643519a016f41838e8c0fd71f6747ddb6096959de6deac4e", 5271278)
+PROGRAM_ZIP = ("lineMR-whisper-x64.zip", "027844bad72a881f5f7a148f59a02ad80829095a67025539733e708d882e7c8a", 5390029)
 _TIMEOUT = 30
 
 
@@ -279,19 +284,24 @@ def programPath():
 	return os.path.join(directory(), "bin", "whisper-cli.exe")
 
 
+def helperPath():
+	"""LINE MR's audio helper (lineMR_audio.exe), downloaded with whisper-cli."""
+	return os.path.join(directory(), "bin", "lineMR_audio.exe")
+
+
 def _markerPath():
 	return os.path.join(directory(), "installed.txt")
 
 
 def programInstalled():
-	"""True when the current build of whisper.cpp is complete."""
+	"""True when the current build of whisper.cpp and the audio helper is complete."""
 	try:
 		with open(_markerPath(), encoding="ascii") as f:
 			if f.read().strip() != SET_ID:
 				return False
 	except OSError:
 		return False
-	return os.path.isfile(programPath())
+	return os.path.isfile(programPath()) and os.path.isfile(helperPath())
 
 
 def downloadMB(m):
@@ -355,7 +365,7 @@ class _Download(threading.Thread):
 					os.remove(_markerPath())
 				except OSError:
 					pass
-				zipPath = self._fetch(PROGRAM_ZIP[0], _RELEASE_URL + PROGRAM_ZIP[0], PROGRAM_ZIP[1], PROGRAM_ZIP[2], 0)
+				zipPath = self._fetch(PROGRAM_ZIP[0], _PROGRAM_URL + PROGRAM_ZIP[0], PROGRAM_ZIP[1], PROGRAM_ZIP[2], 0)
 				binDir = os.path.join(directory(), "bin")
 				shutil.rmtree(binDir, ignore_errors=True)
 				with zipfile.ZipFile(zipPath) as z:

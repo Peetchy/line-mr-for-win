@@ -1,5 +1,9 @@
 # What's new in LINE MR
 
+## Version 0.6.2
+
+- Voice message transcription: LINE MR's audio helper (lineMR_audio.exe) is no longer part of the add-on package. It is downloaded with the speech recognition program when transcription is turned on. If transcription is on already, that program (about 5 MB) is downloaded once more; the speech model is not.
+
 ## Version 0.6.1
 
 - New: download from YouTube links in chats. Alt+Shift+Y on a message with a YouTube link (or "Download video from YouTube" in its menu) checks the link and offers the video (MP4) or its sound (MP3), the quality and, for a playlist link, the whole playlist. The download module (yt-dlp, Deno, FFmpeg; about 130 MB) is downloaded the first time and updated by itself, separately from LINE MR. See "Downloading from YouTube" in the guide.

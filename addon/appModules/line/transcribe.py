@@ -127,7 +127,7 @@ class TranscriptionError(Exception):
 
 
 def helperPath():
-	return os.path.join(bridge._ADDON_ROOT, "bridge", "lineMR_audio.exe")
+	return speechModel.helperPath()
 
 
 def _conf():
@@ -594,8 +594,8 @@ class Job(threading.Thread):
 
 	def _record(self, wav):
 		if not os.path.isfile(helperPath()):
-			# Translators: Reported when the add-on's audio helper program is missing.
-			raise TranscriptionError(_("LINE MR's audio helper is missing. Reinstall the add-on."))
+			# Downloaded with whisper-cli (speechModel.programInstalled() checks both).
+			raise TranscriptionError(_("The speech model for voice messages is not downloaded yet. LINE MR tries again when NVDA starts."))
 		os.makedirs(os.path.dirname(wav), exist_ok=True)
 		if self.seconds > 0:
 			# The known length: stop at the end, never at a pause inside the message.

@@ -3,7 +3,8 @@
 Usage: python tools/build_addon.py [--dll PATH] [--stage-only]
 
 Compiles locale/*/LC_MESSAGES/nvda.po to .mo, renders doc/*/readme.md and changes.md to HTML and
-bundles bridge/build/line_a11y.dll and lineMR_audio.exe in bridge/ and COPYING.txt inside the add-on.
+bundles bridge/build/line_a11y.dll in bridge/ and COPYING.txt inside the add-on. lineMR_audio.exe is
+not bundled: it is downloaded with whisper-cli (tools/whisper/make_program_zip.py).
 """
 
 import argparse
@@ -133,11 +134,6 @@ def main():
 		sys.exit(f"bridge DLL not found: {args.dll} (build it with tools\\build.ps1 first)")
 	os.makedirs(os.path.join(STAGE, "bridge"), exist_ok=True)
 	shutil.copy2(args.dll, os.path.join(STAGE, "bridge", "line_a11y.dll"))
-	# Voice message transcription (recording LINE's sound, Windows speech recognition).
-	audio = os.path.join(os.path.dirname(args.dll), "lineMR_audio.exe")
-	if not os.path.isfile(audio):
-		sys.exit(f"audio helper not found: {audio} (build it with tools\\build.ps1 first)")
-	shutil.copy2(audio, os.path.join(STAGE, "bridge", "lineMR_audio.exe"))
 	shutil.copy2(os.path.join(ROOT, "COPYING.txt"), STAGE)
 
 	manifest = configparser.ConfigParser()

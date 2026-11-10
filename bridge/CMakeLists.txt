@@ -37,7 +37,18 @@ target_compile_options(line_a11y PRIVATE /W4 /utf-8 /permissive- /wd4100)
 
 # Voice message transcription: audio capture and Windows speech recognition, in a process of
 # its own (shipped in the add-on, run by appModules/line/transcribe.py).
-add_executable(lineMR_audio src/audio_helper.cpp)
+# It carries a version resource (publisher, description, add-on version): antivirus heuristics
+# rate an executable without one as suspicious.
+enable_language(RC)
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/../addon/manifest.ini" _manifest_version REGEX "^version[ \t]*=")
+string(REGEX REPLACE "^version[ \t]*=[ \t]*([0-9.]+).*" "\\1" LINEMR_VERSION "${_manifest_version}")
+if(NOT LINEMR_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR "Could not read a version from addon/manifest.ini (got '${LINEMR_VERSION}')")
+endif()
+string(REPLACE "." "," LINEMR_VERSION_COMMAS "${LINEMR_VERSION},0")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../addon/manifest.ini")
+configure_file(src/audio_helper.rc.in "${CMAKE_CURRENT_BINARY_DIR}/audio_helper.rc" @ONLY)
+add_executable(lineMR_audio src/audio_helper.cpp "${CMAKE_CURRENT_BINARY_DIR}/audio_helper.rc")
 target_link_libraries(lineMR_audio PRIVATE mmdevapi ole32 mfplat mfreadwrite mfuuid)
 target_compile_definitions(lineMR_audio PRIVATE UNICODE _UNICODE _CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
 target_compile_options(lineMR_audio PRIVATE /W4 /utf-8 /permissive- /wd4100)
