@@ -290,9 +290,25 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		self.highlightFocus.SetValue(conf["highlightFocus"])
 		self._makeTranscriptionSettings(helper, conf)
 		self._makeYouTubeSettings(helper, conf)
-		# The details stay out of the way in a dialog of their own; their values are saved with the rest
-		# when NVDA's settings are saved (onSave reads the controls there).
-		self._makeAdvancedSettings(conf)
+		# The details stay out of the way in a dialog of their own, made only while it shows: its values
+		# are kept here and saved with the rest when NVDA's settings are saved.
+		from appModules.line import transcribe
+
+		#: The advanced settings dialog while it is open.
+		self._advanced = None
+		self._highlightColors = [key for key, _label, _value in highlight.COLORS]
+		color = conf["highlightColor"]
+		self._highlightColor = color if color in self._highlightColors else self._highlightColors[0]
+		self._highlightWidth = conf["highlightWidth"]
+		self._language = conf["transcribeLanguage"]
+		self._youtubeShowNotice = conf["youtubeShowNotice"]
+		self._customModelPath = conf["transcribeCustomModel"]
+		#: What the check of the user's own model file said (shown as its state).
+		self._customModelState = ""
+		self._fillModels(transcribe.selectedModel().id)
+		# A model added to the published list (speech-models.json in the repository) shows without an
+		# add-on update.
+		transcribe.refreshModels(self._modelsChanged)
 		# Translators: Button in the add-on's settings: opens the dialog with the detailed settings
 		# (highlight colour and width, speech model, language, YouTube module, bridge).
 		advanced = helper.addItem(wx.Button(self, label=_("Ad&vanced settings...")))
@@ -342,8 +358,9 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		)
 		self.youtubeDownload.SetValue(conf["youtubeDownload"])
 
-	def _makeAdvancedSettings(self, conf):
-		"""The advanced settings dialog, made hidden with the panel and shown by its button."""
+	def _makeAdvancedDialog(self):
+		"""The advanced settings dialog, filled from the values kept in the panel."""
+		model = self._chosenModel().id
 		# Translators: Title of the dialog with LINE MR's detailed settings.
 		dialog = self._advanced = wx.Dialog(self, title=_("LINE MR advanced settings"))
 		outer = wx.BoxSizer(wx.VERTICAL)
@@ -352,41 +369,38 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			# Translators: Note at the top of the advanced settings dialog.
 			wx.StaticText(dialog, label=_("Changes here are saved when you press OK in NVDA's settings."))
 		)
-		self._makeHighlightDetails(dialog, helper, conf)
-		self._makeTranscriptionDetails(dialog, helper, conf)
-		self._makeYouTubeDetails(dialog, helper, conf)
+		self._makeHighlightDetails(dialog, helper)
+		self._makeTranscriptionDetails(dialog, helper, model)
+		self._makeYouTubeDetails(dialog, helper)
 		self._makeBridgeSettings(dialog, helper)
 		outer.Add(helper.sizer, border=guiHelper.BORDER_FOR_DIALOGS, flag=wx.ALL | wx.EXPAND)
 		outer.Add(dialog.CreateSeparatedButtonSizer(wx.OK | wx.CANCEL), border=guiHelper.BORDER_FOR_DIALOGS, flag=wx.ALL | wx.EXPAND)
 		dialog.SetSizerAndFit(outer)
+		return dialog
 
-	def _makeHighlightDetails(self, parent, helper, conf):
+	def _makeHighlightDetails(self, parent, helper):
 		from appModules.line import highlight
 
 		# Translators: Group of settings for the frame around the focused control in LINE.
 		group = guiHelper.BoxSizerHelper(parent, sizer=wx.StaticBoxSizer(wx.VERTICAL, parent, label=_("Focus highlight")))
 		helper.addItem(group)
-		self._highlightColors = [key for key, _label, _value in highlight.COLORS]
 		self.highlightColor = group.addLabeledControl(
 			# Translators: Label of the list of colours of the focus highlight in the add-on's settings.
 			_("Highlight &colour:"),
 			wx.Choice,
 			choices=[label for _key, label, _value in highlight.COLORS],
 		)
-		color = conf["highlightColor"]
-		self.highlightColor.SetSelection(
-			self._highlightColors.index(color) if color in self._highlightColors else 0
-		)
+		self.highlightColor.SetSelection(self._highlightColors.index(self._highlightColor))
 		self.highlightWidth = group.addLabeledControl(
 			# Translators: Label of the width of the focus highlight frame in the add-on's settings.
 			_("Highlight &width:"),
 			nvdaControls.SelectOnFocusSpinCtrl,
 			min=highlight.MIN_WIDTH,
 			max=highlight.MAX_WIDTH,
-			initial=conf["highlightWidth"],
+			initial=self._highlightWidth,
 		)
 
-	def _makeTranscriptionDetails(self, parent, helper, conf):
+	def _makeTranscriptionDetails(self, parent, helper, model):
 		from appModules.line import transcribe
 
 		group = guiHelper.BoxSizerHelper(parent, sizer=wx.StaticBoxSizer(wx.VERTICAL, parent, label=_("Voice message transcription")))
@@ -394,13 +408,7 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		box = group.sizer.GetStaticBox()
 		# Translators: Label of the list of speech models in the add-on's settings.
 		self.transcribeModel = group.addLabeledControl(_("Speech &model:"), wx.Choice, choices=[])
-		self._customModelPath = conf["transcribeCustomModel"]
-		#: What the check of the user's own model file said (shown as its state).
-		self._customModelState = ""
-		self._fillModels(transcribe.selectedModel().id)
-		# A model added to the published list (speech-models.json in the repository) shows without an
-		# add-on update.
-		transcribe.refreshModels(self._modelsChanged)
+		self._fillModels(model)
 		self.transcribeModel.Bind(wx.EVT_CHOICE, lambda evt: self._refreshSpeechModel())
 		# Translators: Button in the add-on's settings: choose a speech model file downloaded by the user.
 		self.browseModel = group.addItem(wx.Button(box, label=_("&Browse for a model file...")))
@@ -410,10 +418,10 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			# Translators: Label of the language list for voice messages in the add-on's settings.
 			_("Voice message &language:"), wx.Choice, choices=transcribe.languageLabels()
 		)
-		language = conf["transcribeLanguage"]
+		language = self._language
 		self.transcribeLanguage.SetSelection(transcribe.WHISPER_LANGUAGES.index(language) if language in transcribe.WHISPER_LANGUAGES else 0)
 
-	def _makeYouTubeDetails(self, parent, helper, conf):
+	def _makeYouTubeDetails(self, parent, helper):
 		group = guiHelper.BoxSizerHelper(parent, sizer=wx.StaticBoxSizer(wx.VERTICAL, parent, label=_("Download from YouTube")))
 		helper.addItem(group)
 		box = group.sizer.GetStaticBox()
@@ -421,7 +429,7 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 			# Translators: Check box in the add-on's settings: the notice about YouTube's terms before each download.
 			wx.CheckBox(box, label=_("Show the notice about YouTube's terms before each download"))
 		)
-		self.youtubeShowNotice.SetValue(conf["youtubeShowNotice"])
+		self.youtubeShowNotice.SetValue(self._youtubeShowNotice)
 		# Translators: Label of the state of the YouTube download module in the add-on's settings (read-only text).
 		self.youtubeModuleState = group.addLabeledControl(_("Download module:"), wx.TextCtrl, style=wx.TE_READONLY)
 		# Translators: Button in the add-on's settings: deletes the downloaded YouTube download module.
@@ -439,33 +447,31 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		self.bridgeButton = group.addItem(wx.Button(box))
 		self.bridgeButton.Bind(wx.EVT_BUTTON, self._onBridgeButton)
 
-	def _advancedValues(self):
-		return (
-			self.highlightColor.GetSelection(),
-			self.highlightWidth.GetValue(),
-			self._chosenModel().id,
-			self._customModelPath,
-			self._customModelState,
-			self.transcribeLanguage.GetSelection(),
-			self.youtubeShowNotice.GetValue(),
-		)
-
 	def _onAdvanced(self, evt):
-		"""Shows the advanced settings; Cancel puts back what they were when the dialog opened."""
-		before = self._advancedValues()
+		"""Shows the advanced settings; OK keeps their values in the panel, Cancel leaves them as they were."""
+		from appModules.line import transcribe
+
+		before = (self._customModelPath, self._customModelState, self._chosenModel().id)
+		dialog = self._makeAdvancedDialog()
 		self._refreshBridge()
 		self._refreshYouTubeModule()
 		self._refreshSpeechModel()
-		self._advanced.CentreOnScreen()
-		if self._advanced.ShowModal() == wx.ID_OK or not self:
+		dialog.CentreOnScreen()
+		result = dialog.ShowModal()
+		if not self:
 			return
-		color, width, model, path, state, language, notice = before
-		self.highlightColor.SetSelection(color)
-		self.highlightWidth.SetValue(width)
-		self._customModelPath, self._customModelState = path, state
-		self._fillModels(model)
-		self.transcribeLanguage.SetSelection(language)
-		self.youtubeShowNotice.SetValue(notice)
+		if result == wx.ID_OK:
+			self._highlightColor = self._highlightColors[max(0, self.highlightColor.GetSelection())]
+			self._highlightWidth = self.highlightWidth.GetValue()
+			self._language = transcribe.WHISPER_LANGUAGES[max(0, self.transcribeLanguage.GetSelection())]
+			self._youtubeShowNotice = self.youtubeShowNotice.GetValue()
+			self._modelIndex = max(0, self.transcribeModel.GetSelection())
+		self._advanced = None
+		dialog.Destroy()
+		if result != wx.ID_OK:
+			# "Browse" changed the model file at once.
+			self._customModelPath, self._customModelState, model = before
+			self._fillModels(model)
 		self._refreshSpeechModel()
 
 	def _refreshYouTubeModule(self):
@@ -504,9 +510,11 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		from appModules.line import transcribe
 
 		self._models = transcribe.modelChoices(self._customModelPath)
-		self.transcribeModel.SetItems([transcribe.modelLabel(m) for m in self._models])
 		ids = [m.id for m in self._models]
-		self.transcribeModel.SetSelection(ids.index(selectId) if selectId in ids else 0)
+		self._modelIndex = ids.index(selectId) if selectId in ids else 0
+		if self._advanced:
+			self.transcribeModel.SetItems([transcribe.modelLabel(m) for m in self._models])
+			self.transcribeModel.SetSelection(self._modelIndex)
 
 	def _modelsChanged(self):
 		if not self:
@@ -515,7 +523,9 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		self._refreshSpeechModel()
 
 	def _chosenModel(self):
-		return self._models[max(0, self.transcribeModel.GetSelection())]
+		"""The model in the open advanced settings, else the one kept in the panel."""
+		index = self.transcribeModel.GetSelection() if self._advanced else self._modelIndex
+		return self._models[max(0, index)]
 
 	def _onBrowseModel(self, evt):
 		from appModules.line import speechModel
@@ -568,7 +578,7 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 				_("The speech recognizer could not load this file. It may be made for a newer whisper.cpp; choose another file."),
 				_("LINE MR"),
 				wx.OK | wx.ICON_ERROR,
-				self._advanced,
+				self._advanced or self,
 			)
 			return
 		self._customModelState = message
@@ -601,7 +611,7 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		else:
 			# Translators: State of a speech model not downloaded yet ({size} in megabytes).
 			text = _("Not downloaded: {size} MB are downloaded when you press OK").format(size=speechModel.downloadMB(m))
-		if self.speechModelState.GetValue() != text:
+		if self._advanced and self.speechModelState.GetValue() != text:
 			self.speechModelState.SetValue(text)
 		summary = f"{m.name}: {text}"
 		if self.speechModelSummary.GetValue() != summary:
@@ -613,7 +623,7 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 	def _refreshBridge(self):
 		"""Shows the bridge's state and offers the opposite: Disconnect while it is installed in LINE,
 		Connect otherwise."""
-		if not self:
+		if not self or not self._advanced:
 			return  # the settings dialog was closed meanwhile
 		from appModules.line import bridge
 
@@ -675,14 +685,14 @@ class LineMRSettingsPanel(settingsDialogs.SettingsPanel):
 		conf["highlightFocus"] = self.highlightFocus.GetValue()
 		conf["directChatSenderNames"] = self.directChatSenderNames.GetValue()
 		conf["senderOnlyWhenChanged"] = self.senderOnlyWhenChanged.GetValue()
-		conf["highlightColor"] = self._highlightColors[max(0, self.highlightColor.GetSelection())]
-		conf["highlightWidth"] = self.highlightWidth.GetValue()
+		conf["highlightColor"] = self._highlightColor
+		conf["highlightWidth"] = self._highlightWidth
 		conf["youtubeDownload"] = self.youtubeDownload.GetValue()
-		conf["youtubeShowNotice"] = self.youtubeShowNotice.GetValue()
+		conf["youtubeShowNotice"] = self._youtubeShowNotice
 		from appModules.line import speechModel, transcribe
 
 		self._speechModelTimer.Stop()
-		conf["transcribeLanguage"] = transcribe.WHISPER_LANGUAGES[max(0, self.transcribeLanguage.GetSelection())]
+		conf["transcribeLanguage"] = self._language
 		conf["transcribeAskLanguage"] = self.transcribeAskLanguage.GetValue()
 		previous = transcribe.selectedModel()
 		chosen = self._chosenModel()
