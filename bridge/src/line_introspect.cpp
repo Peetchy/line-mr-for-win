@@ -1210,6 +1210,8 @@ static const char *lineTextKey(const char *english)
 		// The arrow beside the chat list's search field: LINE's tooltip names what a press does.
 		{ "Show or hide chat room, chat room shown", "ChatlistAllinoneCloseBtn" },
 		{ "Show or hide chat room, chat room hidden", "ChatlistAllinoneOpenBtn" },
+		// The sidebar button (LINE's tooltip; zh_TW 會議室).
+		{ "Meeting", "GroupcallCreatechatButtonCreatemeeting" },
 	};
 	return keys.value(QByteArray(english), nullptr);
 }
