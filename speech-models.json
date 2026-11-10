@@ -96,6 +96,42 @@
 				"zh_TW": "繁體中文，完整版，速度較慢",
 				"zh_HK": "繁體中文，完整版，速度較慢"
 			}
+		},
+		{
+			"id": "kotoba-v2.0",
+			"name": "Kotoba Whisper v2.0",
+			"file": "ggml-kotoba-whisper-v2.0-q5_0.bin",
+			"url": "https://huggingface.co/kotoba-tech/kotoba-whisper-v2.0-ggml/resolve/e3a0cf6a62b95911703cfb97d819292e058f12c3/ggml-kotoba-whisper-v2.0-q5_0.bin",
+			"sha256": "4a3b92192b5d3578ff854a5876213e2e27af0c2d357492c2d14271e82c303658",
+			"size": 537819875,
+			"strength": "manyLanguages",
+			"speed": 2.0,
+			"note": {
+				"en": "Japanese only",
+				"th": "ภาษาญี่ปุ่นเท่านั้น",
+				"ja": "日本語専用",
+				"zh_CN": "仅限日语",
+				"zh_TW": "僅限日語",
+				"zh_HK": "僅限日語"
+			}
+		},
+		{
+			"id": "belle-turbo-zh",
+			"name": "Belle Whisper Turbo zh",
+			"file": "ggml-belle-large-v3-turbo-zh-q8_0.bin",
+			"url": "https://huggingface.co/uosx/Belle-whisper-large-v3-turbo-zh-ggml-quantized/resolve/3295d65efd1e7fddf90a5317582f4b13b09eeaca/ggml-belle-large-v3-turbo-zh-q8_0.bin",
+			"sha256": "5f7e94394c73549de0bf0817c0d2628ea28d6e5bf22c2bd146fb3f834a870778",
+			"size": 874188075,
+			"strength": "manyLanguages",
+			"speed": 2.0,
+			"note": {
+				"en": "Simplified Chinese, with punctuation",
+				"th": "ภาษาจีนตัวย่อ มีเครื่องหมายวรรคตอน",
+				"ja": "簡体字中国語、句読点あり",
+				"zh_CN": "简体中文，带标点",
+				"zh_TW": "簡體中文，含標點",
+				"zh_HK": "簡體中文，含標點"
+			}
 		}
 	]
 }
