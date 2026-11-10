@@ -2,7 +2,8 @@
 
 When the user turns on "Transcribe voice messages", the add-on downloads whisper.cpp and the speech
 model chosen in the settings (`addon/appModules/line/speechModel.py` holds every file's name, size
-and SHA-256). The program and the Typhoon models are assets of the GitHub release `whisper-1`;
+and SHA-256). The program is an asset of the GitHub release `SET_ID` (`whisper-2`), the Typhoon
+models of `whisper-1`;
 OpenAI's Whisper models come from huggingface.co/ggerganov/whisper.cpp (whisper.cpp's own files;
 their SHA-256 is the Git LFS oid that the Hugging Face API lists). A new program build needs a new
 release tag and `SET_ID`; new models can be added to the release.
@@ -25,6 +26,14 @@ cmake --build C:\wbld --target whisper-cli
 
 Zip `C:\wbld\bin\*.exe`, `*.dll` (flat) plus whisper.cpp's `LICENSE` as `LICENSE-whisper.cpp.txt`.
 `dumpbin /dependents` should list only Windows DLLs and the zip's own.
+
+Since release `whisper-2` the zip also holds LINE MR's `lineMR_audio.exe` (decodes, splits and
+records the sound; `bridge/src/audio_helper.cpp`), which is no longer in the add-on package:
+antivirus heuristics flagged the add-on for it, and only users who turn transcription on need it.
+`python tools/whisper/make_program_zip.py <whisper-1 zip> <lineMR_audio.exe> <new zip>` adds it to
+the published whisper.cpp files and prints the `PROGRAM_ZIP` line for `speechModel.py`. Take the exe
+from the build workflow's `lineMR-audio-helper` artifact. A changed helper needs a new release tag
+and `SET_ID` (`whisper-3` ...); the models stay in `whisper-1`.
 
 ## Typhoon models
 

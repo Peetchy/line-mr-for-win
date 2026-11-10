@@ -1,0 +1,32 @@
+// Version resource for lineMR_audio.exe; CMake fills in the add-on version from addon/manifest.ini.
+#include <winver.h>
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     @LINEMR_VERSION_COMMAS@
+PRODUCTVERSION  @LINEMR_VERSION_COMMAS@
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904B0"
+		BEGIN
+			VALUE "CompanyName",      "LINE MR project"
+			VALUE "FileDescription",  "LINE MR audio helper (voice message transcription for the LINE MR NVDA add-on)"
+			VALUE "FileVersion",      "@LINEMR_VERSION@"
+			VALUE "InternalName",     "lineMR_audio"
+			VALUE "LegalCopyright",   "Copyright (C) Peet Itsawat. GPL-2.0-or-later."
+			VALUE "OriginalFilename", "lineMR_audio.exe"
+			VALUE "ProductName",      "LINE MR"
+			VALUE "ProductVersion",   "@LINEMR_VERSION@"
+			VALUE "Comments",         "Source: https://github.com/Peetchy/line-mr-for-win"
+		END
+	END
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x0409, 1200
+	END
+END

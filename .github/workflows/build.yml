@@ -58,6 +58,13 @@ jobs:
           path: dist/*.nvda-addon
           if-no-files-found: error
 
+      # Not in the add-on: it goes into the speech recognition download (tools/whisper/make_program_zip.py).
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lineMR-audio-helper
+          path: bridge/build/lineMR_audio.exe
+          if-no-files-found: error
+
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
